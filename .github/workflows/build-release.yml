@@ -57,11 +57,7 @@ jobs:
           windows-artifacts/*
         body: |
           ## ✨ Değişiklikler
-          - Otomatik güncelleme sistemi aktif
-          - Yeni özellikler ve hata düzeltmeleri
-          - Arama sistemi eklendi
-          - Error boundary ile çökme koruması
-          - Bildirim sistemi iyileştirildi
+          - Uygulama güncellendi
           
           ## 📥 Kurulum
           **Windows**: `.exe` dosyasını indirin ve çalıştırın

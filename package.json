@@ -44,12 +44,16 @@
   "homepage": "./",
   "author": "Hatirlaticinim",
   "description": "Çek takip ve hatirlatma uygulamasi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EnesYORNUK/Hatirlaticiniz.git"
+  },
   "build": {
     "publish": {
       "provider": "github",
       "owner": "EnesYORNUK",
-      "repo": "hatirlaticiniz",
-      "private": true
+      "repo": "Hatirlaticiniz",
+      "private": false
     },
     "appId": "com.hatirlaticiniz.app",
     "productName": "Hatirlaticinim",
