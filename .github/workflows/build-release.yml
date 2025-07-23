@@ -7,14 +7,9 @@ on:
   pull_request:
     branches: [ main ]
 
-
-
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -24,29 +19,18 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Build Electron app (Windows)
-      if: matrix.os == 'windows-latest'
-      
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Build Electron app
       run: npm run dist-win
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build Electron app (Linux)
-      if: matrix.os == 'ubuntu-latest'
-     
-      run: npm run dist
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build Electron app (macOS)
-      if: matrix.os == 'macos-latest'
-      
-      run: npm run dist
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload artifacts (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: windows-artifacts
@@ -54,24 +38,6 @@ jobs:
           electron-dist/*.exe
           electron-dist/*.exe.blockmap
           electron-dist/latest.yml
-
-    - name: Upload artifacts (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: linux-artifacts
-        path: |
-          electron-dist/*.AppImage
-          electron-dist/latest-linux.yml
-
-    - name: Upload artifacts (macOS)
-      if: matrix.os == 'macos-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-artifacts
-        path: |
-          electron-dist/*.dmg
-          electron-dist/latest-mac.yml
 
   release:
     needs: build
@@ -89,21 +55,21 @@ jobs:
       with:
         files: |
           windows-artifacts/*
-          linux-artifacts/*
-          macos-artifacts/*
         body: |
-          ## Değişiklikler
+          ## ✨ Değişiklikler
           - Otomatik güncelleme sistemi aktif
           - Yeni özellikler ve hata düzeltmeleri
+          - Arama sistemi eklendi
+          - Error boundary ile çökme koruması
+          - Bildirim sistemi iyileştirildi
           
-          ## Kurulum
-          - Windows: `.exe` dosyasını indirin ve çalıştırın
-          - Linux: `.AppImage` dosyasını indirin ve çalıştırılabilir yapın
-          - macOS: `.dmg` dosyasını indirin ve kurun
+          ## 📥 Kurulum
+          **Windows**: `.exe` dosyasını indirin ve çalıştırın
           
-          ## Otomatik Güncelleme
+          ## 🔄 Otomatik Güncelleme
           Bu sürümden itibaren uygulama otomatik olarak güncellenecektir.
+          Ayarlar → Otomatik Güncelleme'den kontrol edebilirsiniz.
         draft: false
         prerelease: false
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
