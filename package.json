@@ -99,7 +99,8 @@
       "uninstallerIcon": "public/icon.ico",
       "installerHeaderIcon": "public/icon.ico",
       "deleteAppDataOnUninstall": true,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   }
 }
