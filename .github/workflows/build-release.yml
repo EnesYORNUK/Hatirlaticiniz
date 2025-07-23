@@ -24,31 +24,23 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Install dependencies
-      working-directory: ./project
-      run: npm ci
-
-    - name: Build application
-      working-directory: ./project
-      run: npm run build
-
     - name: Build Electron app (Windows)
       if: matrix.os == 'windows-latest'
-      working-directory: ./project
+      
       run: npm run dist-win
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build Electron app (Linux)
       if: matrix.os == 'ubuntu-latest'
-      working-directory: ./project
+     
       run: npm run dist
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build Electron app (macOS)
       if: matrix.os == 'macos-latest'
-      working-directory: ./project
+      
       run: npm run dist
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -59,9 +51,9 @@ jobs:
       with:
         name: windows-artifacts
         path: |
-          project/electron-dist/*.exe
-          project/electron-dist/*.exe.blockmap
-          project/electron-dist/latest.yml
+          electron-dist/*.exe
+          electron-dist/*.exe.blockmap
+          electron-dist/latest.yml
 
     - name: Upload artifacts (Linux)
       if: matrix.os == 'ubuntu-latest'
@@ -69,8 +61,8 @@ jobs:
       with:
         name: linux-artifacts
         path: |
-          project/electron-dist/*.AppImage
-          project/electron-dist/latest-linux.yml
+          electron-dist/*.AppImage
+          electron-dist/latest-linux.yml
 
     - name: Upload artifacts (macOS)
       if: matrix.os == 'macos-latest'
@@ -78,8 +70,8 @@ jobs:
       with:
         name: macos-artifacts
         path: |
-          project/electron-dist/*.dmg
-          project/electron-dist/latest-mac.yml
+          electron-dist/*.dmg
+          electron-dist/latest-mac.yml
 
   release:
     needs: build
