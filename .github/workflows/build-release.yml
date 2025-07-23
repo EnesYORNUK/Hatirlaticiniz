@@ -7,9 +7,7 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-  ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+
 
 jobs:
   build:
@@ -27,22 +25,6 @@ jobs:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: project/package-lock.json
-
-    - name: Cache Electron binaries
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.ELECTRON_CACHE }}
-        key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-electron-cache-
-
-    - name: Cache Electron-Builder binaries
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.ELECTRON_BUILDER_CACHE }}
-        key: ${{ runner.os }}-electron-builder-cache-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-electron-builder-cache-
 
     - name: Install dependencies
       working-directory: ./project
