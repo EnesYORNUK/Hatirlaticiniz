@@ -22,21 +22,21 @@
   --color-info: #3B82F6;
 }
 
-/* 🌙 Dark Theme */
+/* 🌙 Dark Theme - Geliştirilmiş Okunaklılık */
 [data-theme="dark"] {
   --color-primary: #60A5FA;
   --color-primary-dark: #3B82F6;
   --color-secondary: #34D399;
   --color-accent: #FBBF24;
-  --color-background: #111827;
-  --color-background-secondary: #1F2937;
-  --color-surface: #374151;
-  --color-border: #4B5563;
-  --color-text: #F9FAFB;
-  --color-text-secondary: #D1D5DB;
-  --color-text-muted: #9CA3AF;
-  --color-success: #34D399;
-  --color-warning: #FBBF24;
+  --color-background: #0F172A; /* Daha koyu, göz yormayan */
+  --color-background-secondary: #1E293B; /* Daha açık gri */
+  --color-surface: #334155; /* Kartlar için daha açık */
+  --color-border: #475569; /* Daha belirgin kenarlık */
+  --color-text: #F8FAFC; /* Çok yüksek kontrast beyaz */
+  --color-text-secondary: #E2E8F0; /* Daha açık gri text */
+  --color-text-muted: #CBD5E1; /* Daha okunaklı muted */
+  --color-success: #22C55E;
+  --color-warning: #FCD34D;
   --color-error: #F87171;
   --color-info: #60A5FA;
 }
@@ -54,29 +54,29 @@
   --color-text: #0C4A6E;
   --color-text-secondary: #0369A1;
   --color-text-muted: #0284C7;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🟢 Green Theme */
 [data-theme="green"] {
-  --color-primary: #059669;
-  --color-primary-dark: #047857;
-  --color-secondary: #10B981;
-  --color-accent: #34D399;
+  --color-primary: #16A34A;
+  --color-primary-dark: #15803D;
+  --color-secondary: #22C55E;
+  --color-accent: #84CC16;
   --color-background: #F0FDF4;
   --color-background-secondary: #DCFCE7;
   --color-surface: #FFFFFF;
   --color-border: #BBF7D0;
   --color-text: #14532D;
   --color-text-secondary: #166534;
-  --color-text-muted: #15803D;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-text-muted: #22C55E;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🟠 Orange Theme */
@@ -92,48 +92,48 @@
   --color-text: #9A3412;
   --color-text-secondary: #C2410C;
   --color-text-muted: #EA580C;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🟣 Purple Theme */
 [data-theme="purple"] {
-  --color-primary: #7C3AED;
-  --color-primary-dark: #6D28D9;
-  --color-secondary: #8B5CF6;
-  --color-accent: #A78BFA;
+  --color-primary: #9333EA;
+  --color-primary-dark: #7C3AED;
+  --color-secondary: #A855F7;
+  --color-accent: #C084FC;
   --color-background: #FAF5FF;
   --color-background-secondary: #F3E8FF;
   --color-surface: #FFFFFF;
   --color-border: #DDD6FE;
   --color-text: #581C87;
-  --color-text-secondary: #6B21A8;
-  --color-text-muted: #7C2D92;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-text-secondary: #7C3AED;
+  --color-text-muted: #9333EA;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* ⚫ Gray Theme */
 [data-theme="gray"] {
-  --color-primary: #374151;
-  --color-primary-dark: #1F2937;
+  --color-primary: #4B5563;
+  --color-primary-dark: #374151;
   --color-secondary: #6B7280;
   --color-accent: #9CA3AF;
   --color-background: #F9FAFB;
   --color-background-secondary: #F3F4F6;
   --color-surface: #FFFFFF;
-  --color-border: #D1D5DB;
+  --color-border: #E5E7EB;
   --color-text: #111827;
   --color-text-secondary: #374151;
   --color-text-muted: #6B7280;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🔴 Red Theme */
@@ -148,11 +148,11 @@
   --color-border: #FECACA;
   --color-text: #7F1D1D;
   --color-text-secondary: #991B1B;
-  --color-text-muted: #B91C1C;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-text-muted: #DC2626;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🟦 Teal Theme */
@@ -160,18 +160,18 @@
   --color-primary: #0D9488;
   --color-primary-dark: #0F766E;
   --color-secondary: #14B8A6;
-  --color-accent: #2DD4BF;
+  --color-accent: #5EEAD4;
   --color-background: #F0FDFA;
   --color-background-secondary: #CCFBF1;
   --color-surface: #FFFFFF;
   --color-border: #99F6E4;
   --color-text: #134E4A;
-  --color-text-secondary: #115E59;
-  --color-text-muted: #0F766E;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-text-secondary: #0F766E;
+  --color-text-muted: #0D9488;
+  --color-success: #14B8A6;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🌸 Pink Theme */
@@ -185,15 +185,15 @@
   --color-surface: #FFFFFF;
   --color-border: #F9A8D4;
   --color-text: #831843;
-  --color-text-secondary: #9D174D;
-  --color-text-muted: #BE185D;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #0EA5E9;
+  --color-text-secondary: #BE185D;
+  --color-text-muted: #DB2777;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
-/* 🎨 Tema Utility Sınıfları */
+/* 🎨 Utility Classes */
 .theme-bg {
   background-color: var(--color-background);
   color: var(--color-text);
@@ -205,26 +205,10 @@
 
 .theme-surface {
   background-color: var(--color-surface);
-  border-color: var(--color-border);
 }
 
 .theme-primary {
   background-color: var(--color-primary);
-  color: white;
-}
-
-.theme-primary:hover {
-  background-color: var(--color-primary-dark);
-}
-
-.theme-secondary {
-  background-color: var(--color-secondary);
-  color: white;
-}
-
-.theme-accent {
-  background-color: var(--color-accent);
-  color: white;
 }
 
 .theme-text {
@@ -245,22 +229,18 @@
 
 .theme-success {
   background-color: var(--color-success);
-  color: white;
 }
 
 .theme-warning {
   background-color: var(--color-warning);
-  color: white;
 }
 
 .theme-error {
   background-color: var(--color-error);
-  color: white;
 }
 
 .theme-info {
   background-color: var(--color-info);
-  color: white;
 }
 
 /* Özel input styling */
@@ -330,7 +310,7 @@
   transform: translateY(-2px);
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling - Dark theme uyumlu */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -384,6 +364,33 @@
 .theme-progress-bar {
   background-color: var(--color-primary);
   transition: width 0.5s ease;
+}
+
+/* Dark theme için özel iyileştirmeler */
+[data-theme="dark"] .theme-input {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .theme-input:focus {
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3);
+}
+
+[data-theme="dark"] .theme-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* Text shadow for better readability in dark theme */
+[data-theme="dark"] .theme-text {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6 {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
 /* Smooth transitions */

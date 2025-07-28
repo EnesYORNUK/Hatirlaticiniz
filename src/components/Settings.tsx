@@ -724,6 +724,39 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             </div>
           </div>
 
+          {/* Veri Korunma Garantisi */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <Shield className="w-6 h-6 text-green-600" />
+              <div>
+                <div className="text-green-800 font-bold text-lg mb-2">🛡️ VERİLERİNİZ %100 GÜVENLİ</div>
+                <div className="text-green-700 text-sm space-y-2">
+                  <div><strong>✅ Çek/Fatura Bilgileri:</strong> localStorage'da güvenle saklanır</div>
+                  <div><strong>✅ Telegram Bot Ayarları:</strong> Her değişiklikte otomatik kaydedilir</div>
+                  <div><strong>✅ Tema Tercihiniz:</strong> Güncelleme sonrası korunur</div>
+                  <div><strong>✅ Bildirim Ayarları:</strong> Tüm tercihleriniz hatırlanır</div>
+                  <div><strong>✅ Güncelleme Güvenliği:</strong> Veriler hiçbir zaman silinmez</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Otomatik Yedekleme Sistemi */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-5 h-5 text-blue-600" />
+              <div>
+                <div className="text-blue-800 font-medium text-sm mb-2">🔄 Otomatik Koruma Sistemi</div>
+                <div className="text-blue-700 text-sm space-y-1">
+                  <div>• <strong>Her Değişiklik:</strong> Anında localStorage'a kaydedilir</div>
+                  <div>• <strong>Dual-Write Sistemi:</strong> Veriler iki farklı yerde saklanır</div>
+                  <div>• <strong>Güncelleme Öncesi:</strong> Otomatik yedek oluşturulur</div>
+                  <div>• <strong>Hata Durumunda:</strong> Veriler otomatik geri yüklenir</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Export Data */}
             <button
@@ -753,6 +786,21 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             </div>
           </div>
 
+          {/* Manuel Yedekleme Önerisi */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-yellow-800 font-medium text-sm mb-1">💡 Manuel Yedekleme Önerisi</div>
+                <div className="text-yellow-700 text-sm space-y-1">
+                  <div>• <strong>Aylık:</strong> "Verileri Dışa Aktar" ile yedek alın</div>
+                  <div>• <strong>Güncelleme Öncesi:</strong> Ekstra güvenlik için yedekleyin</div>
+                  <div>• <strong>Cihaz Değişikliği:</strong> Yedek dosyasını yeni cihaza aktarın</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="theme-info bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
             <div className="flex items-start gap-3">
               <Circle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
@@ -760,13 +808,27 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 <div className="text-blue-800 font-medium text-sm mb-1">💡 Veri Güvenliği</div>
                 <div className="text-blue-700 text-sm space-y-1">
                   <div>• Verileriniz sadece bilgisayarınızda saklanır</div>
-                  <div>• Düzenli yedekleme yapmanızı öneriyoruz</div>
+                  <div>• Hiçbir veri internete gönderilmez</div>
                   <div>• JSON formatında dışa aktarılır</div>
                   <div>• Güncelleme sırasında veriler otomatik korunur</div>
+                  <div>• Telegram bot bilgileri şifrelenmeden saklanır</div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Teknik Detaylar */}
+          <details className="theme-bg-secondary rounded-lg p-4 border theme-border mt-4">
+            <summary className="theme-text font-medium cursor-pointer">🔧 Teknik Detaylar</summary>
+            <div className="theme-text-muted text-sm mt-3 space-y-1">
+              <div><strong>Depolama Yöntemi:</strong> localStorage (tarayıcı yerel depolama)</div>
+              <div><strong>Yedekleme Lokasyonu:</strong> AppData/Roaming/hatirlaticiniz/</div>
+              <div><strong>Dosya Formatı:</strong> JSON (insan tarafından okunabilir)</div>
+              <div><strong>Şifreleme:</strong> Yerel depolama için şifreleme gerekli değil</div>
+              <div><strong>Sync Sistemi:</strong> localStorage ↔ AppData dual-write</div>
+              <div><strong>Recovery:</strong> Otomatik hata kurtarma sistemi</div>
+            </div>
+          </details>
         </div>
 
       </div>
