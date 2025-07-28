@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, status, info) => callback(status, info)),
+  // AppData dosya işlemleri
+  saveAppData: (key, data) => ipcRenderer.invoke('save-app-data', key, data),
+  loadAppData: (key) => ipcRenderer.invoke('load-app-data', key),
 });

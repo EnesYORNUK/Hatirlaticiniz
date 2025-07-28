@@ -31,8 +31,8 @@ const normalizeCheck = (check: any): Check => {
 
 function App() {
   const [currentPage, setCurrentPage] = useState('list');
-  const [rawChecks, setRawChecks] = useLocalStorage<any[]>('hatirlatici-checks', []);
-  const [settings, setSettings] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
+  const [rawChecks, setRawChecks, checksLoaded] = useLocalStorage<any[]>('hatirlatici-checks', []);
+  const [settings, setSettings, settingsLoaded] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
 
   // Eski veri formatını normalize et
@@ -41,25 +41,38 @@ function App() {
   // Bildirim sistemi
   const { isElectron } = useElectronNotifications(checks, settings);
 
+  // Veriler yüklenene kadar loading göster
+  if (!checksLoaded || !settingsLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-medium text-gray-900">Yükleniyor...</h2>
+          <p className="text-gray-500 mt-2">Verileriniz hazırlanıyor</p>
+        </div>
+      </div>
+    );
+  }
+
   useEffect(() => {
     document.title = 'Hatırlatıcınım - Çek ve Fatura Takip Uygulaması';
   }, []);
 
-  const handleAddCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+  const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     const newCheck: Check = {
       ...checkData,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
     
-    setRawChecks(prev => [...prev, newCheck]);
+    await setRawChecks(prev => [...prev, newCheck]);
     setCurrentPage('list');
   };
 
-  const handleEditCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+  const handleEditCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (!editingCheck) return;
     
-    setRawChecks(prev => prev.map(check => 
+    await setRawChecks(prev => prev.map(check => 
       check.id === editingCheck.id 
         ? { ...check, ...checkData }
         : check
@@ -69,15 +82,15 @@ function App() {
     setCurrentPage('list');
   };
 
-  const handleDeleteCheck = (id: string) => {
+  const handleDeleteCheck = async (id: string) => {
     const itemType = checks.find(c => c.id === id)?.type === 'bill' ? 'faturayı' : 'çeki';
     if (confirm(`Bu ${itemType} silmek istediğinizden emin misiniz?`)) {
-      setRawChecks(prev => prev.filter(check => check.id !== id));
+      await setRawChecks(prev => prev.filter(check => check.id !== id));
     }
   };
 
-  const handleTogglePaid = (id: string) => {
-    setRawChecks(prev => prev.map(check =>
+  const handleTogglePaid = async (id: string) => {
+    await setRawChecks(prev => prev.map(check =>
       check.id === id ? { ...check, isPaid: !check.isPaid } : check
     ));
   };
@@ -92,8 +105,8 @@ function App() {
     setCurrentPage('list');
   };
 
-  const handleSaveSettings = (newSettings: SettingsType) => {
-    setSettings(newSettings);
+  const handleSaveSettings = async (newSettings: SettingsType) => {
+    await setSettings(newSettings);
   };
 
   const handleExportData = () => {
@@ -115,15 +128,15 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportData = (data: any) => {
+  const handleImportData = async (data: any) => {
     try {
       if (data.checks && Array.isArray(data.checks)) {
         if (confirm('Mevcut veriler silinecek ve yeni veriler yüklenecek. Devam etmek istiyor musunuz?')) {
           // Eski veri formatını normalize et
           const normalizedChecks = data.checks.map(normalizeCheck);
-          setRawChecks(normalizedChecks);
+          await setRawChecks(normalizedChecks);
           if (data.settings) {
-            setSettings({ ...defaultSettings, ...data.settings });
+            await setSettings({ ...defaultSettings, ...data.settings });
           }
           alert('Veriler başarıyla içe aktarıldı!');
         }
