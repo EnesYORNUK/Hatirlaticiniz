@@ -111,12 +111,44 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   };
 
   const testTelegramBot = async () => {
-    if (!telegramBotToken || !telegramChatId) {
-      alert('Lütfen önce Bot Token ve Chat ID girin!');
+    if (!telegramBotToken) {
+      alert('Lütfen önce Bot Token girin!');
       return;
     }
 
     try {
+      // Eğer chat ID yoksa, önce chat ID almaya çalış
+      if (!telegramChatId) {
+        const updatesResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getUpdates`);
+        
+        if (!updatesResponse.ok) {
+          const error = await updatesResponse.text();
+          alert(`❌ Bot token hatası:\n${error}\n\nLütfen:\n1. Bot token'ının doğru olduğunu kontrol edin\n2. Bot'unuza Telegram'da /start mesajı attığınızdan emin olun`);
+          return;
+        }
+
+        const updatesData = await updatesResponse.json();
+        
+        if (updatesData.result && updatesData.result.length > 0) {
+          // En son mesajdan chat ID'yi al
+          const lastMessage = updatesData.result[updatesData.result.length - 1];
+          const foundChatId = lastMessage.message?.chat?.id || lastMessage.callback_query?.message?.chat?.id;
+          
+          if (foundChatId) {
+            setTelegramChatId(foundChatId.toString());
+            alert(`✅ Chat ID bulundu: ${foundChatId}\n\nChat ID otomatik olarak dolduruldu. Şimdi "Test Et" butonuna tekrar basın!`);
+            return;
+          } else {
+            alert(`⚠️ Chat ID bulunamadı!\n\nLütfen:\n1. Telegram'da bot'unuza /start mesajı atın\n2. "Merhaba" veya herhangi bir mesaj gönderin\n3. Bu butona tekrar basın`);
+            return;
+          }
+        } else {
+          alert(`📭 Henüz mesaj yok!\n\nLütfen:\n1. Telegram'da bot'unuzu bulun\n2. Bot'a /start mesajı atın\n3. "Merhaba" yazın\n4. Bu butona tekrar basın`);
+          return;
+        }
+      }
+
+      // Chat ID varsa normal test yap
       const response = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
         method: 'POST',
         headers: {
@@ -124,7 +156,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         },
         body: JSON.stringify({
           chat_id: telegramChatId,
-          text: '✅ Telegram Bot başarıyla bağlandı!\n\nKomutlar:\n/bugun - Bugün ödenecekler\n/yakin - Yaklaşan ödemeler\n/tumu - Tüm aktif ödemeler',
+          text: '✅ Telegram Bot başarıyla bağlandı!\n\n🤖 Komutlar:\n/bugun - Bugün ödenecekler\n/yakin - Yaklaşan ödemeler\n/tumu - Tüm aktif ödemeler\n/gecmis - Vadesi geçenler\n/istatistik - Genel özet\n\n🎉 Bot hazır!',
         }),
       });
 
@@ -132,10 +164,10 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         alert('✅ Test mesajı başarıyla gönderildi! Telegram\'ınızı kontrol edin.');
       } else {
         const error = await response.text();
-        alert(`❌ Telegram bot testi başarısız:\n${error}`);
+        alert(`❌ Test başarısız:\n${error}`);
       }
     } catch (error) {
-      alert(`❌ Telegram bot bağlantı hatası:\n${error}`);
+      alert(`❌ Bağlantı hatası:\n${error}\n\nİnternet bağlantınızı kontrol edin.`);
     }
   };
 
@@ -279,13 +311,20 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <div className="ml-6 pl-4 border-l-2 border-green-100 space-y-4">
               <div className="bg-green-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-green-900 mb-2">📋 Bot Kurulum Adımları:</h4>
-                <ol className="text-sm text-green-800 space-y-1 list-decimal list-inside">
-                  <li>Telegram'da <strong>@BotFather</strong>'a mesaj atın</li>
-                  <li><code>/newbot</code> yazın ve bot adı verin</li>
+                <ol className="text-sm text-green-800 space-y-2 list-decimal list-inside">
+                  <li><strong>Telegram'da @BotFather'a</strong> mesaj atın</li>
+                  <li><strong>/newbot</strong> yazın ve bot'unuza isim verin</li>
                   <li>Verilen <strong>token</strong>'ı aşağıya yapıştırın</li>
-                  <li>Bot'unuza <code>/start</code> mesajı atın</li>
-                  <li><strong>Chat ID</strong> almak için "Test Et" butonuna basın</li>
+                  <li><strong>Bot'unuzu bulun</strong> (link verilecek) ve <strong>/start</strong> yazın</li>
+                  <li><strong>"Merhaba"</strong> veya herhangi bir mesaj gönderin</li>
+                  <li><strong>"Test Et"</strong> butonuna basın → Chat ID otomatik bulunacak!</li>
                 </ol>
+                <div className="mt-3 p-2 bg-green-100 rounded border-l-4 border-green-400">
+                  <p className="text-xs text-green-700">
+                    💡 <strong>Önemli:</strong> Chat ID'yi manuel girmenize gerek yok! 
+                    Bot'a mesaj attıktan sonra "Test Et" butonu otomatik bulacak.
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -324,8 +363,17 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 onClick={testTelegramBot}
                 className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
               >
-                🧪 Bot'u Test Et
+                {!telegramChatId ? '🔍 Chat ID Bul & Test Et' : '🧪 Bot\'u Test Et'}
               </button>
+
+              {!telegramChatId && (
+                <div className="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-400">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ <strong>Chat ID bulunamadı.</strong> Önce bot'unuza Telegram'da mesaj atın, 
+                    sonra yukarıdaki butona basın.
+                  </p>
+                </div>
+              )}
 
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-blue-900 mb-2">🤖 Bot Komutları:</h4>
