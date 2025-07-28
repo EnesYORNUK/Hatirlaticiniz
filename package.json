@@ -1,34 +1,24 @@
 {
   "name": "vite-react-typescript-starter",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.0.17",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:pack": "npm run build && electron-builder --dir",
-    "electron:dist": "npm run build && electron-builder",
+    "build-electron": "npm run build && electron-builder",
     "dist": "npm run build && electron-builder",
     "dist-win": "npm run build && electron-builder --win",
     "version:patch": "npm version patch && git push origin main --tags",
     "version:minor": "npm version minor && git push origin main --tags",
     "version:major": "npm version major && git push origin main --tags",
-    "release": "npm run electron:dist",
-    "safe:test": "npm run build && npm run electron:pack",
-    "safe:validate": "npm run safe:test && echo 'Validation successful!'",
-    "safe:minor": "npm run safe:validate && npm run version:minor",
-    "safe:patch": "npm run safe:validate && npm run version:patch",
-    "backup": "node scripts/backup.js",
-    "restore": "node scripts/restore.js"
+    "release": "npm run version:patch"
   },
   "dependencies": {
-    "@types/node-telegram-bot-api": "^0.64.9",
     "electron-updater": "^6.6.2",
     "lucide-react": "^0.525.0",
-    "node-telegram-bot-api": "^0.66.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -59,8 +49,15 @@
     "url": "https://github.com/EnesYORNUK/Hatirlaticiniz.git"
   },
   "build": {
-    "appId": "com.hatirlaticinim.app",
+    "publish": {
+      "provider": "github",
+      "owner": "EnesYORNUK",
+      "repo": "Hatirlaticiniz",
+      "private": false
+    },
+    "appId": "com.hatirlaticiniz.app",
     "productName": "Hatirlaticinim",
+    "copyright": "Copyright © 2025 Hatirlaticinim",
     "directories": {
       "output": "electron-dist"
     },
@@ -68,35 +65,42 @@
       "dist/**/*",
       "public/electron.cjs",
       "public/preload.cjs",
-      "public/icon.ico"
+      "public/icon.ico",
+      "public/icon-256x256.png",
+      "node_modules/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "public/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "icon": "public/icon-256x256.png"
+    },
     "win": {
       "target": "nsis",
-      "icon": "public/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}",
-      "runAfterFinish": true
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "public/icon.ico"
+      "icon": "public/icon.ico",
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "target": "AppImage",
-      "icon": "public/icon.ico"
+      "category": "Office",
+      "icon": "public/icon-256x256.png"
     },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "EnesYORNUK",
-        "repo": "Hatirlaticiniz"
-      }
-    ]
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
   }
 }

@@ -12,6 +12,31 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+// Mobil ve küçük alanlar için kompakt currency formatı
+export function formatCurrencyCompact(amount: number): string {
+  // 1 milyon ve üzeri için compact notation kullan
+  if (Math.abs(amount) >= 1000000) {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+      notation: 'compact',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    }).format(amount);
+  }
+  
+  // Normal formatting
+  return formatCurrency(amount);
+}
+
+// Responsive currency formatter - ekran boyutuna göre format seçer
+export function formatCurrencyResponsive(amount: number, isSmallScreen: boolean = false): string {
+  if (isSmallScreen && Math.abs(amount) >= 100000) {
+    return formatCurrencyCompact(amount);
+  }
+  return formatCurrency(amount);
+}
+
 export function getDaysUntilPayment(paymentDate: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Saat dilimi sorunlarını önlemek için

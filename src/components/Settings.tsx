@@ -757,6 +757,50 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             </div>
           </div>
 
+          {/* Güvenlik Uyarıları */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <Shield className="w-6 h-6 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-red-800 font-bold text-lg mb-2">🔐 GÜVENLİK UYARILARI</div>
+                <div className="text-red-700 text-sm space-y-2">
+                  <div><strong>⚠️ Bot Token Güvenliği:</strong> Bot token'ınızı asla başkalarıyla paylaşmayın!</div>
+                  <div><strong>🔒 Yerel Depolama:</strong> Token'lar bilgisayarınızda güvenle saklanır, internete gönderilmez</div>
+                  <div><strong>🚫 Kötüye Kullanım:</strong> Token çalınırsa /revoke komutuyla iptal edin</div>
+                  <div><strong>💡 Güvenlik İpucu:</strong> Bot'u sadece kendinizle kullanın, gruplara eklemeyin</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bot Token Güvenlik Durumu */}
+          <div className={`rounded-lg p-4 mb-6 border ${
+            settings.telegramBotToken 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${
+                settings.telegramBotToken ? 'bg-green-500' : 'bg-gray-400'
+              }`}>
+                <Bot className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className={`font-medium ${
+                  settings.telegramBotToken ? 'text-green-800' : 'text-gray-600'
+                }`}>
+                  Bot Token Durumu: {settings.telegramBotToken ? '✅ Tanımlı' : '⚠️ Tanımsız'}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {settings.telegramBotToken 
+                    ? `Token: ...${settings.telegramBotToken.slice(-8)} (son 8 karakter)`
+                    : 'Bot token henüz girilmemiş'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Export Data */}
             <button

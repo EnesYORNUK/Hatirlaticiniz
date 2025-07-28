@@ -31,30 +31,98 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    // Payment date validation
     if (!formData.paymentDate) {
       newErrors.paymentDate = 'Ödeme tarihi zorunludur';
+    } else {
+      // Date format validation
+      const paymentDate = new Date(formData.paymentDate);
+      const today = new Date();
+      const maxDate = new Date();
+      maxDate.setFullYear(today.getFullYear() + 10); // Max 10 yıl ilerisi
+      
+      if (isNaN(paymentDate.getTime())) {
+        newErrors.paymentDate = 'Geçerli bir tarih giriniz';
+      } else if (paymentDate > maxDate) {
+        newErrors.paymentDate = 'Ödeme tarihi çok uzak gelecekte olamaz';
+      }
     }
 
+    // Amount validation - enhanced
     if (!formData.amount) {
       newErrors.amount = 'Tutar zorunludur';
-    } else if (isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Geçerli bir tutar giriniz';
+    } else {
+      const amount = parseFloat(formData.amount);
+      if (isNaN(amount)) {
+        newErrors.amount = 'Geçerli bir sayı giriniz';
+      } else if (amount <= 0) {
+        newErrors.amount = 'Tutar sıfırdan büyük olmalıdır';
+      } else if (amount > 999999999) {
+        newErrors.amount = 'Tutar çok yüksek (Max: 999.999.999 TL)';
+      } else if (amount < 0.01) {
+        newErrors.amount = 'Minimum tutar 0.01 TL olmalıdır';
+      }
     }
 
+    // Name validation - enhanced
     if (!formData.createdBy.trim()) {
       newErrors.createdBy = 'Oluşturan kişi zorunludur';
+    } else if (formData.createdBy.trim().length < 2) {
+      newErrors.createdBy = 'İsim en az 2 karakter olmalıdır';
+    } else if (formData.createdBy.trim().length > 50) {
+      newErrors.createdBy = 'İsim en fazla 50 karakter olabilir';
     }
 
+    // Company/Person validation - enhanced
     if (!formData.signedTo.trim()) {
       newErrors.signedTo = 'Ödenecek Firma/Kişi zorunludur';
+    } else if (formData.signedTo.trim().length < 2) {
+      newErrors.signedTo = 'Firma/Kişi adı en az 2 karakter olmalıdır';
+    } else if (formData.signedTo.trim().length > 100) {
+      newErrors.signedTo = 'Firma/Kişi adı en fazla 100 karakter olabilir';
     }
 
-    if (formData.type === 'bill' && formData.billType === 'diger' && !formData.customBillType.trim()) {
-      newErrors.customBillType = 'Fatura türü belirtiniz';
+    // Custom bill type validation
+    if (formData.type === 'bill' && formData.billType === 'diger') {
+      if (!formData.customBillType.trim()) {
+        newErrors.customBillType = 'Fatura türü belirtiniz';
+      } else if (formData.customBillType.trim().length < 2) {
+        newErrors.customBillType = 'Fatura türü en az 2 karakter olmalıdır';
+      } else if (formData.customBillType.trim().length > 30) {
+        newErrors.customBillType = 'Fatura türü en fazla 30 karakter olabilir';
+      }
     }
 
-    if (formData.isRecurring && (!formData.recurringDay || formData.recurringDay < 1 || formData.recurringDay > 31)) {
-      newErrors.recurringDay = 'Geçerli bir gün giriniz (1-31)';
+    // Recurring validation - enhanced
+    if (formData.isRecurring) {
+      if (!formData.recurringDay || formData.recurringDay < 1) {
+        newErrors.recurringDay = 'Geçerli bir gün giriniz';
+      } else {
+        // Month-specific validation
+        if (formData.recurringType === 'monthly' && formData.recurringDay > 31) {
+          newErrors.recurringDay = 'Ayın günü 1-31 arasında olmalıdır';
+        } else if (formData.recurringType === 'weekly' && formData.recurringDay > 7) {
+          newErrors.recurringDay = 'Haftanın günü 1-7 arasında olmalıdır';
+        } else if (formData.recurringType === 'yearly' && formData.recurringDay > 365) {
+          newErrors.recurringDay = 'Yılın günü 1-365 arasında olmalıdır';
+        }
+      }
+    }
+
+    // Created date validation
+    if (formData.createdDate) {
+      const createdDate = new Date(formData.createdDate);
+      const today = new Date();
+      const minDate = new Date();
+      minDate.setFullYear(today.getFullYear() - 5); // Max 5 yıl geçmiş
+      
+      if (isNaN(createdDate.getTime())) {
+        newErrors.createdDate = 'Geçerli bir tarih giriniz';
+      } else if (createdDate > today) {
+        newErrors.createdDate = 'Oluşturulma tarihi gelecekte olamaz';
+      } else if (createdDate < minDate) {
+        newErrors.createdDate = 'Oluşturulma tarihi çok eski olamaz';
+      }
     }
 
     setErrors(newErrors);
