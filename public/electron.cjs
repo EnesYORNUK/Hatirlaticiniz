@@ -697,12 +697,12 @@ ipcMain.handle('app-version', () => {
 ipcMain.handle('check-for-updates', async () => {
   try {
     console.log('🔍 IPC: check-for-updates başlatıldı');
-    const result = await autoUpdater.checkForUpdates();
-    console.log('✅ IPC: check-for-updates tamamlandı', result);
-    return result;
+    await autoUpdater.checkForUpdates();
+    console.log('✅ IPC: check-for-updates tamamlandı');
+    return { success: true, message: 'Update check completed' };
   } catch (error) {
     console.error('❌ IPC: check-for-updates hatası:', error);
-    throw new Error(`Update check failed: ${error.message}`);
+    return { success: false, message: error.message };
   }
 });
 

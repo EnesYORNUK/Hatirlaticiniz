@@ -119,15 +119,24 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         const result = await window.electronAPI.checkForUpdates();
         console.log('✅ Settings: electronAPI.checkForUpdates sonucu:', result);
         
+        if (result.success) {
+          console.log('✅ Settings: Güncelleme kontrolü başarılı');
+          // autoUpdater event'leri status'u handle edecek
+        } else {
+          console.error('❌ Settings: Update check başarısız:', result.message);
+          setUpdateStatus('error');
+          setUpdateMessage(`Güncelleme kontrolü başarısız: ${result.message}`);
+        }
+        
       } catch (error: any) {
-        console.error('❌ Settings: Update check hatası:', error);
+        console.error('❌ Settings: Update check kritik hatası:', error);
         setUpdateStatus('error');
-        setUpdateMessage(`Güncelleme kontrolü başarısız oldu: ${error.message}`);
-        alert(`Güncelleme kontrolü hatası: ${error.message}`);
+        setUpdateMessage(`Güncelleme kontrolü hatası: ${error.message}`);
       }
     } else {
       console.error('❌ Settings: electronAPI.checkForUpdates mevcut değil');
-      alert('Güncelleme sistemi kullanılamıyor. Desktop uygulamasında deneyin.');
+      setUpdateStatus('error');
+      setUpdateMessage('Güncelleme sistemi kullanılamıyor. Desktop uygulamasında deneyin.');
     }
   };
 
