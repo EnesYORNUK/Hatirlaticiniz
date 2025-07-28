@@ -60,13 +60,25 @@ const getAppDataPath = () => {
 // Telegram Bot Fonksiyonları
 function initializeTelegramBot() {
   try {
+    console.log('🤖 Telegram bot başlatılıyor...');
+    
     const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
-    if (!fs.existsSync(settingsPath)) return;
+    if (!fs.existsSync(settingsPath)) {
+      console.log('⚠️ Settings dosyası bulunamadı:', settingsPath);
+      return;
+    }
 
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    console.log('📋 Bot ayarları:', {
+      enabled: settings.telegramBotEnabled,
+      hasToken: !!settings.telegramBotToken,
+      hasChatId: !!settings.telegramChatId
+    });
     
     if (!settings.telegramBotEnabled || !settings.telegramBotToken) {
+      console.log('❌ Bot disabled veya token yok');
       if (telegramBot) {
+        console.log('🔄 Mevcut bot durduruluyor...');
         telegramBot.stopPolling();
         telegramBot = null;
       }
@@ -75,25 +87,64 @@ function initializeTelegramBot() {
 
     // Mevcut bot'u durdur
     if (telegramBot) {
+      console.log('🔄 Mevcut bot durduruluyor...');
       telegramBot.stopPolling();
     }
 
     // Yeni bot oluştur
-    telegramBot = new TelegramBot(settings.telegramBotToken, { polling: true });
+    console.log('🚀 Yeni bot oluşturuluyor...');
+    telegramBot = new TelegramBot(settings.telegramBotToken, { 
+      polling: {
+        interval: 1000,
+        autoStart: true,
+        params: {
+          timeout: 10
+        }
+      }
+    });
     
-    console.log('Telegram bot başlatıldı');
+    console.log('✅ Bot oluşturuldu, komutlar kuruluyor...');
     setupTelegramCommands();
     
+    // Bot başarıyla başladığında log
+    telegramBot.on('polling_error', (error) => {
+      console.error('❌ Bot polling hatası:', error.message);
+    });
+
+    telegramBot.on('error', (error) => {
+      console.error('❌ Bot genel hatası:', error.message);
+    });
+
+    // Bot mesaj aldığında log
+    telegramBot.on('message', (msg) => {
+      console.log('📨 Bot mesaj aldı:', {
+        chat_id: msg.chat.id,
+        text: msg.text,
+        from: msg.from.first_name
+      });
+    });
+
+    console.log('🎉 Telegram bot başarıyla başlatıldı!');
+    
   } catch (error) {
-    console.error('Telegram bot başlatılamadı:', error);
+    console.error('❌ Telegram bot başlatılamadı:', error);
   }
 }
 
 function setupTelegramCommands() {
-  if (!telegramBot) return;
+  if (!telegramBot) {
+    console.log('❌ Bot mevcut değil, komutlar kurulamadı');
+    return;
+  }
+
+  console.log('📝 Telegram komutları kuruluyor...');
+
+  // Tüm mevcut listener'ları temizle
+  telegramBot.removeAllListeners('text');
 
   // /start komutu
   telegramBot.onText(/\/start/, (msg) => {
+    console.log('🎯 /start komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
 
@@ -107,54 +158,82 @@ function setupTelegramCommands() {
 💡 Chat ID'niz: ${chatId}
 Bu ID'yi uygulamanın ayarlarına girin.`;
 
-    telegramBot.sendMessage(chatId, welcomeMessage);
+    telegramBot.sendMessage(chatId, welcomeMessage)
+      .then(() => console.log('✅ /start yanıtı gönderildi'))
+      .catch(err => console.error('❌ /start yanıt hatası:', err.message));
   });
 
   // /bugun komutu
   telegramBot.onText(/\/bugun/, (msg) => {
+    console.log('🎯 /bugun komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     sendTodayPayments(chatId);
   });
 
   // /yakin komutu
   telegramBot.onText(/\/yakin/, (msg) => {
+    console.log('🎯 /yakin komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     sendUpcomingPayments(chatId);
   });
 
   // /tumu komutu
   telegramBot.onText(/\/tumu/, (msg) => {
+    console.log('🎯 /tumu komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     sendAllActivePayments(chatId);
   });
 
   // /gecmis komutu
   telegramBot.onText(/\/gecmis/, (msg) => {
+    console.log('🎯 /gecmis komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     sendOverduePayments(chatId);
   });
 
   // /istatistik komutu
   telegramBot.onText(/\/istatistik/, (msg) => {
+    console.log('🎯 /istatistik komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     sendStatistics(chatId);
   });
 
+  // Bilinmeyen komutlar için
+  telegramBot.on('message', (msg) => {
+    if (msg.text && msg.text.startsWith('/') && 
+        !['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik'].includes(msg.text)) {
+      console.log('❓ Bilinmeyen komut:', msg.text);
+      const chatId = msg.chat.id;
+      telegramBot.sendMessage(chatId, 
+        `❓ Bilinmeyen komut: ${msg.text}\n\n📋 Geçerli komutlar:\n/start /bugun /yakin /tumu /gecmis /istatistik`
+      );
+    }
+  });
+
   // Error handler
   telegramBot.on('error', (error) => {
-    console.error('Telegram bot hatası:', error);
+    console.error('❌ Telegram bot hatası:', error.message);
   });
+
+  console.log('✅ Tüm komutlar başarıyla kuruldu!');
 }
 
 function getChecksData() {
   try {
     const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
-    if (!fs.existsSync(checksPath)) return [];
+    console.log('📂 Checks dosyası aranıyor:', checksPath);
+    
+    if (!fs.existsSync(checksPath)) {
+      console.log('⚠️ Checks dosyası bulunamadı, localStorage\'dan okunamaz');
+      return [];
+    }
     
     const data = fs.readFileSync(checksPath, 'utf8');
-    return JSON.parse(data);
+    const checks = JSON.parse(data);
+    console.log('📊 Bulunan check sayısı:', checks.length);
+    return checks;
   } catch (error) {
-    console.error('Checks verisi okunamadı:', error);
+    console.error('❌ Checks verisi okunamadı:', error.message);
     return [];
   }
 }
@@ -188,26 +267,39 @@ ${status}`;
 }
 
 function sendTodayPayments(chatId) {
-  const checks = getChecksData();
-  const today = new Date().toDateString();
-  
-  const todayChecks = checks.filter(check => {
-    if (check.isPaid) return false;
-    const checkDate = new Date(check.paymentDate).toDateString();
-    return checkDate === today;
-  });
+  try {
+    console.log('📅 Bugün ödenecekler sorgulanıyor...');
+    const checks = getChecksData();
+    const today = new Date().toDateString();
+    
+    const todayChecks = checks.filter(check => {
+      if (check.isPaid) return false;
+      const checkDate = new Date(check.paymentDate).toDateString();
+      return checkDate === today;
+    });
 
-  if (todayChecks.length === 0) {
-    telegramBot.sendMessage(chatId, '🎉 Bugün ödenecek çek/fatura yok!');
-    return;
+    console.log('📊 Bugün ödenecek sayısı:', todayChecks.length);
+
+    if (todayChecks.length === 0) {
+      const message = '🎉 Bugün ödenecek çek/fatura yok!';
+      telegramBot.sendMessage(chatId, message)
+        .then(() => console.log('✅ Bugün mesajı gönderildi'))
+        .catch(err => console.error('❌ Bugün mesaj hatası:', err.message));
+      return;
+    }
+
+    let message = `📅 Bugün ödenecek ${todayChecks.length} ödeme:\n\n`;
+    todayChecks.forEach((check, index) => {
+      message += `${index + 1}. ${formatCheck(check)}\n\n`;
+    });
+
+    telegramBot.sendMessage(chatId, message)
+      .then(() => console.log('✅ Bugün listesi gönderildi'))
+      .catch(err => console.error('❌ Bugün liste hatası:', err.message));
+  } catch (error) {
+    console.error('❌ sendTodayPayments hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Bugün ödenecekler alınırken hata oluştu.');
   }
-
-  let message = `📅 Bugün ödenecek ${todayChecks.length} ödeme:\n\n`;
-  todayChecks.forEach((check, index) => {
-    message += `${index + 1}. ${formatCheck(check)}\n\n`;
-  });
-
-  telegramBot.sendMessage(chatId, message);
 }
 
 function sendUpcomingPayments(chatId) {

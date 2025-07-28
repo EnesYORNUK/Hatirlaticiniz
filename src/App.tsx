@@ -53,41 +53,55 @@ function App() {
     document.title = 'Hatırlatıcınım - Çek ve Fatura Takip Uygulaması';
   }, []);
 
-  const handleAddCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+  const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     const newCheck: Check = {
       ...checkData,
-      id: crypto.randomUUID(),
+      id: Date.now().toString(),
       createdAt: new Date().toISOString(),
     };
     
-    setRawChecks(prev => [...prev, newCheck]);
+    const updatedChecks = [...checks, newCheck];
+    await setRawChecks(updatedChecks);
     setCurrentPage('list');
+    
+    // Tekrarlayan ödeme ise sonraki ödemeyi planla
+    if (newCheck.isRecurring && newCheck.recurringType && newCheck.recurringDay) {
+      // Bu özellik gelecekte eklenebilir
+      console.log('Tekrarlayan ödeme eklendi:', newCheck);
+    }
   };
 
-  const handleEditCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+  const handleEditCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (!editingCheck) return;
     
-    setRawChecks(prev => prev.map(check => 
-      check.id === editingCheck.id 
-        ? { ...check, ...checkData }
-        : check
-    ));
+    const updatedCheck: Check = {
+      ...checkData,
+      id: editingCheck.id,
+      createdAt: editingCheck.createdAt,
+    };
     
+    const updatedChecks = checks.map(check => 
+      check.id === editingCheck.id ? updatedCheck : check
+    );
+    
+    await setRawChecks(updatedChecks);
     setEditingCheck(null);
     setCurrentPage('list');
   };
 
-  const handleDeleteCheck = (id: string) => {
+  const handleDeleteCheck = async (id: string) => {
     const itemType = checks.find(c => c.id === id)?.type === 'bill' ? 'faturayı' : 'çeki';
     if (confirm(`Bu ${itemType} silmek istediğinizden emin misiniz?`)) {
-      setRawChecks(prev => prev.filter(check => check.id !== id));
+      const updatedChecks = checks.filter(check => check.id !== id);
+      await setRawChecks(updatedChecks);
     }
   };
 
-  const handleTogglePaid = (id: string) => {
-    setRawChecks(prev => prev.map(check =>
+  const handleTogglePaid = async (id: string) => {
+    const updatedChecks = checks.map(check => 
       check.id === id ? { ...check, isPaid: !check.isPaid } : check
-    ));
+    );
+    await setRawChecks(updatedChecks);
   };
 
   const handleStartEdit = (check: Check) => {
@@ -100,8 +114,8 @@ function App() {
     setCurrentPage('list');
   };
 
-  const handleSaveSettings = (newSettings: SettingsType) => {
-    setSettings(newSettings);
+  const handleSaveSettings = async (newSettings: SettingsType) => {
+    await setSettings(newSettings);
   };
 
   const handleExportData = () => {
