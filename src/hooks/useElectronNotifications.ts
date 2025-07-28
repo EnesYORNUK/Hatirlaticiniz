@@ -2,23 +2,6 @@ import { useEffect, useCallback, useRef } from 'react';
 import { Check, Settings } from '../types';
 import { isToday, isDateInRange } from '../utils/dateUtils';
 
-// Electron API'sinin varlığını kontrol et
-declare global {
-  interface Window {
-    electronAPI?: {
-      showNotification: (title: string, body: string) => Promise<void>;
-      onMenuAction: (callback: () => void) => void;
-      removeMenuListener: (callback: () => void) => void;
-      checkForUpdates: () => Promise<void>;
-      downloadUpdate: () => Promise<void>;
-      installUpdate: () => Promise<void>;
-      onUpdateStatus: (callback: (status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error', info: any) => void) => void;
-      saveAppData: (key: string, data: any) => Promise<boolean>;
-      loadAppData: (key: string) => Promise<any>;
-    };
-  }
-}
-
 export function useElectronNotifications(checks: Check[], settings: Settings) {
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
   const lastNotificationCheck = useRef<string>('');

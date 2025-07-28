@@ -20,29 +20,38 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       try {
         let value = initialValue;
 
-        // Önce Electron AppData'dan kontrol et
-        if (window.electronAPI?.loadAppData) {
-          const appDataValue = await window.electronAPI.loadAppData(key);
-          if (appDataValue !== null) {
-            value = appDataValue;
-          }
-        }
-
-        // AppData'da yoksa localStorage'dan kontrol et
-        if (value === initialValue) {
+        // Önce localStorage'dan hızlı yükle
+        try {
           const localValue = window.localStorage.getItem(key);
           if (localValue) {
             value = JSON.parse(localValue);
+          }
+        } catch (error) {
+          console.error('localStorage okuma hatası:', error);
+        }
+
+        // Önce localStorage değeriyle state'i güncelle
+        setStoredValue(value);
+        setIsLoaded(true);
+
+        // Sonra Electron AppData'dan kontrol et (arka planda)
+        if (window.electronAPI?.loadAppData) {
+          try {
+            const appDataValue = await Promise.race([
+              window.electronAPI.loadAppData(key),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+            ]);
             
-            // Electron'daysa AppData'ya da kaydet
-            if (window.electronAPI?.saveAppData) {
-              await window.electronAPI.saveAppData(key, value);
+            if (appDataValue !== null && JSON.stringify(appDataValue) !== JSON.stringify(value)) {
+              setStoredValue(appDataValue);
+              // localStorage'ı da güncelle
+              window.localStorage.setItem(key, JSON.stringify(appDataValue));
             }
+          } catch (error) {
+            console.log('AppData yüklenemedi, localStorage kullanılıyor:', error.message);
           }
         }
 
-        setStoredValue(value);
-        setIsLoaded(true);
       } catch (error) {
         console.error(`Error loading data for key "${key}":`, error);
         setStoredValue(initialValue);
@@ -58,12 +67,23 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
 
-      // localStorage'a kaydet
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      // localStorage'a kaydet (senkron)
+      try {
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      } catch (error) {
+        console.error('localStorage kaydetme hatası:', error);
+      }
 
-      // Electron AppData'ya da kaydet
+      // Electron AppData'ya da kaydet (asenkron, hata olursa devam et)
       if (window.electronAPI?.saveAppData) {
-        await window.electronAPI.saveAppData(key, valueToStore);
+        try {
+          await Promise.race([
+            window.electronAPI.saveAppData(key, valueToStore),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+          ]);
+        } catch (error) {
+          console.log('AppData kaydetme hatası (localStorage kaydedildi):', error.message);
+        }
       }
     } catch (error) {
       console.error(`Error setting data for key "${key}":`, error);

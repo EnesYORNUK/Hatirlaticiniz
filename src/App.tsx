@@ -34,6 +34,7 @@ function App() {
   const [rawChecks, setRawChecks, checksLoaded] = useLocalStorage<any[]>('hatirlatici-checks', []);
   const [settings, setSettings, settingsLoaded] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
+  const [forceLoad, setForceLoad] = useState(false);
 
   // Eski veri formatını normalize et
   const checks: Check[] = rawChecks.map(normalizeCheck);
@@ -41,14 +42,24 @@ function App() {
   // Bildirim sistemi
   const { isElectron } = useElectronNotifications(checks, settings);
 
-  // Veriler yüklenene kadar loading göster
-  if (!checksLoaded || !settingsLoaded) {
+  // 3 saniye sonra zorla yükle
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setForceLoad(true);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Veriler yüklenene kadar loading göster (ama maksimum 3 saniye)
+  if ((!checksLoaded || !settingsLoaded) && !forceLoad) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <h2 className="text-xl font-medium text-gray-900">Yükleniyor...</h2>
           <p className="text-gray-500 mt-2">Verileriniz hazırlanıyor</p>
+          <p className="text-xs text-gray-400 mt-2">Maksimum 3 saniye beklenecek</p>
         </div>
       </div>
     );
