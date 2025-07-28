@@ -6,11 +6,11 @@ import Settings from './components/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useElectronNotifications } from './hooks/useElectronNotifications';
-import { Check, Settings as SettingsType } from './types';
+import { Check, Settings as SettingsType, ThemeType } from './types';
 
 const defaultSettings: SettingsType = {
-  reminderDays: 15,
-  notificationsEnabled: false,
+  reminderDays: 3,
+  notificationsEnabled: true,
   autoUpdateEnabled: true,
   // Yeni bildirim ayarları
   dailyNotificationEnabled: false,
@@ -20,6 +20,7 @@ const defaultSettings: SettingsType = {
   telegramBotEnabled: false,
   telegramBotToken: '',
   telegramChatId: '',
+  theme: 'light' as ThemeType, // 🎨 Default theme
 };
 
 // Eski check verilerini yeni formatla uyumlu hale getiren fonksiyon
@@ -48,6 +49,21 @@ function App() {
 
   // Bildirim sistemi
   const { isElectron } = useElectronNotifications(checks, settings);
+
+  // 🎨 Tema uygulama hook'u
+  useEffect(() => {
+    const applyTheme = (theme: ThemeType) => {
+      // HTML element'ine data-theme attribute'u ekle
+      document.documentElement.setAttribute('data-theme', theme);
+      
+      // Body'ye tema class'ı ekle
+      document.body.className = 'theme-bg min-h-screen';
+      
+      console.log(`🎨 Tema uygulandı: ${theme}`);
+    };
+
+    applyTheme(settings.theme);
+  }, [settings.theme]);
 
   useEffect(() => {
     document.title = 'Hatırlatıcınım - Çek ve Fatura Takip Uygulaması';
@@ -196,7 +212,10 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
+      <Layout 
+        currentPage={currentPage} 
+        onNavigate={setCurrentPage}
+      >
         {renderPage()}
       </Layout>
     </ErrorBoundary>

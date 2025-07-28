@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsType } from '../types';
+import { Settings as SettingsType, ThemeType } from '../types';
+import { Bell, Download, Shield, Clock, MessageCircle, Bot, Palette, Eye, Moon, Sun, Circle } from 'lucide-react';
 
 // Global type declaration for window.electronAPI
 declare global {
@@ -15,6 +16,20 @@ declare global {
     };
   }
 }
+
+// 🎨 Tema seçenekleri
+const themeOptions: { value: ThemeType; label: string; emoji: string; description: string }[] = [
+  { value: 'light', label: 'Açık Tema', emoji: '🌅', description: 'Klasik beyaz tema' },
+  { value: 'dark', label: 'Koyu Tema', emoji: '🌙', description: 'Göz yormayan karanlık tema' },
+  { value: 'blue', label: 'Mavi Tema', emoji: '🔵', description: 'Profesyonel mavi tonları' },
+  { value: 'green', label: 'Yeşil Tema', emoji: '🟢', description: 'Doğal yeşil renkleri' },
+  { value: 'orange', label: 'Turuncu Tema', emoji: '🟠', description: 'Enerjik turuncu tonları' },
+  { value: 'purple', label: 'Mor Tema', emoji: '🟣', description: 'Kreatif mor renkleri' },
+  { value: 'gray', label: 'Gri Tema', emoji: '⚫', description: 'Minimal gri tonları' },
+  { value: 'red', label: 'Kırmızı Tema', emoji: '🔴', description: 'Cesur kırmızı renkleri' },
+  { value: 'teal', label: 'Turkuaz Tema', emoji: '🟦', description: 'Sakin turkuaz tonları' },
+  { value: 'pink', label: 'Pembe Tema', emoji: '🌸', description: 'Sevimli pembe renkleri' },
+];
 
 interface SettingsProps {
   settings: SettingsType;
@@ -663,6 +678,102 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <p className="text-xs text-gray-500">
               ⚠️ <strong>Sorun varsa:</strong> F12 tuşuna basın, Console sekmesini açın ve debug bilgilerini kontrol edin.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 🎨 Tema Ayarları Bölümü */}
+      <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="theme-primary rounded-full p-2">
+            <Palette className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="theme-text text-lg font-semibold">🎨 Tema Ayarları</h3>
+            <p className="theme-text-muted text-sm">Uygulamanın görünümünü kişiselleştirin</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Tema Seçici */}
+          <div>
+            <label className="theme-text block text-sm font-medium mb-3">
+              Tema Seçin
+            </label>
+            <div className="relative">
+              <select
+                value={settings.theme}
+                onChange={(e) => onSave({ ...settings, theme: e.target.value as ThemeType })}
+                className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none bg-white pr-10"
+              >
+                {themeOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.emoji} {option.label} - {option.description}
+                  </option>
+                ))}
+              </select>
+              <Eye className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 theme-text-muted pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Tema Önizleme Kartları */}
+          <div className="mt-6">
+            <label className="theme-text block text-sm font-medium mb-3">
+              Tema Önizlemesi
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {themeOptions.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => onSave({ ...settings, theme: option.value })}
+                  className={`p-3 rounded-lg border-2 transition-all duration-200 text-center hover:scale-105 ${
+                    settings.theme === option.value
+                      ? 'theme-primary border-current shadow-lg'
+                      : 'theme-surface theme-border hover:shadow-md'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{option.emoji}</div>
+                  <div className={`text-xs font-medium ${
+                    settings.theme === option.value ? 'text-white' : 'theme-text'
+                  }`}>
+                    {option.label.replace(' Tema', '')}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mevcut Tema Info */}
+          <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">
+                {themeOptions.find(t => t.value === settings.theme)?.emoji}
+              </div>
+              <div>
+                <div className="theme-text font-medium">
+                  Aktif Tema: {themeOptions.find(t => t.value === settings.theme)?.label}
+                </div>
+                <div className="theme-text-muted text-sm">
+                  {themeOptions.find(t => t.value === settings.theme)?.description}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tema İpuçları */}
+          <div className="theme-info bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Circle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-blue-800 font-medium text-sm mb-1">💡 Tema İpuçları</div>
+                <div className="text-blue-700 text-sm space-y-1">
+                  <div>• <strong>Koyu Tema:</strong> Gece kullanımı için ideal</div>
+                  <div>• <strong>Mavi/Gri:</strong> Profesyonel ortamlar için</div>
+                  <div>• <strong>Yeşil/Turkuaz:</strong> Göz yorgunluğunu azaltır</div>
+                  <div>• <strong>Renkli Temalar:</strong> Kişisel kullanım için eğlenceli</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

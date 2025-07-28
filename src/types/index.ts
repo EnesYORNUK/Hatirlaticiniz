@@ -17,18 +17,29 @@ export interface Check {
   nextPaymentDate?: string; // Bir sonraki ödeme tarihi (tekrarlayan için)
 }
 
+export type ThemeType = 
+  | 'light'      // 🌅 Açık Tema
+  | 'dark'       // 🌙 Koyu Tema
+  | 'blue'       // 🔵 Mavi Tema
+  | 'green'      // 🟢 Yeşil Tema
+  | 'orange'     // 🟠 Turuncu Tema
+  | 'purple'     // 🟣 Mor Tema
+  | 'gray'       // ⚫ Gri Tema
+  | 'red'        // 🔴 Kırmızı Tema
+  | 'teal'       // 🟦 Turkuaz Tema
+  | 'pink';      // 🌸 Pembe Tema
+
 export interface Settings {
   reminderDays: number;
   notificationsEnabled: boolean;
   autoUpdateEnabled: boolean;
-  // Yeni bildirim ayarları
-  dailyNotificationEnabled: boolean; // Günlük bildirim açık/kapalı
-  dailyNotificationTime: string; // "09:00" formatında
-  lastNotificationCheck: string; // Son bildirim kontrolü tarihi
-  // Telegram bot ayarları
-  telegramBotEnabled: boolean; // Telegram bot açık/kapalı
-  telegramBotToken: string; // Bot token (@BotFather'dan alınan)
-  telegramChatId: string; // Kullanıcının chat ID'si
+  dailyNotificationEnabled: boolean;
+  dailyNotificationTime: string;
+  lastNotificationCheck: string;
+  telegramBotEnabled: boolean;
+  telegramBotToken: string;
+  telegramChatId: string;
+  theme: ThemeType; // 🎨 Yeni tema seçeneği
 }
 
 // Bildirim geçmişi için yeni interface

@@ -1,13 +1,13 @@
-import React, { ReactNode } from 'react';
-import { CreditCard, Settings, Plus, List } from 'lucide-react';
+import React from 'react';
+import { LayoutGrid, Plus, Settings, List, Palette } from 'lucide-react';
 
 interface LayoutProps {
-  children: ReactNode;
+  children: React.ReactNode;
   currentPage: string;
-  onPageChange: (page: string) => void;
+  onNavigate: (page: string) => void;
 }
 
-export default function Layout({ children, currentPage, onPageChange }: LayoutProps) {
+export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const menuItems = [
     { id: 'list', label: 'Ödeme Listesi', icon: List },
     { id: 'add', label: 'Yeni Ekle', icon: Plus },
@@ -15,40 +15,71 @@ export default function Layout({ children, currentPage, onPageChange }: LayoutPr
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm border-b border-gray-200">
+    <div className="theme-bg min-h-screen">
+      {/* Header */}
+      <header className="theme-surface shadow-md border-b theme-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <CreditCard className="h-6 w-6 text-white" />
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="theme-primary rounded-lg p-2">
+                <LayoutGrid className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">Hatırlatıcınım</h1>
+              <h1 className="theme-text text-xl font-bold">Hatırlatıcınım</h1>
             </div>
             
-            <nav className="flex space-x-1">
-              {menuItems.map(item => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onPageChange(item.id)}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === item.id
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="hidden sm:block">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+            {/* Tema Göstergesi */}
+            <div className="flex items-center gap-2 theme-bg-secondary px-3 py-1 rounded-full">
+              <Palette className="w-4 h-4 theme-text-muted" />
+              <span className="theme-text-muted text-sm font-medium">
+                {(() => {
+                  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+                  const themeLabels: Record<string, string> = {
+                    light: '🌅 Açık',
+                    dark: '🌙 Koyu',
+                    blue: '🔵 Mavi',
+                    green: '🟢 Yeşil',
+                    orange: '🟠 Turuncu',
+                    purple: '🟣 Mor',
+                    gray: '⚫ Gri',
+                    red: '🔴 Kırmızı',
+                    teal: '🟦 Turkuaz',
+                    pink: '🌸 Pembe'
+                  };
+                  return themeLabels[theme] || '🌅 Açık';
+                })()}
+              </span>
+            </div>
           </div>
         </div>
       </header>
 
+      {/* Navigation */}
+      <nav className="theme-bg-secondary border-b theme-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`flex items-center gap-2 px-3 py-4 border-b-2 transition-colors ${
+                    isActive
+                      ? 'border-current theme-primary text-white bg-opacity-10'
+                      : 'border-transparent theme-text-secondary hover:theme-text'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
