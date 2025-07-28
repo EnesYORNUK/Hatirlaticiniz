@@ -153,38 +153,89 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
     }
 
     try {
-      // Eğer chat ID yoksa, önce chat ID almaya çalış
+      console.log('Bot test başlatıldı, token:', telegramBotToken.substring(0, 10) + '...');
+
+      // 1. Bot bilgilerini kontrol et (getMe)
+      console.log('1. Bot bilgileri kontrol ediliyor...');
+      const botInfoResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getMe`);
+      
+      if (!botInfoResponse.ok) {
+        const errorText = await botInfoResponse.text();
+        console.error('getMe API hatası:', errorText);
+        alert(`❌ Bot token hatası!\n\nHata: ${errorText}\n\n✅ Çözüm:\n1. @BotFather'dan yeni token alın\n2. Token'ı doğru kopyaladığınızdan emin olun\n3. Token boşluk/enter içermesin`);
+        return;
+      }
+      
+      const botInfo = await botInfoResponse.json();
+      console.log('Bot bilgileri:', botInfo);
+      
+      if (!botInfo.ok) {
+        alert(`❌ Bot token geçersiz!\n\nBot yanıtı: ${botInfo.description}\n\n✅ @BotFather'dan yeni token alın.`);
+        return;
+      }
+
+      alert(`✅ Bot bulundu!\n\n🤖 Bot Adı: ${botInfo.result.first_name}\n📝 Username: @${botInfo.result.username}\n\n👆 Şimdi bu bota Telegram'da mesaj atın!`);
+
+      // 2. Webhook kontrolü ve temizleme
+      console.log('2. Webhook durumu kontrol ediliyor...');
+      const webhookResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getWebhookInfo`);
+      if (webhookResponse.ok) {
+        const webhookInfo = await webhookResponse.json();
+        console.log('Webhook info:', webhookInfo);
+        
+        if (webhookInfo.result && webhookInfo.result.url) {
+          console.log('Webhook aktif, temizleniyor...');
+          const deleteWebhook = await fetch(`https://api.telegram.org/bot${telegramBotToken}/deleteWebhook`);
+          console.log('Webhook silme sonucu:', await deleteWebhook.json());
+        }
+      }
+
+      // 3. Chat ID bulma - çoklu yöntem
       if (!telegramChatId) {
-        const updatesResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getUpdates`);
+        console.log('3. Chat ID aranıyor...');
+        
+        // 3a. getUpdates ile ara
+        const updatesResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getUpdates?limit=100`);
         
         if (!updatesResponse.ok) {
           const error = await updatesResponse.text();
-          alert(`❌ Bot token hatası:\n${error}\n\nLütfen:\n1. Bot token'ının doğru olduğunu kontrol edin\n2. Bot'unuza Telegram'da /start mesajı attığınızdan emin olun`);
+          alert(`❌ getUpdates hatası:\n${error}\n\nBot'a Telegram'da mesaj attığınızdan emin olun!`);
           return;
         }
 
         const updatesData = await updatesResponse.json();
+        console.log('Updates data:', updatesData);
         
         if (updatesData.result && updatesData.result.length > 0) {
-          // En son mesajdan chat ID'yi al
-          const lastMessage = updatesData.result[updatesData.result.length - 1];
-          const foundChatId = lastMessage.message?.chat?.id || lastMessage.callback_query?.message?.chat?.id;
+          // Tüm mesajları kontrol et ve chat ID'leri topla
+          const chatIds = new Set();
+          updatesData.result.forEach(update => {
+            const chatId = update.message?.chat?.id || 
+                          update.edited_message?.chat?.id || 
+                          update.callback_query?.message?.chat?.id ||
+                          update.channel_post?.chat?.id;
+            if (chatId) {
+              chatIds.add(chatId.toString());
+            }
+          });
           
-          if (foundChatId) {
-            setTelegramChatId(foundChatId.toString());
-            alert(`✅ Chat ID bulundu: ${foundChatId}\n\nChat ID otomatik olarak dolduruldu. Şimdi "Test Et" butonuna tekrar basın!`);
-            return;
-          } else {
-            alert(`⚠️ Chat ID bulunamadı!\n\nLütfen:\n1. Telegram'da bot'unuza /start mesajı atın\n2. "Merhaba" veya herhangi bir mesaj gönderin\n3. Bu butona tekrar basın`);
+          if (chatIds.size > 0) {
+            const chatIdArray = Array.from(chatIds);
+            const foundChatId = chatIdArray[chatIdArray.length - 1]; // En son bulunan
+            
+            setTelegramChatId(foundChatId);
+            alert(`✅ Chat ID bulundu: ${foundChatId}\n\n${chatIdArray.length > 1 ? `(${chatIdArray.length} farklı chat bulundu, en son kullanılan seçildi)` : ''}\n\nŞimdi "Test Et" butonuna tekrar basın!`);
             return;
           }
-        } else {
-          alert(`📭 Henüz mesaj yok!\n\nLütfen:\n1. Telegram'da bot'unuzu bulun\n2. Bot'a /start mesajı atın\n3. "Merhaba" yazın\n4. Bu butona tekrar basın`);
-          return;
         }
+        
+        // 3b. Manuel chat ID bulma rehberi
+        alert(`📭 Henüz mesaj bulunamadı!\n\n🔧 Manual Chat ID bulma:\n\n1️⃣ Telegram'da @userinfobot'a gidin\n2️⃣ Bot'a /start yazın\n3️⃣ Size Chat ID'nizi verecek\n4️⃣ O ID'yi buraya girin\n\n📱 Alternatif:\n1️⃣ @${botInfo.result.username} bot'unuza git\n2️⃣ /start yazın\n3️⃣ "Merhaba" yazın\n4️⃣ Bu butona tekrar basın`);
+        return;
       }
 
-      // Chat ID varsa normal test yap
+      // 4. Chat ID varsa test mesajı gönder
+      console.log('4. Test mesajı gönderiliyor...');
       const response = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
         method: 'POST',
         headers: {
@@ -192,18 +243,23 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         },
         body: JSON.stringify({
           chat_id: telegramChatId,
-          text: '✅ Telegram Bot başarıyla bağlandı!\n\n🤖 Komutlar:\n/bugun - Bugün ödenecekler\n/yakin - Yaklaşan ödemeler\n/tumu - Tüm aktif ödemeler\n/gecmis - Vadesi geçenler\n/istatistik - Genel özet\n\n🎉 Bot hazır!',
+          text: `✅ Telegram Bot başarıyla bağlandı!\n\n🤖 Bot: @${botInfo.result.username}\n👤 Chat ID: ${telegramChatId}\n\n📋 Komutlar:\n/bugun - Bugün ödenecekler\n/yakin - Yaklaşan ödemeler\n/tumu - Tüm aktif ödemeler\n/gecmis - Vadesi geçenler\n/istatistik - Genel özet\n\n🎉 Bot hazır ve çalışıyor!`,
         }),
       });
 
       if (response.ok) {
-        alert('✅ Test mesajı başarıyla gönderildi! Telegram\'ınızı kontrol edin.');
+        const result = await response.json();
+        console.log('Test mesajı gönderildi:', result);
+        alert('✅ Test mesajı başarıyla gönderildi! Telegram\'ınızı kontrol edin.\n\n🎉 Bot artık aktif ve çalışıyor!');
       } else {
         const error = await response.text();
-        alert(`❌ Test başarısız:\n${error}`);
+        console.error('Test mesajı hatası:', error);
+        alert(`❌ Test mesajı gönderilemedi:\n${error}\n\nChat ID doğru mu: ${telegramChatId}`);
       }
+      
     } catch (error) {
-      alert(`❌ Bağlantı hatası:\n${error}\n\nİnternet bağlantınızı kontrol edin.`);
+      console.error('Telegram bot test hatası:', error);
+      alert(`❌ Bağlantı hatası:\n${error}\n\n🔧 Kontrol edin:\n• İnternet bağlantınız\n• Bot token doğru mu\n• Telegram erişilebilir mi`);
     }
   };
 
@@ -348,18 +404,20 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               <div className="bg-green-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-green-900 mb-2">📋 Bot Kurulum Adımları:</h4>
                 <ol className="text-sm text-green-800 space-y-2 list-decimal list-inside">
-                  <li><strong>Telegram'da @BotFather'a</strong> mesaj atın</li>
-                  <li><strong>/newbot</strong> yazın ve bot'unuza isim verin</li>
-                  <li>Verilen <strong>token</strong>'ı aşağıya yapıştırın</li>
-                  <li><strong>Bot'unuzu bulun</strong> (link verilecek) ve <strong>/start</strong> yazın</li>
-                  <li><strong>"Merhaba"</strong> veya herhangi bir mesaj gönderin</li>
-                  <li><strong>"Test Et"</strong> butonuna basın → Chat ID otomatik bulunacak!</li>
+                  <li><strong>@BotFather'a mesaj atın</strong> ve <code>/newbot</code> yazın</li>
+                  <li><strong>Bot token'ını</strong> aşağıya yapıştırın</li>
+                  <li><strong>"Test Et"</strong> butonuna basın → Bot bilgileri kontrol edilir</li>
+                  <li><strong>Bot'unuza mesaj atın</strong> (/start, merhaba vs.)</li>
+                  <li><strong>"Test Et"</strong> butonuna tekrar basın → Chat ID otomatik bulunur</li>
                 </ol>
-                <div className="mt-3 p-2 bg-green-100 rounded border-l-4 border-green-400">
-                  <p className="text-xs text-green-700">
-                    💡 <strong>Önemli:</strong> Chat ID'yi manuel girmenize gerek yok! 
-                    Bot'a mesaj attıktan sonra "Test Et" butonu otomatik bulacak.
-                  </p>
+                
+                <div className="mt-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                  <h5 className="text-sm font-medium text-blue-900 mb-1">🔧 Chat ID Bulunamıyorsa:</h5>
+                  <ul className="text-xs text-blue-800 space-y-1">
+                    <li>• <strong>@userinfobot</strong>'a /start yazın → Chat ID'nizi verir</li>
+                    <li>• <strong>@chatid_echo_bot</strong>'a mesaj atın → Chat ID döner</li>
+                    <li>• Manuel olarak aşağıya yazın ve test edin</li>
+                  </ul>
                 </div>
               </div>
 
