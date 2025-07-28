@@ -3,7 +3,16 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const TelegramBot = require('node-telegram-bot-api');
+
+// Telegram Bot - Optional import (hata durumunda uygulama çökmesin)
+let TelegramBot = null;
+try {
+  TelegramBot = require('node-telegram-bot-api');
+  console.log('✅ Telegram Bot API başarıyla yüklendi');
+} catch (error) {
+  console.warn('⚠️ Telegram Bot API yüklenemedi:', error.message);
+  console.warn('📱 Telegram bot özellikleri devre dışı olacak');
+}
 
 let mainWindow;
 let tray = null;
@@ -60,6 +69,12 @@ const getAppDataPath = () => {
 // Telegram Bot Fonksiyonları
 function initializeTelegramBot() {
   try {
+    // TelegramBot sınıfı yüklenmemişse çık
+    if (!TelegramBot) {
+      console.log('❌ TelegramBot sınıfı mevcut değil, bot başlatılamıyor');
+      return;
+    }
+
     console.log('🤖 Telegram bot başlatılıyor...');
     
     const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
