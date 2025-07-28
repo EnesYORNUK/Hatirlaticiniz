@@ -24,10 +24,11 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
     }
   };
 
-  // Bildirim gönderme fonksiyonu
+  // Bildirim gönderme fonksiyonu (Telegram entegrasyonu electron.cjs'te yapıldı)
   const showNotification = useCallback(async (title: string, body: string) => {
     try {
       if (isElectron && window.electronAPI) {
+        // Electron üzerinden hem masaüstü hem telegram bildirimi gönderilir
         await window.electronAPI.showNotification(title, body);
       } else if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, {
@@ -86,7 +87,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
       return;
     }
 
-    // Bildirimi gönder
+    // Bildirimi gönder (Telegram entegrasyonu electron.cjs'te otomatik)
     showNotification(title, body);
 
     // Geçmişe kaydet
@@ -156,7 +157,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
         sendNotificationWithHistory(
           check,
           'reminder',
-          `${type} Ödeme Hatırlatması`,
+          `💰 ${type} Ödeme Hatırlatması`,
           `${company} - ${amount} TL tutarındaki ${type.toLowerCase()}in ödeme tarihi ${daysLeft} gün sonra`
         );
       }
@@ -166,7 +167,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
         sendNotificationWithHistory(
           check,
           'due-today',
-          `${type} Ödeme Günü!`,
+          `🔴 ${type} Ödeme Günü!`,
           `${company} - ${amount} TL tutarındaki ${type.toLowerCase()}in ödeme günü bugün!`
         );
       }
@@ -240,6 +241,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
       reminderDays: settings.reminderDays,
       dailyEnabled: settings.dailyNotificationEnabled,
       dailyTime: settings.dailyNotificationTime,
+      telegramEnabled: settings.telegramBotEnabled, // Telegram ayarı da checksum'a dahil
     });
 
     // Gereksiz re-run'ları engelle

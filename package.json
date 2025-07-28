@@ -25,8 +25,10 @@
     "restore": "node scripts/restore.js"
   },
   "dependencies": {
+    "@types/node-telegram-bot-api": "^0.64.9",
     "electron-updater": "^6.6.2",
     "lucide-react": "^0.525.0",
+    "node-telegram-bot-api": "^0.66.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

@@ -16,6 +16,10 @@ const defaultSettings: SettingsType = {
   dailyNotificationEnabled: false,
   dailyNotificationTime: '09:00',
   lastNotificationCheck: '',
+  // Telegram bot ayarları
+  telegramBotEnabled: false,
+  telegramBotToken: '',
+  telegramChatId: '',
 };
 
 // Eski check verilerini yeni formatla uyumlu hale getiren fonksiyon

@@ -25,6 +25,10 @@ export interface Settings {
   dailyNotificationEnabled: boolean; // Günlük bildirim açık/kapalı
   dailyNotificationTime: string; // "09:00" formatında
   lastNotificationCheck: string; // Son bildirim kontrolü tarihi
+  // Telegram bot ayarları
+  telegramBotEnabled: boolean; // Telegram bot açık/kapalı
+  telegramBotToken: string; // Bot token (@BotFather'dan alınan)
+  telegramChatId: string; // Kullanıcının chat ID'si
 }
 
 // Bildirim geçmişi için yeni interface

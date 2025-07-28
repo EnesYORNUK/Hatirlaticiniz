@@ -1,224 +1,384 @@
-const { app, BrowserWindow, Menu, Notification, ipcMain, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
-const isDev = process.env.NODE_ENV === 'development';
+const os = require('os');
+const TelegramBot = require('node-telegram-bot-api');
 
-// Uygulama penceresi ve tray referansı
 let mainWindow;
 let tray = null;
-let notificationTimer = null;
+let telegramBot = null;
+let isQuitting = false;
+let backgroundNotificationInterval = null;
 
-function createWindow() {
-  console.log('Electron: createWindow çağrıldı.');
+// AppData klasör yolu
+const getAppDataPath = () => {
+  const platform = process.platform;
+  switch (platform) {
+    case 'win32':
+      return path.join(os.homedir(), 'AppData', 'Roaming', 'Hatirlaticinim');
+    case 'darwin':
+      return path.join(os.homedir(), 'Library', 'Application Support', 'Hatirlaticinim');
+    default:
+      return path.join(os.homedir(), '.config', 'Hatirlaticinim');
+  }
+};
+
+// Telegram Bot Fonksiyonları
+function initializeTelegramBot() {
   try {
-    mainWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
-      minWidth: 800,
-      minHeight: 600,
-      icon: path.join(__dirname, 'icon.ico'),
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        enableRemoteModule: false,
-        preload: path.join(__dirname, 'preload.cjs')
-      },
-      titleBarStyle: 'default',
-      show: false
-    });
-    console.log('Electron: BrowserWindow başarıyla oluşturuldu.');
-  } catch (error) {
-    console.error('Electron: BrowserWindow oluşturulurken hata oluştu:', error);
-    app.quit();
-    return;
-  }
+    const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
+    if (!fs.existsSync(settingsPath)) return;
 
-  if (!mainWindow) {
-    console.error('Electron: mainWindow hala tanımlı değil, uygulama kapatılıyor.');
-    app.quit();
-    return;
-  }
-
-  const startUrl = isDev
-    ? 'http://localhost:5173'
-    : `file://${path.join(__dirname, '../dist/index.html')}`;
-
-  console.log('Electron: Yüklenecek URL:', startUrl);
-  mainWindow.loadURL(startUrl);
-
-  mainWindow.once('ready-to-show', () => {
-    console.log('Electron: Pencere gösterilmeye hazır.');
-    mainWindow.show();
-    if (isDev) {
-      mainWindow.webContents.openDevTools();
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    
+    if (!settings.telegramBotEnabled || !settings.telegramBotToken) {
+      if (telegramBot) {
+        telegramBot.stopPolling();
+        telegramBot = null;
+      }
+      return;
     }
+
+    // Mevcut bot'u durdur
+    if (telegramBot) {
+      telegramBot.stopPolling();
+    }
+
+    // Yeni bot oluştur
+    telegramBot = new TelegramBot(settings.telegramBotToken, { polling: true });
+    
+    console.log('Telegram bot başlatıldı');
+    setupTelegramCommands();
+    
+  } catch (error) {
+    console.error('Telegram bot başlatılamadı:', error);
+  }
+}
+
+function setupTelegramCommands() {
+  if (!telegramBot) return;
+
+  // /start komutu
+  telegramBot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
+
+📋 Kullanılabilir komutlar:
+/bugun - Bugün ödenecek çek/faturalar
+/yakin - 7 gün içinde ödenecekler
+/tumu - Tüm aktif ödemeler
+/gecmis - Vadesi geçen ödemeler
+/istatistik - Genel özet
+
+💡 Chat ID'niz: ${chatId}
+Bu ID'yi uygulamanın ayarlarına girin.`;
+
+    telegramBot.sendMessage(chatId, welcomeMessage);
   });
 
-  // Pencere kapatılırken sistem tepsisine gizle
+  // /bugun komutu
+  telegramBot.onText(/\/bugun/, (msg) => {
+    const chatId = msg.chat.id;
+    sendTodayPayments(chatId);
+  });
+
+  // /yakin komutu
+  telegramBot.onText(/\/yakin/, (msg) => {
+    const chatId = msg.chat.id;
+    sendUpcomingPayments(chatId);
+  });
+
+  // /tumu komutu
+  telegramBot.onText(/\/tumu/, (msg) => {
+    const chatId = msg.chat.id;
+    sendAllActivePayments(chatId);
+  });
+
+  // /gecmis komutu
+  telegramBot.onText(/\/gecmis/, (msg) => {
+    const chatId = msg.chat.id;
+    sendOverduePayments(chatId);
+  });
+
+  // /istatistik komutu
+  telegramBot.onText(/\/istatistik/, (msg) => {
+    const chatId = msg.chat.id;
+    sendStatistics(chatId);
+  });
+
+  // Error handler
+  telegramBot.on('error', (error) => {
+    console.error('Telegram bot hatası:', error);
+  });
+}
+
+function getChecksData() {
+  try {
+    const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
+    if (!fs.existsSync(checksPath)) return [];
+    
+    const data = fs.readFileSync(checksPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Checks verisi okunamadı:', error);
+    return [];
+  }
+}
+
+function formatCheck(check) {
+  const type = check.type === 'bill' ? '🧾 Fatura' : '📄 Çek';
+  const typeDetails = check.type === 'bill' && check.billType 
+    ? ` (${check.billType.charAt(0).toUpperCase() + check.billType.slice(1)})`
+    : '';
+  
+  const amount = check.amount.toLocaleString('tr-TR');
+  const date = new Date(check.paymentDate).toLocaleDateString('tr-TR');
+  const daysLeft = Math.ceil((new Date(check.paymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+  
+  let status = '';
+  if (check.isPaid) {
+    status = '✅ Ödendi';
+  } else if (daysLeft < 0) {
+    status = `⚠️ ${Math.abs(daysLeft)} gün gecikmiş`;
+  } else if (daysLeft === 0) {
+    status = '🔴 Bugün ödenecek';
+  } else {
+    status = `⏰ ${daysLeft} gün kaldı`;
+  }
+
+  return `${type}${typeDetails}
+💰 ${amount} TL
+🏢 ${check.signedTo}
+📅 ${date}
+${status}`;
+}
+
+function sendTodayPayments(chatId) {
+  const checks = getChecksData();
+  const today = new Date().toDateString();
+  
+  const todayChecks = checks.filter(check => {
+    if (check.isPaid) return false;
+    const checkDate = new Date(check.paymentDate).toDateString();
+    return checkDate === today;
+  });
+
+  if (todayChecks.length === 0) {
+    telegramBot.sendMessage(chatId, '🎉 Bugün ödenecek çek/fatura yok!');
+    return;
+  }
+
+  let message = `📅 Bugün ödenecek ${todayChecks.length} ödeme:\n\n`;
+  todayChecks.forEach((check, index) => {
+    message += `${index + 1}. ${formatCheck(check)}\n\n`;
+  });
+
+  telegramBot.sendMessage(chatId, message);
+}
+
+function sendUpcomingPayments(chatId) {
+  const checks = getChecksData();
+  const sevenDaysFromNow = new Date();
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+  const upcomingChecks = checks.filter(check => {
+    if (check.isPaid) return false;
+    const checkDate = new Date(check.paymentDate);
+    const now = new Date();
+    return checkDate >= now && checkDate <= sevenDaysFromNow;
+  });
+
+  if (upcomingChecks.length === 0) {
+    telegramBot.sendMessage(chatId, '😌 Önümüzdeki 7 gün içinde ödenecek çek/fatura yok!');
+    return;
+  }
+
+  // Tarihe göre sırala
+  upcomingChecks.sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate));
+
+  let message = `⏰ 7 gün içinde ödenecek ${upcomingChecks.length} ödeme:\n\n`;
+  upcomingChecks.forEach((check, index) => {
+    message += `${index + 1}. ${formatCheck(check)}\n\n`;
+  });
+
+  telegramBot.sendMessage(chatId, message);
+}
+
+function sendAllActivePayments(chatId) {
+  const checks = getChecksData();
+  const activeChecks = checks.filter(check => !check.isPaid);
+
+  if (activeChecks.length === 0) {
+    telegramBot.sendMessage(chatId, '🎉 Hiç aktif ödeme yok! Tüm ödemeler tamamlanmış.');
+    return;
+  }
+
+  // Tarihe göre sırala
+  activeChecks.sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate));
+
+  let message = `📋 Toplam ${activeChecks.length} aktif ödeme:\n\n`;
+  activeChecks.slice(0, 10).forEach((check, index) => {
+    message += `${index + 1}. ${formatCheck(check)}\n\n`;
+  });
+
+  if (activeChecks.length > 10) {
+    message += `... ve ${activeChecks.length - 10} ödeme daha.`;
+  }
+
+  telegramBot.sendMessage(chatId, message);
+}
+
+function sendOverduePayments(chatId) {
+  const checks = getChecksData();
+  const now = new Date();
+  
+  const overdueChecks = checks.filter(check => {
+    if (check.isPaid) return false;
+    const checkDate = new Date(check.paymentDate);
+    return checkDate < now;
+  });
+
+  if (overdueChecks.length === 0) {
+    telegramBot.sendMessage(chatId, '✅ Vadesi geçmiş ödeme yok!');
+    return;
+  }
+
+  // Tarihe göre sırala (en eski önce)
+  overdueChecks.sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate));
+
+  let message = `⚠️ Vadesi geçmiş ${overdueChecks.length} ödeme:\n\n`;
+  overdueChecks.forEach((check, index) => {
+    message += `${index + 1}. ${formatCheck(check)}\n\n`;
+  });
+
+  telegramBot.sendMessage(chatId, message);
+}
+
+function sendStatistics(chatId) {
+  const checks = getChecksData();
+  
+  const total = checks.length;
+  const paid = checks.filter(c => c.isPaid).length;
+  const active = checks.filter(c => !c.isPaid).length;
+  const overdue = checks.filter(c => !c.isPaid && new Date(c.paymentDate) < new Date()).length;
+  
+  const totalAmount = checks.reduce((sum, c) => sum + c.amount, 0);
+  const paidAmount = checks.filter(c => c.isPaid).reduce((sum, c) => sum + c.amount, 0);
+  const activeAmount = checks.filter(c => !c.isPaid).reduce((sum, c) => sum + c.amount, 0);
+
+  const message = `📊 Genel İstatistikler:
+
+📋 Toplam Kayıt: ${total}
+✅ Ödenen: ${paid}
+⏳ Aktif: ${active}
+⚠️ Vadesi Geçen: ${overdue}
+
+💰 Toplam Tutar: ${totalAmount.toLocaleString('tr-TR')} TL
+✅ Ödenen Tutar: ${paidAmount.toLocaleString('tr-TR')} TL
+⏳ Bekleyen Tutar: ${activeAmount.toLocaleString('tr-TR')} TL
+
+📈 Ödeme Oranı: %${total > 0 ? Math.round((paid / total) * 100) : 0}`;
+
+  telegramBot.sendMessage(chatId, message);
+}
+
+function sendTelegramNotification(title, message) {
+  if (!telegramBot) return;
+
+  try {
+    const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
+    if (!fs.existsSync(settingsPath)) return;
+
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    
+    if (settings.telegramBotEnabled && settings.telegramChatId) {
+      const fullMessage = `🔔 ${title}\n\n${message}`;
+      telegramBot.sendMessage(settings.telegramChatId, fullMessage);
+    }
+  } catch (error) {
+    console.error('Telegram bildirimi gönderilemedi:', error);
+  }
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs')
+    },
+    icon: path.join(__dirname, 'icon.ico'),
+    show: false,
+    autoHideMenuBar: true,
+  });
+
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
   mainWindow.on('close', (event) => {
-    if (!app.isQuiting) {
+    if (!isQuitting && tray) {
       event.preventDefault();
       mainWindow.hide();
       
-      // İlk kez gizlenirken bilgilendirme bildirimi göster
-      if (!global.trayNotificationShown) {
-        showNotification(
-          'Hatırlatıcınım',
-          'Uygulama sistem tepsisinde çalışmaya devam ediyor. Tamamen kapatmak için tepsiden çıkış yapın.'
-        );
-        global.trayNotificationShown = true;
+      if (process.platform === 'darwin') {
+        app.dock.hide();
       }
-      return false;
     }
   });
 
-  mainWindow.on('closed', () => {
-    console.log('Electron: Pencere kapatıldı.');
-    mainWindow = null;
-  });
-
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.error('Electron: Web içeriği yüklenemedi:', errorDescription, validatedURL);
-  });
-
-  createMenu();
-  createTray();
-  setupNotificationTimer();
-}
-
-function createMenu() {
-  const template = [
-    {
-      label: 'Dosya',
-      submenu: [
-        {
-          label: 'Yeni Çek',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => {
-            mainWindow.webContents.send('menu-new-check');
-          }
-        },
-        { type: 'separator' },
-        {
-          label: 'Çıkış',
-          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
-          click: () => {
-            app.quit();
-          }
-        }
-      ]
-    },
-    {
-      label: 'Düzenle',
-      submenu: [
-        { label: 'Geri Al', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
-        { label: 'Yinele', accelerator: 'Shift+CmdOrCtrl+Z', role: 'redo' },
-        { type: 'separator' },
-        { label: 'Kes', accelerator: 'CmdOrCtrl+X', role: 'cut' },
-        { label: 'Kopyala', accelerator: 'CmdOrCtrl+C', role: 'copy' },
-        { label: 'Yapıştır', accelerator: 'CmdOrCtrl+V', role: 'paste' }
-      ]
-    },
-    {
-      label: 'Görünüm',
-      submenu: [
-        { label: 'Yeniden Yükle', accelerator: 'CmdOrCtrl+R', role: 'reload' },
-        { label: 'Tam Ekran', accelerator: 'F11', role: 'togglefullscreen' },
-        { type: 'separator' },
-        { label: 'Yakınlaştır', accelerator: 'CmdOrCtrl+Plus', role: 'zoomin' },
-        { label: 'Uzaklaştır', accelerator: 'CmdOrCtrl+-', role: 'zoomout' },
-        { label: 'Gerçek Boyut', accelerator: 'CmdOrCtrl+0', role: 'resetzoom' }
-      ]
-    },
-    {
-      label: 'Yardım',
-      submenu: [
-        {
-          label: 'Hakkında',
-          click: () => {
-            const options = {
-              type: 'info',
-              title: 'Hatırlatıcınım Hakkında',
-              message: 'Hatırlatıcınım v1.0.0',
-              detail: 'Çek takip ve hatırlatma uygulaması\n\nGeliştirici: Hatırlatıcınım Ekibi'
-            };
-            require('electron').dialog.showMessageBox(mainWindow, options);
-          }
-        }
-      ]
-    }
-  ];
-
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  // Telegram bot'u başlat
+  setTimeout(initializeTelegramBot, 2000);
 }
 
 function createTray() {
-  try {
-    tray = new Tray(path.join(__dirname, 'icon.ico'));
-    
-    // Mevcut bildirim ayarını kontrol et
-    let notificationsEnabled = true;
-    try {
-      const settingsPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim', 'hatirlatici-settings.json');
-      if (fs.existsSync(settingsPath)) {
-        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-        notificationsEnabled = settings.notificationsEnabled !== false;
-      }
-    } catch (error) {
-      console.log('Bildirim ayarı okunamadı, default true kullanılıyor');
-    }
-    
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: 'Aç',
-        click: () => {
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          } else {
-            createWindow();
-          }
-        }
-      },
-      {
-        label: 'Bildirimler',
-        type: 'checkbox',
-        checked: notificationsEnabled,
-        click: (menuItem) => {
-          // Bildirim ayarını kaydet
-          saveNotificationSetting(menuItem.checked);
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Güncelleme Kontrol Et',
-        click: () => {
-          if (!isDev && isAutoUpdateEnabled()) {
-            autoUpdater.checkForUpdatesAndNotify();
-          }
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Çıkış',
-        click: () => {
-          app.isQuiting = true;
-          app.quit();
-        }
-      }
-    ]);
+  if (tray) return;
 
-    tray.setToolTip('Hatırlatıcınım - Çek ve Fatura Takibi');
-    tray.setContextMenu(contextMenu);
+  try {
+    const iconPath = path.join(__dirname, 'icon.ico');
+    let icon;
+    
+    if (fs.existsSync(iconPath)) {
+      icon = nativeImage.createFromPath(iconPath);
+      if (process.platform === 'win32') {
+        icon = icon.resize({ width: 16, height: 16 });
+      }
+    } else {
+      icon = nativeImage.createEmpty();
+    }
+
+    tray = new Tray(icon);
+    tray.setToolTip('Hatırlatıcınım - Çek ve Fatura Takip');
+
+    updateTrayMenu();
+
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    });
 
     tray.on('double-click', () => {
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
-      } else {
-        createWindow();
       }
     });
 
@@ -227,123 +387,134 @@ function createTray() {
   }
 }
 
-function setupNotificationTimer() {
-  // Arka planda bildirim kontrolü - her 30 dakikada bir
-  if (notificationTimer) {
-    clearInterval(notificationTimer);
-  }
+function updateTrayMenu() {
+  if (!tray) return;
 
-  notificationTimer = setInterval(() => {
-    checkBackgroundNotifications();
-  }, 30 * 60 * 1000); // 30 dakika
-
-  // İlk kontrol 5 dakika sonra
-  setTimeout(() => {
-    checkBackgroundNotifications();
-  }, 5 * 60 * 1000);
-}
-
-function checkBackgroundNotifications() {
   try {
-    // Ayarları kontrol et
-    const settingsPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim', 'hatirlatici-settings.json');
-    const checksPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim', 'hatirlatici-checks.json');
-
-    if (!fs.existsSync(settingsPath) || !fs.existsSync(checksPath)) {
-      return;
-    }
-
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    const checks = JSON.parse(fs.readFileSync(checksPath, 'utf8'));
-
-    if (!settings.notificationsEnabled) {
-      return;
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    checks.forEach(check => {
-      if (check.isPaid) return;
-
-      const paymentDate = new Date(check.paymentDate);
-      paymentDate.setHours(0, 0, 0, 0);
-      
-      const daysUntil = Math.ceil((paymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Hatırlatma günü bildirimi
-      if (daysUntil === settings.reminderDays) {
-        const type = check.type === 'bill' ? 'Fatura' : 'Çek';
-        showNotification(
-          `${type} Ödeme Hatırlatması`,
-          `${check.signedTo} - ${check.amount.toLocaleString('tr-TR')} ₺ tutarındaki ${type.toLowerCase()}in ödeme tarihi ${settings.reminderDays} gün sonra!`
-        );
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Uygulamayı Aç',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Güncellemeleri Kontrol Et',
+        click: () => {
+          autoUpdater.checkForUpdatesAndNotify();
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Çıkış',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        }
       }
+    ]);
 
-      // Bugün ödeme günü
-      if (daysUntil === 0) {
-        const type = check.type === 'bill' ? 'Fatura' : 'Çek';
-        showNotification(
-          `${type} Ödeme Günü!`,
-          `${check.signedTo} - ${check.amount.toLocaleString('tr-TR')} ₺ tutarındaki ${type.toLowerCase()}in ödeme günü bugün!`
-        );
-      }
-
-      // Vadesi geçenler (son 3 gün için)
-      if (daysUntil < 0 && daysUntil >= -3) {
-        const type = check.type === 'bill' ? 'Fatura' : 'Çek';
-        showNotification(
-          `Vadesi Geçen ${type}!`,
-          `${check.signedTo} - ${check.amount.toLocaleString('tr-TR')} ₺ tutarındaki ${type.toLowerCase()}in vadesi ${Math.abs(daysUntil)} gün önce geçti!`
-        );
-      }
-    });
-
+    tray.setContextMenu(contextMenu);
   } catch (error) {
-    console.error('Arka plan bildirim kontrolü hatası:', error);
+    console.error('Tray menu güncellenemedi:', error);
   }
 }
 
-function saveNotificationSetting(enabled) {
-  try {
-    const settingsPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim', 'hatirlatici-settings.json');
-    
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      settings.notificationsEnabled = enabled;
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    }
-  } catch (error) {
-    console.error('Bildirim ayarı kaydedilemedi:', error);
-  }
-}
-
-// Bildirim gönderme fonksiyonu
-function showNotification(title, body) {
-  if (Notification.isSupported()) {
-    new Notification({
-      title: title,
-      body: body,
-      icon: path.join(__dirname, 'icon.ico')
-    }).show();
-  }
-}
-
-// IPC olayları
-ipcMain.handle('show-notification', async (event, title, body) => {
-  showNotification(title, body);
+// Ana uygulama event'leri
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+  
+  // Auto updater setup
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
-ipcMain.handle('app-version', async () => {
+app.on('window-all-closed', () => {
+  if (!tray) {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  } else if (mainWindow) {
+    mainWindow.show();
+  }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  
+  if (backgroundNotificationInterval) {
+    clearInterval(backgroundNotificationInterval);
+  }
+  
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+
+  if (telegramBot) {
+    telegramBot.stopPolling();
+    telegramBot = null;
+  }
+});
+
+// IPC Handlers
+ipcMain.handle('show-notification', async (event, title, body) => {
+  const { Notification } = require('electron');
+  
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title,
+      body,
+      icon: path.join(__dirname, 'icon.ico')
+    });
+    notification.show();
+  }
+  
+  // Telegram bildirimi de gönder
+  sendTelegramNotification(title, body);
+});
+
+ipcMain.handle('app-version', () => {
   return app.getVersion();
+});
+
+// Güncelleme IPC handlers
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return result;
+  } catch (error) {
+    throw new Error(`Update check failed: ${error.message}`);
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+  } catch (error) {
+    throw new Error(`Update download failed: ${error.message}`);
+  }
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall();
 });
 
 // AppData dosya işlemleri
 ipcMain.handle('save-app-data', async (event, key, data) => {
   try {
-    const appDataPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim');
+    const appDataPath = getAppDataPath();
     
-    // Klasör yoksa oluştur
     if (!fs.existsSync(appDataPath)) {
       fs.mkdirSync(appDataPath, { recursive: true });
     }
@@ -351,146 +522,72 @@ ipcMain.handle('save-app-data', async (event, key, data) => {
     const filePath = path.join(appDataPath, `${key}.json`);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     
+    // Settings değiştiğinde Telegram bot'u yeniden başlat
+    if (key === 'hatirlatici-settings') {
+      setTimeout(initializeTelegramBot, 1000);
+    }
+    
     return true;
   } catch (error) {
-    console.error('AppData kaydetme hatası:', error);
+    console.error('AppData save error:', error);
     return false;
   }
 });
 
 ipcMain.handle('load-app-data', async (event, key) => {
   try {
-    const appDataPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim');
+    const appDataPath = getAppDataPath();
     const filePath = path.join(appDataPath, `${key}.json`);
     
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(data);
+    if (!fs.existsSync(filePath)) {
+      return null;
     }
     
-    return null;
+    const data = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(data);
   } catch (error) {
-    console.error('AppData okuma hatası:', error);
+    console.error('AppData load error:', error);
     return null;
   }
 });
 
-// Uygulama olayları
-app.whenReady().then(() => {
-  createWindow();
-
-  // Geliştirme modunda güncelleme kontrolü yapma
-  if (!isDev) {
-    // Uygulama başladığında güncelleme kontrol et (2 saniye sonra)
-    setTimeout(() => {
-      if (isAutoUpdateEnabled()) {
-        autoUpdater.checkForUpdatesAndNotify();
-      }
-    }, 2000);
-
-    // Her 30 dakikada bir güncelleme kontrol et
-    setInterval(() => {
-      if (isAutoUpdateEnabled()) {
-        autoUpdater.checkForUpdatesAndNotify();
-      }
-    }, 30 * 60 * 1000); // 30 dakika
-  }
-
-  app.on('activate', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    } else if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-});
-
-// Sistem tepsisi kullanıldığında tüm pencereler kapatılsa bile app'i kapatma
-app.on('window-all-closed', () => {
-  // macOS'ta bile sistem tepsisi varsa uygulamayı açık tut
-  if (process.platform !== 'darwin' && !tray) {
-    app.quit();
+// Auto updater events
+autoUpdater.on('checking-for-update', () => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'checking');
   }
 });
-
-// Uygulama tamamen kapatılırken temizlik yap
-app.on('before-quit', () => {
-  app.isQuiting = true;
-  
-  if (notificationTimer) {
-    clearInterval(notificationTimer);
-  }
-  
-  if (tray) {
-    tray.destroy();
-  }
-});
-
-// Güvenlik: Yeni pencere açılmasını engelle
-app.on('web-contents-created', (event, contents) => {
-  contents.on('new-window', (event, navigationUrl) => {
-    event.preventDefault();
-    require('electron').shell.openExternal(navigationUrl);
-  });
-});
-
-// Güncelleme olaylarını dinle
-autoUpdater.autoDownload = false; // Otomatik indirmeyi kapat
-autoUpdater.autoInstallOnAppQuit = false; // Uygulama kapanırken otomatik kurulumu kapat
-
-// Kullanıcı ayarlarını kontrol eden fonksiyon
-function isAutoUpdateEnabled() {
-  try {
-    const settings = JSON.parse(require('fs').readFileSync(
-      path.join(require('os').homedir(), 'AppData', 'Roaming', 'Hatirlaticinim', 'hatirlatici-settings.json'),
-      'utf8'
-    ));
-    return settings.autoUpdateEnabled !== false; // Default true
-  } catch (error) {
-    return true; // Ayar yoksa default true
-  }
-}
 
 autoUpdater.on('update-available', (info) => {
-  mainWindow.webContents.send('update-status', 'update-available', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'update-available', info);
+  }
 });
 
 autoUpdater.on('update-not-available', () => {
-  mainWindow.webContents.send('update-status', 'update-not-available');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'not-available');
+  }
 });
 
 autoUpdater.on('error', (err) => {
-  mainWindow.webContents.send('update-status', 'error', err.message);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'error', err.message);
+  }
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-  mainWindow.webContents.send('update-status', 'download-progress', progressObj);
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  mainWindow.webContents.send('update-status', 'update-downloaded', info);
-});
-
-// Renderer sürecinden gelen IPC çağrılarını dinle
-ipcMain.handle('check-for-updates', async () => {
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    return result;
-  } catch (error) {
-    return { error: error.message };
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'download-progress', {
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total
+    });
   }
 });
 
-ipcMain.handle('download-update', async () => {
-  try {
-    const result = await autoUpdater.downloadUpdate();
-    return result;
-  } catch (error) {
-    return { error: error.message };
+autoUpdater.on('update-downloaded', () => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'update-downloaded');
   }
-});
-
-ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall();
 });
