@@ -59,15 +59,8 @@
     "url": "https://github.com/EnesYORNUK/Hatirlaticiniz.git"
   },
   "build": {
-    "publish": {
-      "provider": "github",
-      "owner": "EnesYORNUK",
-      "repo": "Hatirlaticiniz",
-      "private": false
-    },
-    "appId": "com.hatirlaticiniz.app",
+    "appId": "com.hatirlaticinim.app",
     "productName": "Hatirlaticinim",
-    "copyright": "Copyright © 2025 Hatirlaticinim",
     "directories": {
       "output": "electron-dist"
     },
@@ -75,42 +68,35 @@
       "dist/**/*",
       "public/electron.cjs",
       "public/preload.cjs",
-      "public/icon.ico",
-      "public/icon-256x256.png",
-      "node_modules/**/*"
+      "public/icon.ico"
     ],
-    "extraResources": [
-      {
-        "from": "public/icon.ico",
-        "to": "icon.ico"
-      }
-    ],
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": "dmg",
-      "icon": "public/icon-256x256.png"
-    },
     "win": {
       "target": "nsis",
-      "icon": "public/icon.ico",
-      "verifyUpdateCodeSignature": false
-    },
-    "linux": {
-      "target": "AppImage",
-      "category": "Office",
-      "icon": "public/icon-256x256.png"
+      "icon": "public/icon.ico"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "installerIcon": "public/icon.ico",
-      "uninstallerIcon": "public/icon.ico",
-      "installerHeaderIcon": "public/icon.ico",
-      "deleteAppDataOnUninstall": true,
-      "runAfterFinish": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
-    }
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "runAfterFinish": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icon.ico"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "EnesYORNUK",
+        "repo": "Hatirlaticiniz"
+      }
+    ]
   }
 }

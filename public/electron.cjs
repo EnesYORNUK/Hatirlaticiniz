@@ -11,6 +11,39 @@ let telegramBot = null;
 let isQuitting = false;
 let backgroundNotificationInterval = null;
 
+// Single Instance Lock - Sadece tek uygulama instance'ı çalışsın
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Eğer zaten bir instance çalışıyorsa, bu instance'ı kapat
+  console.log('Uygulama zaten çalışıyor. Mevcut pencereyi öne getiriliyor...');
+  app.quit();
+} else {
+  // İkinci instance açılmaya çalışıldığında bu event tetiklenir
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('İkinci instance tespit edildi. Ana pencereyi öne getiriliyor...');
+    
+    // Ana pencere varsa ve minimize edilmişse restore et
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      
+      // Pencereyi öne getir ve odakla
+      mainWindow.show();
+      mainWindow.focus();
+      
+      // macOS'ta dock'tan göster
+      if (process.platform === 'darwin') {
+        app.show();
+      }
+    }
+  });
+
+  // Ana uygulama mantığı buradan devam eder
+  console.log('Ana instance başlatılıyor...');
+}
+
 // AppData klasör yolu
 const getAppDataPath = () => {
   const platform = process.platform;
@@ -302,6 +335,13 @@ function sendTelegramNotification(title, message) {
 }
 
 function createWindow() {
+  // Eğer ana pencere zaten varsa, onu öne getir
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -313,6 +353,12 @@ function createWindow() {
     icon: path.join(__dirname, 'icon.ico'),
     show: false,
     autoHideMenuBar: true,
+    // Pencere davranış iyileştirmeleri
+    titleBarStyle: 'default',
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    closable: true,
   });
 
   const isDev = process.env.NODE_ENV === 'development';
@@ -326,6 +372,12 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.focus(); // Pencereyi odakla
+    
+    // Windows'ta taskbar'da yanıp söndür
+    if (process.platform === 'win32') {
+      mainWindow.flashFrame(false);
+    }
   });
 
   mainWindow.on('close', (event) => {
@@ -333,10 +385,24 @@ function createWindow() {
       event.preventDefault();
       mainWindow.hide();
       
+      // İlk sefer gizlendiğinde kullanıcıya bilgi ver
+      if (!mainWindow.isVisible()) {
+        tray.displayBalloon({
+          iconType: 'info',
+          title: 'Hatırlatıcınım',
+          content: 'Uygulama arka planda çalışmaya devam ediyor. Tamamen kapatmak için sağ tık → Çıkış.'
+        });
+      }
+      
       if (process.platform === 'darwin') {
         app.dock.hide();
       }
     }
+  });
+
+  // Pencere odaklandığında
+  mainWindow.on('focus', () => {
+    console.log('Ana pencere odaklandı');
   });
 
   // Telegram bot'u başlat
@@ -367,18 +433,35 @@ function createTray() {
     tray.on('click', () => {
       if (mainWindow) {
         if (mainWindow.isVisible()) {
+          // Eğer görünürse gizle
           mainWindow.hide();
         } else {
+          // Eğer gizliyse göster ve odakla
+          if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+          }
           mainWindow.show();
           mainWindow.focus();
+          
+          // Windows'ta taskbar'a getir
+          if (process.platform === 'win32') {
+            mainWindow.setSkipTaskbar(false);
+          }
         }
+      } else {
+        createWindow();
       }
     });
 
     tray.on('double-click', () => {
       if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
         mainWindow.show();
         mainWindow.focus();
+      } else {
+        createWindow();
       }
     });
 
@@ -396,8 +479,18 @@ function updateTrayMenu() {
         label: 'Uygulamayı Aç',
         click: () => {
           if (mainWindow) {
+            if (mainWindow.isMinimized()) {
+              mainWindow.restore();
+            }
             mainWindow.show();
             mainWindow.focus();
+            
+            // Windows'ta taskbar'a getir
+            if (process.platform === 'win32') {
+              mainWindow.setSkipTaskbar(false);
+            }
+          } else {
+            createWindow();
           }
         }
       },
@@ -419,6 +512,7 @@ function updateTrayMenu() {
     ]);
 
     tray.setContextMenu(contextMenu);
+
   } catch (error) {
     console.error('Tray menu güncellenemedi:', error);
   }
@@ -445,7 +539,11 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   } else if (mainWindow) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
     mainWindow.show();
+    mainWindow.focus();
   }
 });
 
