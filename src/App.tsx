@@ -31,10 +31,9 @@ const normalizeCheck = (check: any): Check => {
 
 function App() {
   const [currentPage, setCurrentPage] = useState('list');
-  const [rawChecks, setRawChecks, checksLoaded] = useLocalStorage<any[]>('hatirlatici-checks', []);
-  const [settings, setSettings, settingsLoaded] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
+  const [rawChecks, setRawChecks] = useLocalStorage<any[]>('hatirlatici-checks', []);
+  const [settings, setSettings] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
-  const [forceLoad, setForceLoad] = useState(false);
 
   // Eski veri formatını normalize et
   const checks: Check[] = rawChecks.map(normalizeCheck);
@@ -42,48 +41,25 @@ function App() {
   // Bildirim sistemi
   const { isElectron } = useElectronNotifications(checks, settings);
 
-  // 3 saniye sonra zorla yükle
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setForceLoad(true);
-    }, 3000);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  // Veriler yüklenene kadar loading göster (ama maksimum 3 saniye)
-  if ((!checksLoaded || !settingsLoaded) && !forceLoad) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-medium text-gray-900">Yükleniyor...</h2>
-          <p className="text-gray-500 mt-2">Verileriniz hazırlanıyor</p>
-          <p className="text-xs text-gray-400 mt-2">Maksimum 3 saniye beklenecek</p>
-        </div>
-      </div>
-    );
-  }
-
   useEffect(() => {
     document.title = 'Hatırlatıcınım - Çek ve Fatura Takip Uygulaması';
   }, []);
 
-  const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+  const handleAddCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     const newCheck: Check = {
       ...checkData,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
     
-    await setRawChecks(prev => [...prev, newCheck]);
+    setRawChecks(prev => [...prev, newCheck]);
     setCurrentPage('list');
   };
 
-  const handleEditCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+  const handleEditCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (!editingCheck) return;
     
-    await setRawChecks(prev => prev.map(check => 
+    setRawChecks(prev => prev.map(check => 
       check.id === editingCheck.id 
         ? { ...check, ...checkData }
         : check
@@ -93,15 +69,15 @@ function App() {
     setCurrentPage('list');
   };
 
-  const handleDeleteCheck = async (id: string) => {
+  const handleDeleteCheck = (id: string) => {
     const itemType = checks.find(c => c.id === id)?.type === 'bill' ? 'faturayı' : 'çeki';
     if (confirm(`Bu ${itemType} silmek istediğinizden emin misiniz?`)) {
-      await setRawChecks(prev => prev.filter(check => check.id !== id));
+      setRawChecks(prev => prev.filter(check => check.id !== id));
     }
   };
 
-  const handleTogglePaid = async (id: string) => {
-    await setRawChecks(prev => prev.map(check =>
+  const handleTogglePaid = (id: string) => {
+    setRawChecks(prev => prev.map(check =>
       check.id === id ? { ...check, isPaid: !check.isPaid } : check
     ));
   };
@@ -116,8 +92,8 @@ function App() {
     setCurrentPage('list');
   };
 
-  const handleSaveSettings = async (newSettings: SettingsType) => {
-    await setSettings(newSettings);
+  const handleSaveSettings = (newSettings: SettingsType) => {
+    setSettings(newSettings);
   };
 
   const handleExportData = () => {
@@ -139,15 +115,15 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportData = async (data: any) => {
+  const handleImportData = (data: any) => {
     try {
       if (data.checks && Array.isArray(data.checks)) {
         if (confirm('Mevcut veriler silinecek ve yeni veriler yüklenecek. Devam etmek istiyor musunuz?')) {
           // Eski veri formatını normalize et
           const normalizedChecks = data.checks.map(normalizeCheck);
-          await setRawChecks(normalizedChecks);
+          setRawChecks(normalizedChecks);
           if (data.settings) {
-            await setSettings({ ...defaultSettings, ...data.settings });
+            setSettings({ ...defaultSettings, ...data.settings });
           }
           alert('Veriler başarıyla içe aktarıldı!');
         }

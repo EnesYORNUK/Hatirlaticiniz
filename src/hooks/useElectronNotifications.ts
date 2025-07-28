@@ -1,14 +1,9 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Check, Settings } from '../types';
 import { isToday, isDateInRange } from '../utils/dateUtils';
 
 export function useElectronNotifications(checks: Check[], settings: Settings) {
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
-  const lastNotificationCheck = useRef<string>('');
-  const intervals = useRef<{
-    short?: NodeJS.Timeout;
-    daily?: NodeJS.Timeout;
-  }>({});
 
   const showNotification = useCallback(async (title: string, body: string) => {
     if (isElectron && window.electronAPI) {
@@ -31,15 +26,6 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
   const checkForReminders = useCallback(() => {
     if (!settings.notificationsEnabled) return;
 
-    const today = new Date().toDateString();
-    
-    // Aynı gün içinde çok fazla bildirim göndermeyi engelle
-    if (lastNotificationCheck.current === today) {
-      return;
-    }
-
-    let hasNotifications = false;
-
     checks.forEach(check => {
       if (check.isPaid) return;
 
@@ -50,7 +36,6 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
           `${type} Ödeme Hatırlatması`,
           `${check.signedTo} - ${check.amount.toLocaleString('tr-TR')} TL tutarındaki ${type.toLowerCase()}in ödeme tarihi ${settings.reminderDays} gün sonra (${new Date(check.paymentDate).toLocaleDateString('tr-TR')})`
         );
-        hasNotifications = true;
       }
 
       // Ödeme günü bildirimi
@@ -60,14 +45,8 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
           `${type} Ödeme Günü!`,
           `${check.signedTo} - ${check.amount.toLocaleString('tr-TR')} TL tutarındaki ${type.toLowerCase()}in ödeme günü bugün!`
         );
-        hasNotifications = true;
       }
     });
-
-    // Bildirim gönderildiyse bugün için işaretle
-    if (hasNotifications) {
-      lastNotificationCheck.current = today;
-    }
   }, [checks, settings, showNotification]);
 
   useEffect(() => {
@@ -77,22 +56,11 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
   }, [requestPermission, isElectron]);
 
   useEffect(() => {
-    // Önceki interval'ları temizle
-    if (intervals.current.short) {
-      clearInterval(intervals.current.short);
-    }
-    if (intervals.current.daily) {
-      clearTimeout(intervals.current.daily);
-    }
-
-    // İlk yüklenmede kontrol et (sayfa değişimlerinde değil)
-    const shouldCheck = lastNotificationCheck.current !== new Date().toDateString();
-    if (shouldCheck) {
-      checkForReminders();
-    }
+    // İlk yüklenmede kontrol et
+    checkForReminders();
     
-    // Her 2 saatte bir kontrol et (30 dakika çok sık)
-    intervals.current.short = setInterval(checkForReminders, 2 * 60 * 60 * 1000); // 2 saat
+    // Her 2 saatte bir kontrol et
+    const shortInterval = setInterval(checkForReminders, 2 * 60 * 60 * 1000);
     
     // Her gün saat 09:00'da özel kontrol
     const now = new Date();
@@ -102,28 +70,22 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
     
     const msUntilTomorrow9AM = tomorrow.getTime() - now.getTime();
     
-    intervals.current.daily = setTimeout(() => {
-      lastNotificationCheck.current = ''; // Reset günlük kontrol için
+    const dailyTimeout = setTimeout(() => {
       checkForReminders();
       
       // Sonrasında her 24 saatte bir tekrarla
-      const dailyInterval = setInterval(() => {
-        lastNotificationCheck.current = ''; // Reset
-        checkForReminders();
-      }, 24 * 60 * 60 * 1000);
+      const dailyInterval = setInterval(checkForReminders, 24 * 60 * 60 * 1000);
       
-      intervals.current.daily = dailyInterval as any;
+      return () => {
+        clearInterval(dailyInterval);
+      };
     }, msUntilTomorrow9AM);
     
     return () => {
-      if (intervals.current.short) {
-        clearInterval(intervals.current.short);
-      }
-      if (intervals.current.daily) {
-        clearTimeout(intervals.current.daily);
-      }
+      clearInterval(shortInterval);
+      clearTimeout(dailyTimeout);
     };
-  }, []); // Boş dependency - sadece mount/unmount'ta çalış
+  }, [checkForReminders]);
 
   return { requestPermission, showNotification, isElectron };
 }
