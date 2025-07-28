@@ -9,6 +9,8 @@ declare global {
       checkForUpdates: () => Promise<any>;
       onUpdateStatus: (callback: (status: string, info?: any) => void) => void;
       removeUpdateStatusListener: () => void;
+      getVersion: () => Promise<string>;
+      installUpdate: () => void; // Yeniden başlatma için eklendi
       [key: string]: any;
     };
   }
@@ -34,8 +36,10 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   const [telegramChatId, setTelegramChatId] = useState(settings.telegramChatId || '');
 
   // Güncelleme durumu
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'error'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error'>('idle');
   const [updateMessage, setUpdateMessage] = useState('');
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [currentVersion, setCurrentVersion] = useState<string>('');
   
   // Güncel updateStatus değerini timeout'ta kullanmak için
   const updateStatusRef = useRef(updateStatus);
@@ -45,6 +49,17 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
     console.log('Settings useEffect başlatıldı');
     console.log('window.electronAPI:', window.electronAPI);
     console.log('window.electronAPI?.onUpdateStatus:', !!window.electronAPI?.onUpdateStatus);
+    
+    // Mevcut sürümü al
+    if (window.electronAPI?.getVersion) {
+      window.electronAPI.getVersion().then((version: string) => {
+        console.log('Mevcut sürüm:', version);
+        setCurrentVersion(version);
+      }).catch((error: any) => {
+        console.error('Sürüm alınamadı:', error);
+        setCurrentVersion('Bilinmiyor');
+      });
+    }
     
     if (window.electronAPI?.onUpdateStatus) {
       const handleUpdateStatus = (status: string, info?: any) => {
@@ -57,23 +72,24 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             break;
           case 'update-available':
             setUpdateStatus('available');
-            setUpdateMessage(`Yeni güncelleme mevcut: v${info?.version || 'Bilinmiyor'}`);
+            setUpdateInfo(info);
+            setUpdateMessage(`🎉 Yeni sürüm mevcut: v${info?.version || 'Bilinmiyor'}\n\nOtomatik indiriliyor...`);
             break;
           case 'not-available':
             setUpdateStatus('not-available');
-            setUpdateMessage('En son sürümü kullanıyorsunuz.');
+            setUpdateMessage('✅ En son sürümü kullanıyorsunuz!');
             break;
           case 'error':
             setUpdateStatus('error');
-            setUpdateMessage(`Hata: ${info || 'Güncelleme kontrolü başarısız'}`);
+            setUpdateMessage(`❌ Hata: ${info || 'Güncelleme kontrolü başarısız'}`);
             break;
           case 'download-progress':
-            setUpdateStatus('checking');
-            setUpdateMessage(`İndiriliyor... %${Math.round(info?.percent || 0)}`);
+            setUpdateStatus('downloading');
+            setUpdateMessage(`⬇️ İndiriliyor... %${Math.round(info?.percent || 0)}`);
             break;
           case 'update-downloaded':
-            setUpdateStatus('available');
-            setUpdateMessage('Güncelleme indirildi! Uygulamayı yeniden başlatın.');
+            setUpdateStatus('downloaded');
+            setUpdateMessage(`✅ Güncelleme hazır! v${updateInfo?.version || info?.version || 'Yeni Sürüm'}\n\n🔄 Yeniden başlatmak için butona basın.`);
             break;
           default:
             console.log('Bilinmeyen update status:', status);
@@ -486,9 +502,29 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
 
       {/* Basitleştirilmiş Güncelleme Bölümü */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">🔄 Uygulama Güncelleme</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">🔄 Uygulama Güncelleme</h2>
+          {currentVersion && (
+            <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+              v{currentVersion}
+            </div>
+          )}
+        </div>
         
         <div className="space-y-4">
+          {/* Veri Güvenliği Garantisi */}
+          <div className="bg-green-50 p-3 rounded-lg border-l-4 border-green-400">
+            <div className="flex items-start">
+              <div className="text-green-500 mr-2 text-lg">🛡️</div>
+              <div>
+                <p className="text-sm font-medium text-green-900">Verileriniz Güvende</p>
+                <p className="text-xs text-green-700 mt-1">
+                  Tüm çek ve fatura kayıtlarınız güncelleme sırasında korunur. Ayarlarınız da kaybolmaz.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Debug Panel */}
           <div className="bg-gray-50 p-3 rounded-lg border">
             <details className="cursor-pointer">
@@ -498,7 +534,8 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               <div className="mt-2 space-y-1 text-xs text-gray-600">
                 <div>• Electron API Mevcut: {window.electronAPI ? '✅ Evet' : '❌ Hayır'}</div>
                 <div>• Update Event Handler: {window.electronAPI?.onUpdateStatus ? '✅ Evet' : '❌ Hayır'}</div>
-                <div>• Mevcut Durum: {updateStatus}</div>
+                <div>• Mevcut Sürüm: {currentVersion || 'Yükleniyor...'}</div>
+                <div>• Güncelleme Durumu: {updateStatus}</div>
                 <div>• Son Mesaj: {updateMessage || 'Henüz mesaj yok'}</div>
               </div>
             </details>
@@ -511,48 +548,119 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               updateStatus === 'available' ? 'bg-green-50 text-green-800' :
               updateStatus === 'not-available' ? 'bg-gray-50 text-gray-800' :
               updateStatus === 'error' ? 'bg-red-50 text-red-800' :
+              updateStatus === 'downloading' ? 'bg-yellow-50 text-yellow-800' :
+              updateStatus === 'downloaded' ? 'bg-purple-50 text-purple-800' :
               'bg-gray-50 text-gray-800'
             }`}>
               {updateStatus === 'checking' && '⏳ '}
               {updateStatus === 'available' && '✅ '}
               {updateStatus === 'not-available' && 'ℹ️ '}
               {updateStatus === 'error' && '❌ '}
+              {updateStatus === 'downloading' && '⬇️ '}
+              {updateStatus === 'downloaded' && '✅ '}
               {updateMessage}
             </div>
           )}
 
           {/* Güncelleme Butonları */}
           <div className="space-y-2">
-            <button
-              onClick={handleCheckUpdates}
-              disabled={updateStatus === 'checking'}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                updateStatus === 'checking'
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {updateStatus === 'checking' ? '⏳ Kontrol Ediliyor...' : '🔍 Güncellemeleri Kontrol Et'}
-            </button>
+            {/* Ana güncelleme butonu */}
+            {updateStatus !== 'downloaded' && (
+              <button
+                onClick={handleCheckUpdates}
+                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                  updateStatus === 'checking' || updateStatus === 'downloading'
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : updateStatus === 'available'
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {updateStatus === 'checking' && '⏳ Kontrol Ediliyor...'}
+                {updateStatus === 'downloading' && '⬇️ İndiriliyor...'}
+                {updateStatus === 'available' && '✅ Güncelleme Mevcut!'}
+                {(updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error') && '🔍 Güncellemeleri Kontrol Et'}
+              </button>
+            )}
 
-            {/* Manuel GitHub Kontrolü */}
-            <button
-              onClick={() => {
-                window.open('https://github.com/EnesYORNUK/Hatirlaticiniz/releases/latest', '_blank');
-              }}
-              className="w-full py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-            >
-              🌐 GitHub'da Manuel Kontrol Et
-            </button>
+            {/* Yeniden başlatma butonu */}
+            {updateStatus === 'downloaded' && (
+              <div className="space-y-3">
+                <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400">
+                  <div className="flex items-start">
+                    <div className="text-purple-500 mr-2 text-lg">🎉</div>
+                    <div>
+                      <p className="text-sm font-medium text-purple-900">Güncelleme Hazır!</p>
+                      <p className="text-xs text-purple-700 mt-1">
+                        Yeni sürüm indirildi ve kuruluma hazır. Güncellemeyi uygulamak için uygulamayı yeniden başlatın.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    if (window.electronAPI?.installUpdate) {
+                      window.electronAPI.showNotification('Uygulama Yeniden Başlatılıyor', 'Güncelleme uygulanıyor ve uygulama yeniden başlatılıyor...');
+                      // Küçük bir gecikme ile yeniden başlat
+                      setTimeout(() => {
+                        window.electronAPI.installUpdate();
+                      }, 1000);
+                    } else {
+                      alert('❌ Güncelleme API\'si mevcut değil. Uygulamayı manuel olarak yeniden başlatın.');
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors font-medium"
+                >
+                  🔄 Şimdi Yeniden Başlat & Güncelle
+                </button>
+              </div>
+            )}
+
+            {/* Manuel GitHub kontrolü - sadece hata durumunda göster */}
+            {updateStatus === 'error' && (
+              <button
+                onClick={() => {
+                  window.open('https://github.com/EnesYORNUK/Hatirlaticiniz/releases/latest', '_blank');
+                }}
+                className="w-full py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+              >
+                🌐 GitHub'da Manuel Kontrol Et
+              </button>
+            )}
           </div>
 
           {/* Bilgilendirme */}
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <p className="text-sm text-gray-600">
-              💡 <strong>Nasıl çalışır:</strong> Güncelleme varsa otomatik indirilir ve kuruluma hazır hale gelir. 
-              Kurulum için uygulamayı yeniden başlatmanız istenecek.
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
+          <div className="space-y-3">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <p className="text-sm text-gray-600">
+                💡 <strong>Nasıl çalışır:</strong> Güncelleme varsa otomatik indirilir ve kuruluma hazır hale gelir. 
+                Tek tuşla uygulamayı yeniden başlatıp güncellemeyi uygulayabilirsiniz.
+              </p>
+            </div>
+            
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">📋 Güncelleme Süreci:</h4>
+              <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
+                <li><strong>Kontrol Et</strong> → GitHub'dan yeni sürüm kontrol edilir</li>
+                <li><strong>İndir</strong> → Güncelleme otomatik indirilir (%0-100)</li>
+                <li><strong>Hazır</strong> → "Yeniden Başlat" butonu görünür</li>
+                <li><strong>Güncelle</strong> → Tek tık ile uygulama güncellenir</li>
+              </ol>
+            </div>
+            
+            <div className="bg-orange-50 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-orange-900 mb-2">🛡️ Veri Güvenliği Detayları:</h4>
+              <ul className="text-xs text-orange-800 space-y-1">
+                <li>• <strong>Çek/Fatura Kayıtları:</strong> localStorage'da güvenle saklanır</li>
+                <li>• <strong>Ayarlar:</strong> Bildirim ve Telegram ayarları korunur</li>
+                <li>• <strong>Yedekleme:</strong> Güncellemeden önce yedek alabilirsiniz</li>
+                <li>• <strong>Geri Alma:</strong> Sorun olursa eski sürümü yükleyebilirsiniz</li>
+              </ul>
+            </div>
+            
+            <p className="text-xs text-gray-500">
               ⚠️ <strong>Sorun varsa:</strong> F12 tuşuna basın, Console sekmesini açın ve debug bilgilerini kontrol edin.
             </p>
           </div>
