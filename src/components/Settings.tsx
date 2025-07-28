@@ -63,7 +63,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
     // Listen for update status
     if (window.electronAPI?.onUpdateStatus) {
       const handleUpdateStatus = (status: string, info?: any) => {
-        console.log('🔄 Update status:', status, info);
+        console.log('📨 Settings: Update status alındı:', status, info);
         setUpdateStatus(status);
         setUpdateInfo(info);
         
@@ -88,31 +88,45 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             setUpdateMessage(`Güncelleme hatası: ${info?.message || 'Bilinmeyen hata'}`);
             break;
           default:
-            setUpdateMessage('');
+            console.warn('🤔 Settings: Bilinmeyen update status:', status);
+            setUpdateMessage(`Durum: ${status}`);
         }
       };
 
+      console.log('👂 Settings: Update status listener kuruldu');
       window.electronAPI.onUpdateStatus(handleUpdateStatus);
 
       return () => {
+        console.log('🔇 Settings: Update status listener temizlendi');
         if (window.electronAPI?.removeUpdateStatusListener) {
           window.electronAPI.removeUpdateStatusListener();
         }
       };
+    } else {
+      console.warn('⚠️ Settings: electronAPI.onUpdateStatus mevcut değil');
     }
   }, []);
 
   const handleCheckForUpdates = async () => {
+    console.log('🔍 Settings: Güncelleme kontrolü başlatılıyor...');
+    
     if (window.electronAPI?.checkForUpdates) {
       try {
         setUpdateStatus('checking-for-update');
-        await window.electronAPI.checkForUpdates();
-      } catch (error) {
-        console.error('Update check failed:', error);
+        setUpdateMessage('Güncellemeler kontrol ediliyor...');
+        
+        console.log('📡 Settings: electronAPI.checkForUpdates çağrılıyor...');
+        const result = await window.electronAPI.checkForUpdates();
+        console.log('✅ Settings: electronAPI.checkForUpdates sonucu:', result);
+        
+      } catch (error: any) {
+        console.error('❌ Settings: Update check hatası:', error);
         setUpdateStatus('error');
-        setUpdateMessage('Güncelleme kontrolü başarısız oldu.');
+        setUpdateMessage(`Güncelleme kontrolü başarısız oldu: ${error.message}`);
+        alert(`Güncelleme kontrolü hatası: ${error.message}`);
       }
     } else {
+      console.error('❌ Settings: electronAPI.checkForUpdates mevcut değil');
       alert('Güncelleme sistemi kullanılamıyor. Desktop uygulamasında deneyin.');
     }
   };
