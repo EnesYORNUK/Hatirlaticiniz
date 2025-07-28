@@ -1,5 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings as SettingsType } from '../types';
+
+// Global type declaration for window.electronAPI
+declare global {
+  interface Window {
+    electronAPI?: {
+      showNotification: (title: string, body: string) => Promise<void>;
+      checkForUpdates: () => Promise<any>;
+      onUpdateStatus: (callback: (status: string, info?: any) => void) => void;
+      removeUpdateStatusListener: () => void;
+      [key: string]: any;
+    };
+  }
+}
 
 interface SettingsProps {
   settings: SettingsType;
@@ -20,6 +33,49 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   const [telegramBotToken, setTelegramBotToken] = useState(settings.telegramBotToken || '');
   const [telegramChatId, setTelegramChatId] = useState(settings.telegramChatId || '');
 
+  // Güncelleme durumu
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'error'>('idle');
+  const [updateMessage, setUpdateMessage] = useState('');
+
+  useEffect(() => {
+    if (window.electronAPI?.onUpdateStatus) {
+      const handleUpdateStatus = (status: string, info?: any) => {
+        console.log('Update status:', status, info);
+        
+        switch (status) {
+          case 'checking':
+            setUpdateStatus('checking');
+            setUpdateMessage('Güncellemeler kontrol ediliyor...');
+            break;
+          case 'update-available':
+            setUpdateStatus('available');
+            setUpdateMessage(`Yeni güncelleme mevcut: v${info?.version || 'Bilinmiyor'}`);
+            break;
+          case 'not-available':
+            setUpdateStatus('not-available');
+            setUpdateMessage('En son sürümü kullanıyorsunuz.');
+            break;
+          case 'error':
+            setUpdateStatus('error');
+            setUpdateMessage(`Hata: ${info || 'Güncelleme kontrolü başarısız'}`);
+            break;
+          default:
+            setUpdateStatus('idle');
+            setUpdateMessage('');
+        }
+      };
+
+      window.electronAPI.onUpdateStatus(handleUpdateStatus);
+
+      // Cleanup
+      return () => {
+        if (window.electronAPI?.removeUpdateStatusListener) {
+          window.electronAPI.removeUpdateStatusListener();
+        }
+      };
+    }
+  }, []);
+
   const handleSave = () => {
     onSave({
       reminderDays,
@@ -33,6 +89,25 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       telegramChatId,
     });
     alert('Ayarlar kaydedildi!');
+  };
+
+  const handleCheckUpdates = async () => {
+    if (!window.electronAPI) {
+      alert('Güncelleme kontrolü sadece Electron uygulamasında çalışır.');
+      return;
+    }
+
+    setUpdateStatus('checking');
+    setUpdateMessage('Güncellemeler kontrol ediliyor...');
+
+    try {
+      await window.electronAPI.checkForUpdates();
+      // Yanıt onUpdateStatus callback'i ile gelecek
+    } catch (error) {
+      setUpdateStatus('error');
+      setUpdateMessage('Güncelleme kontrolü sırasında hata oluştu.');
+      console.error('Update check error:', error);
+    }
   };
 
   const testTelegramBot = async () => {
@@ -267,25 +342,48 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         </div>
       </div>
 
+      {/* Basitleştirilmiş Güncelleme Bölümü */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">🔄 Güncelleme</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">🔄 Uygulama Güncelleme</h2>
         
         <div className="space-y-4">
-          {window.electronAPI && (
-            <button
-              onClick={async () => {
-                try {
-                  await window.electronAPI.checkForUpdates();
-                  alert('Güncellemeler kontrol ediliyor...');
-                } catch (error) {
-                  alert('Güncelleme kontrolü sırasında hata oluştu.');
-                }
-              }}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              🔍 Güncellemeleri Kontrol Et
-            </button>
+          {/* Güncelleme Durumu */}
+          {updateMessage && (
+            <div className={`p-3 rounded-lg text-sm ${
+              updateStatus === 'checking' ? 'bg-blue-50 text-blue-800' :
+              updateStatus === 'available' ? 'bg-green-50 text-green-800' :
+              updateStatus === 'not-available' ? 'bg-gray-50 text-gray-800' :
+              updateStatus === 'error' ? 'bg-red-50 text-red-800' :
+              'bg-gray-50 text-gray-800'
+            }`}>
+              {updateStatus === 'checking' && '⏳ '}
+              {updateStatus === 'available' && '✅ '}
+              {updateStatus === 'not-available' && 'ℹ️ '}
+              {updateStatus === 'error' && '❌ '}
+              {updateMessage}
+            </div>
           )}
+
+          {/* Güncelleme Butonu */}
+          <button
+            onClick={handleCheckUpdates}
+            disabled={updateStatus === 'checking'}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+              updateStatus === 'checking'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {updateStatus === 'checking' ? '⏳ Kontrol Ediliyor...' : '🔍 Güncellemeleri Kontrol Et'}
+          </button>
+
+          {/* Bilgilendirme */}
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-sm text-gray-600">
+              💡 <strong>Nasıl çalışır:</strong> Güncelleme varsa otomatik indirilir ve kuruluma hazır hale gelir. 
+              Kurulum için uygulamayı yeniden başlatmanız istenecek.
+            </p>
+          </div>
         </div>
       </div>
 

@@ -10,11 +10,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeMenuListener: (callback) => {
     ipcRenderer.removeListener('menu-new-check', callback);
   },
-  // Yeni güncelleme API'leri
+  // Güncelleme API'leri
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
-  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, status, info) => callback(status, info)),
+  onUpdateStatus: (callback) => {
+    // Update status event'lerini dinle
+    ipcRenderer.on('update-status', (event, status, info) => {
+      callback(status, info);
+    });
+  },
+  removeUpdateStatusListener: () => {
+    ipcRenderer.removeAllListeners('update-status');
+  },
   // AppData dosya işlemleri
   saveAppData: (key, data) => ipcRenderer.invoke('save-app-data', key, data),
   loadAppData: (key) => ipcRenderer.invoke('load-app-data', key),
