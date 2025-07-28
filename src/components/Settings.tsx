@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings as SettingsType } from '../types';
 
 // Global type declaration for window.electronAPI
@@ -36,11 +36,19 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   // Güncelleme durumu
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'error'>('idle');
   const [updateMessage, setUpdateMessage] = useState('');
+  
+  // Güncel updateStatus değerini timeout'ta kullanmak için
+  const updateStatusRef = useRef(updateStatus);
+  updateStatusRef.current = updateStatus;
 
   useEffect(() => {
+    console.log('Settings useEffect başlatıldı');
+    console.log('window.electronAPI:', window.electronAPI);
+    console.log('window.electronAPI?.onUpdateStatus:', !!window.electronAPI?.onUpdateStatus);
+    
     if (window.electronAPI?.onUpdateStatus) {
       const handleUpdateStatus = (status: string, info?: any) => {
-        console.log('Update status:', status, info);
+        console.log('Update status alındı:', status, info);
         
         switch (status) {
           case 'checking':
@@ -59,20 +67,33 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             setUpdateStatus('error');
             setUpdateMessage(`Hata: ${info || 'Güncelleme kontrolü başarısız'}`);
             break;
+          case 'download-progress':
+            setUpdateStatus('checking');
+            setUpdateMessage(`İndiriliyor... %${Math.round(info?.percent || 0)}`);
+            break;
+          case 'update-downloaded':
+            setUpdateStatus('available');
+            setUpdateMessage('Güncelleme indirildi! Uygulamayı yeniden başlatın.');
+            break;
           default:
+            console.log('Bilinmeyen update status:', status);
             setUpdateStatus('idle');
             setUpdateMessage('');
         }
       };
 
+      console.log('Event listener kuruldu');
       window.electronAPI.onUpdateStatus(handleUpdateStatus);
 
       // Cleanup
       return () => {
+        console.log('Event listener temizleniyor');
         if (window.electronAPI?.removeUpdateStatusListener) {
           window.electronAPI.removeUpdateStatusListener();
         }
       };
+    } else {
+      console.log('electronAPI.onUpdateStatus mevcut değil!');
     }
   }, []);
 
@@ -92,8 +113,12 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   };
 
   const handleCheckUpdates = async () => {
+    console.log('handleCheckUpdates başlatıldı');
+    console.log('window.electronAPI mevcut mu:', !!window.electronAPI);
+    
     if (!window.electronAPI) {
-      alert('Güncelleme kontrolü sadece Electron uygulamasında çalışır.');
+      setUpdateStatus('error');
+      setUpdateMessage('Güncelleme sadece Electron uygulamasında çalışır. Web tarayıcısında çalışmıyor.');
       return;
     }
 
@@ -101,12 +126,23 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
     setUpdateMessage('Güncellemeler kontrol ediliyor...');
 
     try {
-      await window.electronAPI.checkForUpdates();
-      // Yanıt onUpdateStatus callback'i ile gelecek
+      console.log('checkForUpdates çağrılıyor...');
+      const result = await window.electronAPI.checkForUpdates();
+      console.log('checkForUpdates sonuç:', result);
+      
+      // Eğer event listener çalışmıyorsa, manual timeout ekle
+      setTimeout(() => {
+        if (updateStatusRef.current === 'checking') {
+          console.log('Timeout: Event listener çalışmıyor, manual güncelleştirme yapılıyor');
+          setUpdateStatus('not-available');
+          setUpdateMessage('Güncelleme kontrolü tamamlandı. Event sistem çalışmıyor, manuel kontrol yapın.');
+        }
+      }, 10000); // 10 saniye timeout
+      
     } catch (error) {
-      setUpdateStatus('error');
-      setUpdateMessage('Güncelleme kontrolü sırasında hata oluştu.');
       console.error('Update check error:', error);
+      setUpdateStatus('error');
+      setUpdateMessage(`Güncelleme kontrolü hatası: ${error.message || error}`);
     }
   };
 
@@ -395,6 +431,21 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         <h2 className="text-xl font-semibold text-gray-900 mb-4">🔄 Uygulama Güncelleme</h2>
         
         <div className="space-y-4">
+          {/* Debug Panel */}
+          <div className="bg-gray-50 p-3 rounded-lg border">
+            <details className="cursor-pointer">
+              <summary className="text-sm font-medium text-gray-700 hover:text-gray-900">
+                🔍 Debug Bilgileri (Geliştirici)
+              </summary>
+              <div className="mt-2 space-y-1 text-xs text-gray-600">
+                <div>• Electron API Mevcut: {window.electronAPI ? '✅ Evet' : '❌ Hayır'}</div>
+                <div>• Update Event Handler: {window.electronAPI?.onUpdateStatus ? '✅ Evet' : '❌ Hayır'}</div>
+                <div>• Mevcut Durum: {updateStatus}</div>
+                <div>• Son Mesaj: {updateMessage || 'Henüz mesaj yok'}</div>
+              </div>
+            </details>
+          </div>
+
           {/* Güncelleme Durumu */}
           {updateMessage && (
             <div className={`p-3 rounded-lg text-sm ${
@@ -412,24 +463,39 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             </div>
           )}
 
-          {/* Güncelleme Butonu */}
-          <button
-            onClick={handleCheckUpdates}
-            disabled={updateStatus === 'checking'}
-            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-              updateStatus === 'checking'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            {updateStatus === 'checking' ? '⏳ Kontrol Ediliyor...' : '🔍 Güncellemeleri Kontrol Et'}
-          </button>
+          {/* Güncelleme Butonları */}
+          <div className="space-y-2">
+            <button
+              onClick={handleCheckUpdates}
+              disabled={updateStatus === 'checking'}
+              className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                updateStatus === 'checking'
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              {updateStatus === 'checking' ? '⏳ Kontrol Ediliyor...' : '🔍 Güncellemeleri Kontrol Et'}
+            </button>
+
+            {/* Manuel GitHub Kontrolü */}
+            <button
+              onClick={() => {
+                window.open('https://github.com/EnesYORNUK/Hatirlaticiniz/releases/latest', '_blank');
+              }}
+              className="w-full py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+            >
+              🌐 GitHub'da Manuel Kontrol Et
+            </button>
+          </div>
 
           {/* Bilgilendirme */}
           <div className="bg-gray-50 p-3 rounded-lg">
             <p className="text-sm text-gray-600">
               💡 <strong>Nasıl çalışır:</strong> Güncelleme varsa otomatik indirilir ve kuruluma hazır hale gelir. 
               Kurulum için uygulamayı yeniden başlatmanız istenecek.
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              ⚠️ <strong>Sorun varsa:</strong> F12 tuşuna basın, Console sekmesini açın ve debug bilgilerini kontrol edin.
             </p>
           </div>
         </div>
