@@ -255,9 +255,14 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.theme-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
 /* Select styling */
-.theme-input select,
-.theme-input option {
+select.theme-input,
+select.theme-input option {
   background-color: var(--color-surface);
   color: var(--color-text);
 }
@@ -369,10 +374,20 @@
 /* Dark theme için özel iyileştirmeler */
 [data-theme="dark"] .theme-input {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  border-width: 1px;
 }
 
 [data-theme="dark"] .theme-input:focus {
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3);
+}
+
+[data-theme="dark"] select.theme-input option {
+  background-color: #374151;
+  color: #F9FAFB;
+}
+
+[data-theme="dark"] .theme-surface {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] .theme-card:hover {
@@ -391,6 +406,26 @@
 [data-theme="dark"] h5,
 [data-theme="dark"] h6 {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-dark);
 }
 
 /* Smooth transitions */

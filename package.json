@@ -14,7 +14,10 @@
     "version:patch": "npm version patch && git push origin main --tags",
     "version:minor": "npm version minor && git push origin main --tags",
     "version:major": "npm version major && git push origin main --tags",
-    "release": "npm run version:patch"
+    "release": "npm run version:patch",
+    "safe:patch": "npm version patch && git push origin main --tags",
+    "safe:minor": "npm version minor && git push origin main --tags",
+    "safe:major": "npm version major && git push origin main --tags"
   },
   "dependencies": {
     "electron-updater": "^6.6.2",
