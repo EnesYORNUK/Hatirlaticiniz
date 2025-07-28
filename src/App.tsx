@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from './components/Layout';
-import CheckForm from './components/CheckForm';
 import CheckList from './components/CheckList';
+import CheckForm from './components/CheckForm';
 import Settings from './components/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -13,42 +13,25 @@ const defaultSettings: SettingsType = {
   notificationsEnabled: true,
   autoUpdateEnabled: true,
   // Yeni bildirim ayarları
-  dailyNotificationEnabled: false,
-  dailyNotificationTime: '09:00',
-  lastNotificationCheck: '',
+  dailyNotificationEnabled: true, // Günlük bildirim açık/kapalı
+  dailyNotificationTime: '09:00', // "09:00" formatında
+  lastNotificationCheck: '', // Son bildirim kontrolü tarihi
   // Telegram bot ayarları
-  telegramBotEnabled: false,
-  telegramBotToken: '',
-  telegramChatId: '',
+  telegramBotEnabled: false, // Telegram bot açık/kapalı
+  telegramBotToken: '', // Bot token (@BotFather'dan alınan)
+  telegramChatId: '', // Kullanıcının chat ID'si
   theme: 'light' as ThemeType, // 🎨 Default theme
 };
 
-// Eski check verilerini yeni formatla uyumlu hale getiren fonksiyon
-const normalizeCheck = (check: any): Check => {
-  return {
-    ...check,
-    // Yeni alanlar için default değerler
-    type: check.type || 'check',
-    billType: check.billType || undefined,
-    customBillType: check.customBillType || undefined,
-    isRecurring: check.isRecurring || false,
-    recurringType: check.recurringType || undefined,
-    recurringDay: check.recurringDay || undefined,
-    nextPaymentDate: check.nextPaymentDate || undefined,
-  };
-};
-
-function App() {
+export default function App() {
   const [currentPage, setCurrentPage] = useState('list');
-  const [rawChecks, setRawChecks] = useLocalStorage<any[]>('hatirlatici-checks', []);
-  const [settings, setSettings] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
-
-  // Eski veri formatını normalize et
-  const checks: Check[] = rawChecks.map(normalizeCheck);
-
-  // Bildirim sistemi
-  const { isElectron } = useElectronNotifications(checks, settings);
+  
+  const [checks, setChecks] = useLocalStorage<Check[]>('checks', []);
+  const [settings, setSettings] = useLocalStorage<SettingsType>('settings', defaultSettings);
+  
+  // Bildirim hook'u
+  useElectronNotifications(checks, settings);
 
   // 🎨 Tema uygulama hook'u
   useEffect(() => {
@@ -65,9 +48,9 @@ function App() {
     applyTheme(settings.theme);
   }, [settings.theme]);
 
-  useEffect(() => {
-    document.title = 'Hatırlatıcınım - Çek ve Fatura Takip Uygulaması';
-  }, []);
+  const setRawChecks = async (newChecks: Check[]) => {
+    await setChecks(newChecks);
+  };
 
   const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     const newCheck: Check = {
@@ -76,15 +59,8 @@ function App() {
       createdAt: new Date().toISOString(),
     };
     
-    const updatedChecks = [...checks, newCheck];
-    await setRawChecks(updatedChecks);
+    await setRawChecks([...checks, newCheck]);
     setCurrentPage('list');
-    
-    // Tekrarlayan ödeme ise sonraki ödemeyi planla
-    if (newCheck.isRecurring && newCheck.recurringType && newCheck.recurringDay) {
-      // Bu özellik gelecekte eklenebilir
-      console.log('Tekrarlayan ödeme eklendi:', newCheck);
-    }
   };
 
   const handleEditCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
@@ -106,28 +82,20 @@ function App() {
   };
 
   const handleDeleteCheck = async (id: string) => {
-    const itemType = checks.find(c => c.id === id)?.type === 'bill' ? 'faturayı' : 'çeki';
-    if (confirm(`Bu ${itemType} silmek istediğinizden emin misiniz?`)) {
-      const updatedChecks = checks.filter(check => check.id !== id);
-      await setRawChecks(updatedChecks);
-    }
+    const updatedChecks = checks.filter(check => check.id !== id);
+    await setRawChecks(updatedChecks);
   };
 
   const handleTogglePaid = async (id: string) => {
-    const updatedChecks = checks.map(check => 
+    const updatedChecks = checks.map(check =>
       check.id === id ? { ...check, isPaid: !check.isPaid } : check
     );
     await setRawChecks(updatedChecks);
   };
 
-  const handleStartEdit = (check: Check) => {
+  const handleEditButtonClick = (check: Check) => {
     setEditingCheck(check);
     setCurrentPage('add');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingCheck(null);
-    setCurrentPage('list');
   };
 
   const handleSaveSettings = async (newSettings: SettingsType) => {
@@ -136,57 +104,61 @@ function App() {
 
   const handleExportData = () => {
     const data = {
-      checks: rawChecks,
+      checks,
       settings,
       exportDate: new Date().toISOString(),
-      version: '2.0', // Versiyon bilgisi eklendi
+      version: '1.0'
     };
     
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hatirlatici-yedek-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `hatirlaticiniz-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
     URL.revokeObjectURL(url);
   };
 
-  const handleImportData = (data: any) => {
-    try {
-      if (data.checks && Array.isArray(data.checks)) {
-        if (confirm('Mevcut veriler silinecek ve yeni veriler yüklenecek. Devam etmek istiyor musunuz?')) {
-          // Eski veri formatını normalize et
-          const normalizedChecks = data.checks.map(normalizeCheck);
-          setRawChecks(normalizedChecks);
-          if (data.settings) {
-            setSettings({ ...defaultSettings, ...data.settings });
-          }
-          alert('Veriler başarıyla içe aktarıldı!');
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        
+        if (data.checks && Array.isArray(data.checks)) {
+          setChecks(data.checks);
         }
-      } else {
-        alert('Geçersiz dosya formatı!');
+        
+        if (data.settings && typeof data.settings === 'object') {
+          setSettings({ ...defaultSettings, ...data.settings });
+        }
+        
+        alert('Veriler başarıyla içe aktarıldı!');
+      } catch (error) {
+        alert('Dosya formatı hatalı!');
       }
-    } catch (error) {
-      alert('Dosya işlenirken hata oluştu!');
-    }
+    };
+    
+    reader.readAsText(file);
   };
 
   const renderPage = () => {
     switch (currentPage) {
       case 'add':
-        return editingCheck ? (
+        return (
           <CheckForm
-            key={editingCheck.id}
-            initialData={editingCheck}
-            onSave={handleEditCheck}
-            onCancel={handleCancelEdit}
-          />
-        ) : (
-          <CheckForm
-            onSave={handleAddCheck}
-            onCancel={() => setCurrentPage('list')}
+            onSave={editingCheck ? handleEditCheck : handleAddCheck}
+            onCancel={() => {
+              setEditingCheck(null);
+              setCurrentPage('list');
+            }}
+            initialData={editingCheck || undefined}
           />
         );
       case 'settings':
@@ -202,7 +174,7 @@ function App() {
         return (
           <CheckList
             checks={checks}
-            onEdit={handleStartEdit}
+            onEdit={handleEditButtonClick}
             onDelete={handleDeleteCheck}
             onTogglePaid={handleTogglePaid}
           />
@@ -221,5 +193,3 @@ function App() {
     </ErrorBoundary>
   );
 }
-
-export default App;

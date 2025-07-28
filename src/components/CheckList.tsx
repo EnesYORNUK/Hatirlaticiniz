@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Check } from '../types';
 import { formatCurrency, formatDate, getDaysUntilPayment, getPaymentStatus } from '../utils/dateUtils';
-import { Edit3, Trash2, DollarSign, Calendar, User, Building, Search, Filter, BarChart3, TrendingUp, TrendingDown, Clock, CheckCircle, AlertTriangle, CreditCard, Receipt, RotateCcw } from 'lucide-react';
+import { Edit3, Trash2, DollarSign, Calendar, User, Building, Search, Filter, BarChart3, TrendingUp, Clock, CheckCircle, AlertTriangle, CreditCard, Receipt, RotateCcw } from 'lucide-react';
 
 interface CheckListProps {
   checks: Check[];
@@ -105,15 +105,6 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
 
     return filtered;
   }, [checks, searchTerm, filter, sort, sortDirection]);
-
-  const handleSort = (newSort: SortType) => {
-    if (sort === newSort) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSort(newSort);
-      setSortDirection('asc');
-    }
-  };
 
   const getStatusColor = (check: Check) => {
     if (check.isPaid) return 'theme-success';

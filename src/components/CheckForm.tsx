@@ -28,21 +28,6 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const billTypeLabels = {
-    elektrik: 'Elektrik',
-    su: 'Su',
-    dogalgaz: 'Doğalgaz',
-    telefon: 'Telefon',
-    internet: 'İnternet',
-    diger: 'Diğer'
-  };
-
-  const recurringTypeLabels = {
-    monthly: 'Aylık',
-    weekly: 'Haftalık',
-    yearly: 'Yıllık'
-  };
-
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 

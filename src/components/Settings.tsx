@@ -147,8 +147,8 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       
       console.log('✅ Bot token geçerli:', getMeData.result.username);
 
-      // 2. Webhook'ları temizle (eğer varsa)
-      console.log('🧹 Webhook'lar temizleniyor...');
+             // 2. Webhook'ları temizle (eğer varsa)
+       console.log('🧹 Webhook\'lar temizleniyor...');
       const webhookInfoResponse = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getWebhookInfo`);
       const webhookInfo = await webhookInfoResponse.json();
       
