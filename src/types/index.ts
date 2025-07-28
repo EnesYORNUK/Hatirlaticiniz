@@ -21,11 +21,22 @@ export interface Settings {
   reminderDays: number;
   notificationsEnabled: boolean;
   autoUpdateEnabled: boolean;
+  // Yeni bildirim ayarları
+  dailyNotificationEnabled: boolean; // Günlük bildirim açık/kapalı
+  dailyNotificationTime: string; // "09:00" formatında
+  lastNotificationCheck: string; // Son bildirim kontrolü tarihi
+}
+
+// Bildirim geçmişi için yeni interface
+export interface NotificationHistory {
+  checkId: string;
+  notificationType: 'reminder' | 'due-today' | 'daily';
+  sentAt: string; // ISO string
+  paymentDate: string; // Hangi ödeme tarihi için gönderildi
 }
 
 export interface NotificationData {
-  checkId: string;
   title: string;
-  message: string;
-  type: 'warning' | 'urgent';
+  body: string;
+  icon?: string;
 }

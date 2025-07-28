@@ -12,6 +12,10 @@ const defaultSettings: SettingsType = {
   reminderDays: 15,
   notificationsEnabled: false,
   autoUpdateEnabled: true,
+  // Yeni bildirim ayarları
+  dailyNotificationEnabled: false,
+  dailyNotificationTime: '09:00',
+  lastNotificationCheck: '',
 };
 
 // Eski check verilerini yeni formatla uyumlu hale getiren fonksiyon

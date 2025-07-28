@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Settings as SettingsType } from '../types';
-import { Bell, Save, Download, Upload, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface SettingsProps {
   settings: SettingsType;
@@ -10,310 +9,200 @@ interface SettingsProps {
 }
 
 export default function Settings({ settings, onSave, onExportData, onImportData }: SettingsProps) {
-  const [formData, setFormData] = useState<SettingsType>({
-    ...settings,
-    autoUpdateEnabled: settings.autoUpdateEnabled ?? true, // Default true
-  });
-  const [savedMessage, setSavedMessage] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error' | 'update-available' | 'update-downloaded' | 'download-progress'>('idle');
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [reminderDays, setReminderDays] = useState(settings.reminderDays);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled);
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(settings.autoUpdateEnabled);
+  const [dailyNotificationEnabled, setDailyNotificationEnabled] = useState(settings.dailyNotificationEnabled || false);
+  const [dailyNotificationTime, setDailyNotificationTime] = useState(settings.dailyNotificationTime || '09:00');
 
-  const isElectron = typeof window !== 'undefined' && window.electronAPI;
+  const handleSave = () => {
+    onSave({
+      reminderDays,
+      notificationsEnabled,
+      autoUpdateEnabled,
+      dailyNotificationEnabled,
+      dailyNotificationTime,
+      lastNotificationCheck: settings.lastNotificationCheck || '',
+    });
+    alert('Ayarlar kaydedildi!');
+  };
 
-  useEffect(() => {
-    if (isElectron && window.electronAPI) {
-      const handleUpdateStatus = (status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error' | 'update-available' | 'update-downloaded' | 'download-progress', info: any) => {
-        setUpdateStatus(status);
-        switch (status) {
-          case 'update-available':
-          case 'update-downloaded':
-            setUpdateInfo(info);
-            break;
-          case 'download-progress':
-            setDownloadProgress(info.percent);
-            break;
-          case 'error':
-            setUpdateInfo({ message: info });
-            break;
-          default:
-            // Diğer durumlar için bir şey yapmaya gerek yok
-            break;
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string);
+          onImportData(data);
+        } catch (error) {
+          alert('Dosya okuma hatası!');
         }
       };
-
-      window.electronAPI.onUpdateStatus(handleUpdateStatus);
-
-      return () => {
-        // Eğer preload.cjs içinde removeUpdateStatusListener gibi bir fonksiyon tanımladıysanız
-        // window.electronAPI.removeUpdateStatusListener(handleUpdateStatus);
-      };
-    }
-  }, [isElectron]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-    setSavedMessage(true);
-    setTimeout(() => setSavedMessage(false), 3000);
-  };
-
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        onImportData(data);
-      } catch (error) {
-        alert('Geçersiz dosya formatı!');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        setFormData(prev => ({ ...prev, notificationsEnabled: true }));
-      }
-    }
-  };
-
-  const handleCheckForUpdates = async () => {
-    if (isElectron && window.electronAPI) {
-      setUpdateStatus('checking');
-      try {
-        await window.electronAPI.checkForUpdates();
-      } catch (error: any) {
-        setUpdateStatus('error');
-        setUpdateInfo({ message: error.message || 'Güncelleme kontrol edilirken bir hata oluştu.' });
-      }
-    }
-  };
-
-  const handleDownloadUpdate = async () => {
-    if (isElectron && window.electronAPI) {
-      setUpdateStatus('downloading');
-      try {
-        await window.electronAPI.downloadUpdate();
-      } catch (error: any) {
-        setUpdateStatus('error');
-        setUpdateInfo({ message: error.message || 'Güncelleme indirilirken bir hata oluştu.' });
-      }
-    }
-  };
-
-  const handleInstallUpdate = () => {
-    if (isElectron && window.electronAPI) {
-      window.electronAPI.installUpdate();
+      reader.readAsText(file);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Ayarlar</h2>
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">⚙️ Genel Ayarlar</h2>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Kaç gün önceden hatırlatsın?
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={reminderDays}
+              onChange={(e) => setReminderDays(Number(e.target.value))}
+              className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Ödeme tarihinden {reminderDays} gün önce bildirim gelir
+            </p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Bildirim Ayarları */}
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Bildirim Ayarları</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Bell className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">
-                      Masaüstü Bildirimleri
-                    </label>
-                    <p className="text-sm text-gray-500">
-                      Çek ödeme tarihleri için bildirim al
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  {!formData.notificationsEnabled && typeof window !== 'undefined' && !window.electronAPI && (
-                    <button
-                      type="button"
-                      onClick={requestNotificationPermission}
-                      className="text-sm text-blue-600 hover:text-blue-700"
-                    >
-                      İzin Ver
-                    </button>
-                  )}
-                  <input
-                    type="checkbox"
-                    checked={formData.notificationsEnabled}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notificationsEnabled: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="autoUpdate"
+              checked={autoUpdateEnabled}
+              onChange={(e) => setAutoUpdateEnabled(e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="autoUpdate" className="ml-2 text-sm text-gray-700">
+              Otomatik güncellemeler (önerilen)
+            </label>
+          </div>
+        </div>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hatırlatma Süresi (Gün)
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">🔔 Bildirim Ayarları</h2>
+        
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="notifications"
+              checked={notificationsEnabled}
+              onChange={(e) => setNotificationsEnabled(e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="notifications" className="ml-2 text-sm text-gray-700">
+              Bildirimleri etkinleştir
+            </label>
+          </div>
+
+          {notificationsEnabled && (
+            <div className="ml-6 pl-4 border-l-2 border-blue-100 space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="dailyNotifications"
+                  checked={dailyNotificationEnabled}
+                  onChange={(e) => setDailyNotificationEnabled(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="dailyNotifications" className="ml-2 text-sm text-gray-700">
+                  Günlük bildirim (o gün ödeme varsa)
                 </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="30"
-                    value={formData.reminderDays}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reminderDays: Number(e.target.value) }))}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <span className="text-sm text-gray-600">
-                    gün önceden hatırlat
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  Çek ödeme tarihinden kaç gün önce bildirim alacağınızı belirler
-                </p>
               </div>
 
-              {isElectron && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <RefreshCw className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">
-                        Otomatik Güncelleme
-                      </label>
-                      <p className="text-sm text-gray-500">
-                        Yeni sürümler otomatik olarak kontrol edilsin ve bildirim alın
-                      </p>
-                    </div>
-                  </div>
-                  
+              {dailyNotificationEnabled && (
+                <div className="ml-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Günlük bildirim saati:
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={formData.autoUpdateEnabled}
-                    onChange={(e) => setFormData(prev => ({ ...prev, autoUpdateEnabled: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    type="time"
+                    value={dailyNotificationTime}
+                    onChange={(e) => setDailyNotificationTime(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Her gün {dailyNotificationTime} saatinde kontrol edilir
+                  </p>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Veri Yönetimi */}
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Veri Yönetimi</h3>
-            
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  onClick={onExportData}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Verileri Dışa Aktar</span>
-                </button>
-                
-                <label className="flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                  <Upload className="h-4 w-4" />
-                  <span>Verileri İçe Aktar</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleImportFile}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-              
-              <p className="text-sm text-gray-500">
-                Çek verilerinizi yedeklemek veya başka bir cihaza aktarmak için kullanın
-              </p>
-            </div>
-          </div>
-
-          {/* Uygulama Güncelleme */}
-          {isElectron && (
-            <div className="border-b border-gray-200 pb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Uygulama Güncelleme</h3>
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleCheckForUpdates}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  <span>Güncellemeleri Kontrol Et</span>
-                </button>
-
-                {updateStatus === 'checking' && (
-                  <p className="text-sm text-blue-600">Güncelleme aranıyor...</p>
-                )}
-                {updateStatus === 'update-available' && updateInfo && (
-                  <div className="text-sm text-green-600">
-                    <p>Yeni güncelleme mevcut: v{updateInfo.version}</p>
-                    <button
-                      type="button"
-                      onClick={handleDownloadUpdate}
-                      className="mt-2 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Güncellemeyi İndir
-                    </button>
-                  </div>
-                )}
-                {updateStatus === 'downloading' && (
-                  <div className="text-sm text-blue-600">
-                    <p>Güncelleme indiriliyor: %{downloadProgress.toFixed(2)}</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
-                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${downloadProgress}%` }}></div>
-                    </div>
-                  </div>
-                )}
-                {updateStatus === 'update-downloaded' && (
-                  <div className="text-sm text-green-600 flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5" />
-                    <p>Güncelleme indirildi! Uygulamayı yeniden başlatın.</p>
-                    <button
-                      type="button"
-                      onClick={handleInstallUpdate}
-                      className="ml-auto px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Yeniden Başlat ve Kur
-                    </button>
-                  </div>
-                )}
-                {updateStatus === 'not-available' && (
-                  <p className="text-sm text-gray-600">En son sürümü kullanıyorsunuz.</p>
-                )}
-                {updateStatus === 'error' && updateInfo && (
-                  <p className="text-sm text-red-600">Hata: {updateInfo.message}</p>
-                )}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-900 mb-2">Bildirim Davranışı:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• <strong>Hatırlatma</strong>: Ödeme tarihinden {reminderDays} gün önce (tek seferlik)</li>
+                  <li>• <strong>Ödeme Günü</strong>: Ödeme tarihi geldiğinde (tek seferlik)</li>
+                  {dailyNotificationEnabled && (
+                    <li>• <strong>Günlük</strong>: Her gün {dailyNotificationTime}'da o gün ödeme varsa</li>
+                  )}
+                </ul>
               </div>
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Kaydet Butonu */}
-          <div className="flex justify-end">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">🔄 Güncelleme</h2>
+        
+        <div className="space-y-4">
+          {window.electronAPI && (
             <button
-              type="submit"
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={async () => {
+                try {
+                  await window.electronAPI.checkForUpdates();
+                  alert('Güncellemeler kontrol ediliyor...');
+                } catch (error) {
+                  alert('Güncelleme kontrolü sırasında hata oluştu.');
+                }
+              }}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Save className="h-4 w-4" />
-              <span>Ayarları Kaydet</span>
+              🔍 Güncellemeleri Kontrol Et
             </button>
-          </div>
-
-          {savedMessage && (
-            <div className="text-center text-green-600 font-medium">
-              Ayarlar başarıyla kaydedildi!
-            </div>
           )}
-        </form>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">💾 Veri Yedekleme</h2>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={onExportData}
+              className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              📤 Verileri Dışa Aktar
+            </button>
+            
+            <label className="bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors cursor-pointer text-center">
+              📥 Verileri İçe Aktar
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileImport}
+                className="hidden"
+              />
+            </label>
+          </div>
+          
+          <p className="text-sm text-gray-500">
+            Verilerinizi düzenli olarak yedeklemenizi öneririz.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        >
+          💾 Ayarları Kaydet
+        </button>
       </div>
     </div>
   );
