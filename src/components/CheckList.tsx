@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Check } from '../types';
-import { formatDate, getDaysUntilPayment, getPaymentStatus, getStatusColor, getStatusText } from '../utils/dateUtils';
-import { Edit2, Trash2, CheckCircle, Circle, Calendar, User, Banknote, Search, CreditCard, Receipt, RotateCcw, Zap, Droplets, Flame, Phone, Wifi, FileText } from 'lucide-react';
+import { formatCurrency, formatDate, getDaysUntilPayment, getPaymentStatus } from '../utils/dateUtils';
+import { Edit3, Trash2, DollarSign, Calendar, User, Building, Search, Filter, BarChart3, TrendingUp, TrendingDown, Clock, CheckCircle, AlertTriangle, CreditCard, Receipt, RotateCcw } from 'lucide-react';
 
 interface CheckListProps {
   checks: Check[];
@@ -10,429 +10,484 @@ interface CheckListProps {
   onTogglePaid: (id: string) => void;
 }
 
+type FilterType = 'all' | 'paid' | 'unpaid' | 'overdue' | 'upcoming' | 'check' | 'bill';
+type SortType = 'paymentDate' | 'amount' | 'createdDate' | 'signedTo';
+
 export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: CheckListProps) {
-  const [filter, setFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'paymentDate' | 'amount' | 'createdDate'>('paymentDate');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [sort, setSort] = useState<SortType>('paymentDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const getBillTypeIcon = (billType?: string) => {
-    switch (billType) {
-      case 'elektrik': return <Zap className="h-4 w-4 text-yellow-500" />;
-      case 'su': return <Droplets className="h-4 w-4 text-blue-500" />;
-      case 'dogalgaz': return <Flame className="h-4 w-4 text-orange-500" />;
-      case 'telefon': return <Phone className="h-4 w-4 text-green-500" />;
-      case 'internet': return <Wifi className="h-4 w-4 text-purple-500" />;
-      default: return <FileText className="h-4 w-4 text-gray-500" />;
-    }
-  };
+  // Dashboard istatistikleri
+  const stats = useMemo(() => {
+    const totalAmount = checks.reduce((sum, check) => sum + check.amount, 0);
+    const paidAmount = checks.filter(check => check.isPaid).reduce((sum, check) => sum + check.amount, 0);
+    const unpaidAmount = totalAmount - paidAmount;
+    const overdueAmount = checks
+      .filter(check => !check.isPaid && getDaysUntilPayment(check.paymentDate) < 0)
+      .reduce((sum, check) => sum + check.amount, 0);
 
-  const getBillTypeLabel = (billType?: string, customBillType?: string) => {
-    if (billType === 'diger' && customBillType) {
-      return customBillType;
-    }
-    
-    const labels: Record<string, string> = {
-      elektrik: 'Elektrik',
-      su: 'Su',
-      dogalgaz: 'Doğalgaz',
-      telefon: 'Telefon',
-      internet: 'İnternet',
-      diger: 'Diğer'
+    return {
+      totalAmount,
+      paidAmount,
+      unpaidAmount,
+      overdueAmount,
+      totalCount: checks.length,
+      paidCount: checks.filter(check => check.isPaid).length,
+      unpaidCount: checks.filter(check => !check.isPaid).length,
+      overdueCount: checks.filter(check => !check.isPaid && getDaysUntilPayment(check.paymentDate) < 0).length,
+      paymentRate: totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0,
     };
-    
-    return billType ? labels[billType] || billType : '';
+  }, [checks]);
+
+  // Filtrelenmiş ve sıralanmış çekler
+  const filteredAndSortedChecks = useMemo(() => {
+    let filtered = checks.filter(check => {
+      // Arama terimi filtresi
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          check.signedTo.toLowerCase().includes(searchLower) ||
+          check.createdBy.toLowerCase().includes(searchLower) ||
+          check.amount.toString().includes(searchLower) ||
+          (check.type === 'bill' && check.billType?.toLowerCase().includes(searchLower)) ||
+          (check.customBillType?.toLowerCase().includes(searchLower));
+        
+        if (!matchesSearch) return false;
+      }
+
+      // Durum filtresi
+      switch (filter) {
+        case 'paid':
+          return check.isPaid;
+        case 'unpaid':
+          return !check.isPaid;
+        case 'overdue':
+          return !check.isPaid && getDaysUntilPayment(check.paymentDate) < 0;
+        case 'upcoming':
+          return !check.isPaid && getDaysUntilPayment(check.paymentDate) >= 0 && getDaysUntilPayment(check.paymentDate) <= 7;
+        case 'check':
+          return check.type === 'check';
+        case 'bill':
+          return check.type === 'bill';
+        default:
+          return true;
+      }
+    });
+
+    // Sıralama
+    filtered.sort((a, b) => {
+      let aVal, bVal;
+      
+      switch (sort) {
+        case 'amount':
+          aVal = a.amount;
+          bVal = b.amount;
+          break;
+        case 'createdDate':
+          aVal = new Date(a.createdDate).getTime();
+          bVal = new Date(b.createdDate).getTime();
+          break;
+        case 'signedTo':
+          aVal = a.signedTo.toLowerCase();
+          bVal = b.signedTo.toLowerCase();
+          break;
+        default: // paymentDate
+          aVal = new Date(a.paymentDate).getTime();
+          bVal = new Date(b.paymentDate).getTime();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [checks, searchTerm, filter, sort, sortDirection]);
+
+  const handleSort = (newSort: SortType) => {
+    if (sort === newSort) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSort(newSort);
+      setSortDirection('asc');
+    }
   };
 
-  const filteredChecks = checks.filter(check => {
-    // Arama filtresi
-    const searchLower = searchTerm.toLowerCase();
-    const billTypeText = check.type === 'bill' ? getBillTypeLabel(check.billType, check.customBillType) : '';
-    const matchesSearch = !searchTerm || 
-      check.createdBy.toLowerCase().includes(searchLower) ||
-      check.signedTo.toLowerCase().includes(searchLower) ||
-      check.amount.toString().includes(searchLower) ||
-      formatDate(check.paymentDate).includes(searchLower) ||
-      formatDate(check.createdDate).includes(searchLower) ||
-      billTypeText.toLowerCase().includes(searchLower);
+  const getStatusColor = (check: Check) => {
+    if (check.isPaid) return 'theme-success';
+    const daysUntil = getDaysUntilPayment(check.paymentDate);
+    if (daysUntil < 0) return 'theme-error';
+    if (daysUntil <= 3) return 'theme-warning';
+    return 'theme-info';
+  };
 
-    if (!matchesSearch) return false;
+  const getStatusIcon = (check: Check) => {
+    if (check.isPaid) return <CheckCircle className="w-4 h-4" />;
+    const daysUntil = getDaysUntilPayment(check.paymentDate);
+    if (daysUntil < 0) return <AlertTriangle className="w-4 h-4" />;
+    if (daysUntil <= 3) return <Clock className="w-4 h-4" />;
+    return <Calendar className="w-4 h-4" />;
+  };
 
-    // Durum filtresi
-    if (filter === 'all') return true;
-    if (filter === 'paid') return check.isPaid;
-    if (filter === 'unpaid') return !check.isPaid;
-    if (filter === 'overdue') return !check.isPaid && getDaysUntilPayment(check.paymentDate) < 0;
-    if (filter === 'upcoming') return !check.isPaid && getDaysUntilPayment(check.paymentDate) >= 0;
-    if (filter === 'checks') return check.type === 'check';
-    if (filter === 'bills') return check.type === 'bill';
-    if (filter === 'recurring') return check.isRecurring;
-    return true;
-  });
-
-  const sortedChecks = [...filteredChecks].sort((a, b) => {
-    if (sortBy === 'paymentDate') {
-      return new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime();
-    }
-    if (sortBy === 'amount') {
-      return b.amount - a.amount;
-    }
-    if (sortBy === 'createdDate') {
-      return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime();
-    }
-    return 0;
-  });
-
-  const stats = {
-    total: checks.length,
-    paid: checks.filter(c => c.isPaid).length,
-    unpaid: checks.filter(c => !c.isPaid).length,
-    overdue: checks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).length,
-    checks: checks.filter(c => c.type === 'check').length,
-    bills: checks.filter(c => c.type === 'bill').length,
-    recurring: checks.filter(c => c.isRecurring).length,
-    // Tutar hesaplamaları
-    totalAmount: checks.reduce((sum, c) => sum + c.amount, 0),
-    paidAmount: checks.filter(c => c.isPaid).reduce((sum, c) => sum + c.amount, 0),
-    unpaidAmount: checks.filter(c => !c.isPaid).reduce((sum, c) => sum + c.amount, 0),
-    overdueAmount: checks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).reduce((sum, c) => sum + c.amount, 0),
+  const getBillTypeIcon = (billType: string) => {
+    const icons: Record<string, string> = {
+      elektrik: '⚡',
+      su: '💧',
+      dogalgaz: '🔥',
+      telefon: '📞',
+      internet: '🌐',
+      diger: '📄'
+    };
+    return icons[billType] || '📄';
   };
 
   if (checks.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Banknote className="h-8 w-8 text-gray-400" />
+      <div className="theme-bg min-h-screen">
+        <div className="theme-surface rounded-xl shadow-sm border theme-border p-12 text-center">
+          <div className="theme-text-muted mb-4">
+            <CreditCard className="w-16 h-16 mx-auto" />
+          </div>
+          <h3 className="theme-text text-xl font-semibold mb-2">Henüz Ödeme Yok</h3>
+          <p className="theme-text-muted mb-6">İlk çek veya faturanızı ekleyerek başlayın</p>
+          <button className="theme-button px-6 py-3 rounded-lg font-medium">
+            Yeni Ödeme Ekle
+          </button>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz ödeme eklenmemiş</h3>
-        <p className="text-gray-500">İlk çek veya faturanızı eklemek için "Yeni Ekle" butonunu kullanın.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Dashboard */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-          <Banknote className="h-6 w-6 mr-2 text-blue-600" />
-          Ödeme Özeti
-        </h2>
-        
-        {/* Ana İstatistikler */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Toplam */}
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-xl border-l-4 border-blue-500">
+    <div className="theme-bg min-h-screen space-y-6">
+      {/* Dashboard İstatistikleri */}
+      <div className="theme-surface rounded-xl shadow-sm border theme-border p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="theme-primary rounded-full p-2">
+            <BarChart3 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="theme-text text-xl font-bold">Ödeme Özeti</h2>
+            <p className="theme-text-muted text-sm">Genel durum ve istatistikler</p>
+          </div>
+        </div>
+
+        {/* Ana İstatistik Kartları */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-medium">Toplam Ödeme</p>
-                <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  {stats.totalAmount.toLocaleString('tr-TR')} ₺
-                </p>
+                <p className="theme-text-muted text-sm font-medium">Toplam Tutar</p>
+                <p className="theme-text text-2xl font-bold">{formatCurrency(stats.totalAmount)}</p>
               </div>
-              <div className="bg-blue-500 p-3 rounded-full">
-                <Banknote className="h-8 w-8 text-white" />
+              <div className="theme-primary rounded-full p-2">
+                <DollarSign className="w-5 h-5 text-white" />
               </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              <span className="theme-text-muted text-xs">{stats.totalCount} ödeme</span>
             </div>
           </div>
 
-          {/* Bekleyen */}
-          <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 rounded-xl border-l-4 border-orange-500">
+          <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-600 text-sm font-medium">Bekleyen</p>
-                <p className="text-3xl font-bold text-orange-900">{stats.unpaid}</p>
-                <p className="text-sm text-orange-700 mt-1">
-                  {stats.unpaidAmount.toLocaleString('tr-TR')} ₺
-                </p>
+                <p className="theme-text-muted text-sm font-medium">Ödenen</p>
+                <p className="text-green-600 text-2xl font-bold">{formatCurrency(stats.paidAmount)}</p>
               </div>
-              <div className="bg-orange-500 p-3 rounded-full">
-                <Calendar className="h-8 w-8 text-white" />
+              <div className="bg-green-500 rounded-full p-2">
+                <CheckCircle className="w-5 h-5 text-white" />
               </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              <span className="theme-text-muted text-xs">{stats.paidCount} ödeme</span>
             </div>
           </div>
 
-          {/* Ödenen */}
-          <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-xl border-l-4 border-green-500">
+          <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-600 text-sm font-medium">Ödenen</p>
-                <p className="text-3xl font-bold text-green-900">{stats.paid}</p>
-                <p className="text-sm text-green-700 mt-1">
-                  {stats.paidAmount.toLocaleString('tr-TR')} ₺
-                </p>
+                <p className="theme-text-muted text-sm font-medium">Bekleyen</p>
+                <p className="text-orange-600 text-2xl font-bold">{formatCurrency(stats.unpaidAmount)}</p>
               </div>
-              <div className="bg-green-500 p-3 rounded-full">
-                <CheckCircle className="h-8 w-8 text-white" />
+              <div className="bg-orange-500 rounded-full p-2">
+                <Clock className="w-5 h-5 text-white" />
               </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              <span className="theme-text-muted text-xs">{stats.unpaidCount} ödeme</span>
+            </div>
+          </div>
+
+          <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="theme-text-muted text-sm font-medium">Vadesi Geçen</p>
+                <p className="text-red-600 text-2xl font-bold">{formatCurrency(stats.overdueAmount)}</p>
+              </div>
+              <div className="bg-red-500 rounded-full p-2">
+                <AlertTriangle className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              <span className="theme-text-muted text-xs">{stats.overdueCount} ödeme</span>
             </div>
           </div>
         </div>
 
-        {/* Alt Bilgiler */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Vadesi Geçen - Acil */}
-          {stats.overdue > 0 && (
-            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-              <div className="flex items-center">
-                <div className="bg-red-500 p-2 rounded-full mr-3">
-                  <Circle className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-red-900 font-bold">{stats.overdue}</p>
-                  <p className="text-red-600 text-xs">Vadesi Geçen</p>
-                  <p className="text-red-700 text-xs font-medium">
-                    {stats.overdueAmount.toLocaleString('tr-TR')} ₺
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Çek Sayısı */}
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <div className="flex items-center">
-              <div className="bg-purple-500 p-2 rounded-full mr-3">
-                <CreditCard className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <p className="text-purple-900 font-bold">{stats.checks}</p>
-                <p className="text-purple-600 text-xs">Çek</p>
-              </div>
-            </div>
+        {/* Ödeme Oranı Progress Bar */}
+        <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="theme-text font-medium">Ödeme Oranı</h3>
+            <span className="theme-text text-sm font-bold">%{stats.paymentRate}</span>
           </div>
-
-          {/* Fatura Sayısı */}
-          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-            <div className="flex items-center">
-              <div className="bg-orange-500 p-2 rounded-full mr-3">
-                <Receipt className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <p className="text-orange-900 font-bold">{stats.bills}</p>
-                <p className="text-orange-600 text-xs">Fatura</p>
-              </div>
-            </div>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div 
+              className="bg-green-500 h-3 rounded-full transition-all duration-500"
+              style={{ width: `${stats.paymentRate}%` }}
+            ></div>
           </div>
-
-          {/* Tekrarlayan */}
-          <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
-            <div className="flex items-center">
-              <div className="bg-cyan-500 p-2 rounded-full mr-3">
-                <RotateCcw className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <p className="text-cyan-900 font-bold">{stats.recurring}</p>
-                <p className="text-cyan-600 text-xs">Tekrarlayan</p>
-              </div>
-            </div>
+          <div className="flex justify-between mt-1">
+            <span className="theme-text-muted text-xs">0%</span>
+            <span className="theme-text-muted text-xs">100%</span>
           </div>
         </div>
-
-        {/* Ödeme Oranı */}
-        {stats.total > 0 && (
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Ödeme Oranı</span>
-              <span className="text-sm font-medium text-gray-900">
-                %{Math.round((stats.paid / stats.total) * 100)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(stats.paid / stats.total) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Arama ve Filtreler */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 space-y-4">
-        {/* Arama */}
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
+      <div className="theme-surface rounded-xl shadow-sm border theme-border p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="theme-primary rounded-full p-2">
+            <Search className="w-5 h-5 text-white" />
           </div>
-          <input
-            type="text"
-            placeholder="Kişi adı, fatura türü, miktar, tarih ile ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-            >
-              ×
-            </button>
-          )}
+          <h3 className="theme-text text-lg font-semibold">Ara ve Filtrele</h3>
         </div>
 
-        {/* Filtreler ve Sıralama */}
-        <div className="flex flex-col sm:flex-row justify-between space-y-3 sm:space-y-0 sm:space-x-4">
-          <div className="flex space-x-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Arama */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 theme-text-muted w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Firma, kişi, tutar ara..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="theme-input w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Filtre */}
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 theme-text-muted w-4 h-4" />
             <select
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onChange={(e) => setFilter(e.target.value as FilterType)}
+              className="theme-input w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">Tümü</option>
-              <option value="unpaid">Bekleyenler</option>
-              <option value="paid">Ödenenler</option>
-              <option value="overdue">Vadesi Geçenler</option>
-              <option value="upcoming">Vadesi Gelenler</option>
-              <option value="checks">Sadece Çekler</option>
-              <option value="bills">Sadece Faturalar</option>
-              <option value="recurring">Tekrarlayanlar</option>
+              <option value="all">🔍 Tümü</option>
+              <option value="unpaid">⏳ Bekleyen</option>
+              <option value="paid">✅ Ödenen</option>
+              <option value="overdue">⚠️ Vadesi Geçen</option>
+              <option value="upcoming">📅 Yaklaşan (7 gün)</option>
+              <option value="check">📄 Çekler</option>
+              <option value="bill">🧾 Faturalar</option>
             </select>
-            
+          </div>
+
+          {/* Sıralama */}
+          <div className="relative">
+            <TrendingUp className="absolute left-3 top-1/2 transform -translate-y-1/2 theme-text-muted w-4 h-4" />
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={`${sort}-${sortDirection}`}
+              onChange={(e) => {
+                const [newSort, direction] = e.target.value.split('-');
+                setSort(newSort as SortType);
+                setSortDirection(direction as 'asc' | 'desc');
+              }}
+              className="theme-input w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              <option value="paymentDate">Ödeme Tarihine Göre</option>
-              <option value="amount">Miktara Göre</option>
-              <option value="createdDate">Oluşturma Tarihine Göre</option>
+              <option value="paymentDate-asc">📅 Tarihe göre (Yakın)</option>
+              <option value="paymentDate-desc">📅 Tarihe göre (Uzak)</option>
+              <option value="amount-desc">💰 Tutara göre (Yüksek)</option>
+              <option value="amount-asc">💰 Tutara göre (Düşük)</option>
+              <option value="signedTo-asc">🏢 Firmaya göre (A-Z)</option>
+              <option value="signedTo-desc">🏢 Firmaya göre (Z-A)</option>
             </select>
           </div>
-          
-          <div className="text-sm text-gray-600">
-            {filteredChecks.length} ödeme gösteriliyor
-            {searchTerm && <span className="ml-1">"{searchTerm}" için</span>}
-          </div>
+        </div>
+
+        {/* Aktif Filtre Durumu */}
+        <div className="flex items-center gap-2 mt-4">
+          <span className="theme-text-muted text-sm">
+            {filteredAndSortedChecks.length} / {checks.length} ödeme gösteriliyor
+          </span>
+          {(searchTerm || filter !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilter('all');
+              }}
+              className="theme-button-secondary px-3 py-1 text-xs rounded-lg"
+            >
+              Filtreleri Temizle
+            </button>
+          )}
         </div>
       </div>
 
       {/* Ödeme Listesi */}
       <div className="space-y-4">
-        {sortedChecks.map(check => {
-          const status = getPaymentStatus(check.paymentDate, check.isPaid);
-          const daysUntil = getDaysUntilPayment(check.paymentDate);
-          
-          return (
-            <div key={check.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => onTogglePaid(check.id)}
-                        className={`p-1 rounded-full transition-colors ${
-                          check.isPaid ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                      >
-                        {check.isPaid ? <CheckCircle className="h-6 w-6" /> : <Circle className="h-6 w-6" />}
-                      </button>
-                      
-                      <div className="flex items-center space-x-2">
-                        {check.type === 'check' ? (
-                          <CreditCard className="h-5 w-5 text-purple-600" />
-                        ) : (
-                          <Receipt className="h-5 w-5 text-orange-600" />
-                        )}
-                        
-                        {check.type === 'bill' && (
-                          <div className="flex items-center space-x-1">
-                            {getBillTypeIcon(check.billType)}
-                            <span className="text-sm font-medium text-gray-700">
-                              {getBillTypeLabel(check.billType, check.customBillType)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {check.isRecurring && (
-                          <div className="flex items-center space-x-1">
-                            <RotateCcw className="h-4 w-4 text-cyan-600" />
-                            <span className="text-xs text-cyan-600 font-medium">
-                              {check.recurringType === 'monthly' ? 'Aylık' : 
-                               check.recurringType === 'weekly' ? 'Haftalık' : 'Yıllık'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
-                          {getStatusText(status)}
+        {filteredAndSortedChecks.map((check) => (
+          <div
+            key={check.id}
+            className="theme-surface rounded-xl shadow-sm border theme-border p-6 transition-all hover:shadow-md"
+          >
+            <div className="flex items-start justify-between">
+              {/* Sol taraf - Ana bilgiler */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  {/* Tip ikonu */}
+                  <div className={`p-2 rounded-lg ${
+                    check.type === 'check' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
+                  }`}>
+                    {check.type === 'check' ? (
+                      <CreditCard className="w-5 h-5" />
+                    ) : (
+                      <Receipt className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  {/* Başlık ve fatura türü */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="theme-text text-lg font-semibold">
+                        {check.type === 'check' ? 'Çek' : 'Fatura'}
+                      </h3>
+                      {check.type === 'bill' && (
+                        <span className="text-sm bg-gray-100 theme-text px-2 py-1 rounded-full">
+                          {getBillTypeIcon(check.billType || 'diger')} {
+                            check.billType === 'diger' ? check.customBillType : 
+                            check.billType === 'elektrik' ? 'Elektrik' :
+                            check.billType === 'su' ? 'Su' :
+                            check.billType === 'dogalgaz' ? 'Doğalgaz' :
+                            check.billType === 'telefon' ? 'Telefon' :
+                            check.billType === 'internet' ? 'İnternet' : 'Diğer'
+                          }
                         </span>
-                        {!check.isPaid && (
-                          <span className="ml-2 text-sm text-gray-500">
-                            {daysUntil === 0 ? 'Bugün' : daysUntil > 0 ? `${daysUntil} gün kaldı` : `${Math.abs(daysUntil)} gün geçti`}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {check.isRecurring && (
+                        <span className="text-sm bg-purple-100 text-purple-600 px-2 py-1 rounded-full flex items-center gap-1">
+                          <RotateCcw className="w-3 h-3" />
+                          Tekrarlayan
+                        </span>
+                      )}
                     </div>
-                    
-                    <div className="text-2xl font-bold text-gray-900">
-                      {check.amount.toLocaleString('tr-TR')} ₺
-                    </div>
+                    <p className="theme-text-muted text-sm">#{check.id.slice(-8)}</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <div>
-                        <span className="text-gray-600">Oluşturan:</span>
-                        <span className="ml-1 font-medium text-gray-900">{check.createdBy}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <div>
-                        <span className="text-gray-600">Ödenecek:</span>
-                        <span className="ml-1 font-medium text-gray-900">{check.signedTo}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <div>
-                        <span className="text-gray-600">Ödeme:</span>
-                        <span className="ml-1 font-medium text-gray-900">{formatDate(check.paymentDate)}</span>
-                      </div>
-                    </div>
+                  {/* Durum etiketi */}
+                  <div className={`${getStatusColor(check)} px-3 py-1 rounded-full flex items-center gap-2 text-sm font-medium text-white`}>
+                    {getStatusIcon(check)}
+                    {getPaymentStatus(check.paymentDate, check.isPaid)}
                   </div>
-
-                  {/* Tekrarlayan ödeme bilgisi */}
-                  {check.isRecurring && check.nextPaymentDate && (
-                    <div className="flex items-center space-x-2 text-sm bg-cyan-50 px-3 py-2 rounded-lg">
-                      <RotateCcw className="h-4 w-4 text-cyan-600" />
-                      <span className="text-cyan-700">
-                        Sonraki ödeme: <span className="font-medium">{formatDate(check.nextPaymentDate)}</span>
-                        {check.recurringType === 'monthly' && check.recurringDay && 
-                          ` (Her ayın ${check.recurringDay}. günü)`}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex items-center space-x-2 ml-4">
-                  <button
-                    onClick={() => onEdit(check)}
-                    className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                    title="Düzenle"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(check.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                    title="Sil"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                {/* Detay bilgileri */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Building className="theme-text-muted w-4 h-4" />
+                    <div>
+                      <p className="theme-text-muted text-xs">Ödenecek</p>
+                      <p className="theme-text text-sm font-medium">{check.signedTo}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="theme-text-muted w-4 h-4" />
+                    <div>
+                      <p className="theme-text-muted text-xs">Tutar</p>
+                      <p className="theme-text text-sm font-medium">{formatCurrency(check.amount)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Calendar className="theme-text-muted w-4 h-4" />
+                    <div>
+                      <p className="theme-text-muted text-xs">Ödeme Tarihi</p>
+                      <p className="theme-text text-sm font-medium">{formatDate(check.paymentDate)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Oluşturan kişi */}
+                <div className="flex items-center gap-2 mt-3">
+                  <User className="theme-text-muted w-4 h-4" />
+                  <span className="theme-text-muted text-sm">
+                    {check.createdBy} tarafından {formatDate(check.createdDate)} tarihinde oluşturuldu
+                  </span>
                 </div>
               </div>
+
+              {/* Sağ taraf - Aksiyonlar */}
+              <div className="flex flex-col gap-2 ml-4">
+                <button
+                  onClick={() => onTogglePaid(check.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    check.isPaid 
+                      ? 'bg-gray-100 theme-text hover:bg-gray-200' 
+                      : 'theme-success text-white hover:bg-green-600'
+                  }`}
+                >
+                  {check.isPaid ? 'Ödenmedi' : 'Ödendi'}
+                </button>
+
+                <button
+                  onClick={() => onEdit(check)}
+                  className="theme-button-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Düzenle
+                </button>
+
+                <button
+                  onClick={() => {
+                    const itemType = check.type === 'bill' ? 'faturayı' : 'çeki';
+                    if (confirm(`Bu ${itemType} silmek istediğinizden emin misiniz?`)) {
+                      onDelete(check.id);
+                    }
+                  }}
+                  className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Sil
+                </button>
+              </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
+
+      {/* Boş durum (filtreleme sonucu) */}
+      {filteredAndSortedChecks.length === 0 && checks.length > 0 && (
+        <div className="theme-surface rounded-xl shadow-sm border theme-border p-12 text-center">
+          <div className="theme-text-muted mb-4">
+            <Search className="w-16 h-16 mx-auto" />
+          </div>
+          <h3 className="theme-text text-xl font-semibold mb-2">Sonuç Bulunamadı</h3>
+          <p className="theme-text-muted mb-6">Arama kriterlerinize uygun ödeme bulunamadı</p>
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setFilter('all');
+            }}
+            className="theme-button px-6 py-3 rounded-lg font-medium"
+          >
+            Filtreleri Temizle
+          </button>
+        </div>
+      )}
     </div>
   );
 }

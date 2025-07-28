@@ -55,25 +55,25 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+        <div className="theme-bg min-h-screen flex items-center justify-center p-4">
+          <div className="theme-surface rounded-xl shadow-lg border theme-border p-8 max-w-md w-full text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Bir Hata Oluştu</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-2xl font-bold theme-text mb-4">Bir Hata Oluştu</h2>
+            <p className="theme-text-muted mb-6">
               Uygulama beklenmedik bir hatayla karşılaştı. Aşağıdaki seçenekleri deneyebilirsiniz:
             </p>
             
             <div className="space-y-3">
               <button
                 onClick={this.handleReload}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                className="theme-button w-full py-3 px-4 rounded-lg font-medium transition-colors"
               >
                 🔄 Uygulamayı Yeniden Başlat
               </button>
               
               <button
                 onClick={this.handleResetData}
-                className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors"
+                className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium"
               >
                 🗑️ Verileri Sıfırla ve Yeniden Başlat
               </button>
@@ -82,16 +82,16 @@ class ErrorBoundary extends Component<Props, State> {
             {/* Debug bilgileri - sadece development'da */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="mt-6 text-left">
-                <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                <summary className="cursor-pointer text-sm theme-text-muted hover:theme-text">
                   🐛 Debug Bilgileri (Geliştirici)
                 </summary>
-                <div className="mt-2 p-3 bg-gray-100 rounded text-xs">
-                  <strong>Hata:</strong>
-                  <pre className="whitespace-pre-wrap">{this.state.error.toString()}</pre>
+                <div className="mt-2 p-3 theme-bg-secondary rounded text-xs theme-border border">
+                  <strong className="theme-text">Hata:</strong>
+                  <pre className="whitespace-pre-wrap theme-text-muted">{this.state.error.toString()}</pre>
                   {this.state.errorInfo && (
                     <>
-                      <strong className="block mt-2">Stack Trace:</strong>
-                      <pre className="whitespace-pre-wrap">{this.state.errorInfo.componentStack}</pre>
+                      <strong className="block mt-2 theme-text">Stack Trace:</strong>
+                      <pre className="whitespace-pre-wrap theme-text-muted">{this.state.errorInfo.componentStack}</pre>
                     </>
                   )}
                 </div>

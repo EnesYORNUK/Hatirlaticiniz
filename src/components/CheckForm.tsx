@@ -47,375 +47,381 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     const newErrors: Record<string, string> = {};
 
     if (!formData.paymentDate) {
-      newErrors.paymentDate = 'Ödeme tarihi gereklidir';
-    } else if (new Date(formData.paymentDate) <= new Date(formData.createdDate)) {
-      newErrors.paymentDate = 'Ödeme tarihi, oluşturma tarihinden sonra olmalıdır';
+      newErrors.paymentDate = 'Ödeme tarihi zorunludur';
     }
 
-    if (!formData.amount || Number(formData.amount) <= 0) {
-      newErrors.amount = 'Geçerli bir miktar giriniz';
+    if (!formData.amount) {
+      newErrors.amount = 'Tutar zorunludur';
+    } else if (isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
+      newErrors.amount = 'Geçerli bir tutar giriniz';
     }
 
     if (!formData.createdBy.trim()) {
-      newErrors.createdBy = 'Oluşturan kişi gereklidir';
+      newErrors.createdBy = 'Oluşturan kişi zorunludur';
     }
 
     if (!formData.signedTo.trim()) {
-      newErrors.signedTo = 'Ödenecek firma/kişi gereklidir';
+      newErrors.signedTo = 'Ödenecek Firma/Kişi zorunludur';
     }
 
     if (formData.type === 'bill' && formData.billType === 'diger' && !formData.customBillType.trim()) {
-      newErrors.customBillType = 'Özel fatura türü gereklidir';
+      newErrors.customBillType = 'Fatura türü belirtiniz';
+    }
+
+    if (formData.isRecurring && (!formData.recurringDay || formData.recurringDay < 1 || formData.recurringDay > 31)) {
+      newErrors.recurringDay = 'Geçerli bir gün giriniz (1-31)';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const generateNextPaymentDate = (data = formData) => {
-    if (!data.isRecurring || !data.paymentDate) return '';
+  const generateNextPaymentDate = () => {
+    if (!formData.isRecurring || !formData.paymentDate) return '';
     
-    const currentDate = new Date(data.paymentDate);
-    let nextDate = new Date(currentDate);
-
-    switch (data.recurringType) {
+    const baseDate = new Date(formData.paymentDate);
+    const nextDate = new Date(baseDate);
+    
+    switch (formData.recurringType) {
       case 'weekly':
-        nextDate.setDate(currentDate.getDate() + 7);
+        nextDate.setDate(baseDate.getDate() + 7);
         break;
       case 'monthly':
-        nextDate.setMonth(currentDate.getMonth() + 1);
-        nextDate.setDate(data.recurringDay);
+        nextDate.setMonth(baseDate.getMonth() + 1);
         break;
       case 'yearly':
-        nextDate.setFullYear(currentDate.getFullYear() + 1);
+        nextDate.setFullYear(baseDate.getFullYear() + 1);
         break;
     }
-
+    
     return nextDate.toISOString().split('T')[0];
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (validateForm()) {
-      const nextPaymentDate = formData.isRecurring ? generateNextPaymentDate() : undefined;
-      
-      onSave({
-        createdDate: formData.createdDate,
-        paymentDate: formData.paymentDate,
-        amount: Number(formData.amount),
-        createdBy: formData.createdBy.trim(),
-        signedTo: formData.signedTo.trim(),
-        isPaid: formData.isPaid,
-        type: formData.type,
-        billType: formData.type === 'bill' ? formData.billType : undefined,
-        customBillType: formData.type === 'bill' && formData.billType === 'diger' ? formData.customBillType.trim() : undefined,
-        isRecurring: formData.isRecurring,
-        recurringType: formData.isRecurring ? formData.recurringType : undefined,
-        recurringDay: formData.isRecurring ? formData.recurringDay : undefined,
-        nextPaymentDate,
-      });
-    }
-  };
+    if (!validateForm()) return;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
-    
-    let newFormData = {
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
+    const checkData: Omit<Check, 'id' | 'createdAt'> = {
+      createdDate: formData.createdDate,
+      paymentDate: formData.paymentDate,
+      amount: parseFloat(formData.amount),
+      createdBy: formData.createdBy.trim(),
+      signedTo: formData.signedTo.trim(),
+      isPaid: formData.isPaid,
+      type: formData.type,
+      billType: formData.billType,
+      customBillType: formData.customBillType.trim(),
+      isRecurring: formData.isRecurring,
+      recurringType: formData.recurringType,
+      recurringDay: formData.recurringDay,
+      nextPaymentDate: formData.isRecurring ? generateNextPaymentDate() : undefined,
     };
 
-    // Ödeme tarihi değiştiğinde veya tekrarlayan ödeme seçildiğinde
-    // ayın kaçında değerini otomatik güncelle
-    if (name === 'paymentDate' && value && newFormData.isRecurring) {
-      const selectedDate = new Date(value);
-      newFormData.recurringDay = selectedDate.getDate();
-      newFormData.nextPaymentDate = generateNextPaymentDate(newFormData);
-    } else if (name === 'isRecurring' && checked && formData.paymentDate) {
-      const selectedDate = new Date(formData.paymentDate);
-      newFormData.recurringDay = selectedDate.getDate();
-      newFormData.nextPaymentDate = generateNextPaymentDate(newFormData);
-    }
+    onSave(checkData);
+  };
 
-    setFormData(newFormData);
-
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // PaymentDate değiştiğinde ve recurring aktifse, recurringDay'i otomatik set et
+      if (field === 'paymentDate' && updated.isRecurring && value) {
+        const date = new Date(value);
+        updated.recurringDay = date.getDate();
+      }
+      
+      // isRecurring aktif edildiğinde ve paymentDate varsa, recurringDay'i set et
+      if (field === 'isRecurring' && value && updated.paymentDate) {
+        const date = new Date(updated.paymentDate);
+        updated.recurringDay = date.getDate();
+      }
+      
+      return updated;
+    });
+    
     // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 max-h-[80vh] overflow-y-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">
-          {initialData ? `${formData.type === 'check' ? 'Çek' : 'Fatura'} Düzenle` : `Yeni ${formData.type === 'check' ? 'Çek' : 'Fatura'} Ekle`}
-        </h2>
-        <button
-          onClick={onCancel}
-          className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Çek/Fatura Seçimi */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Ödeme Türü
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, type: 'check' }))}
-              className={`flex items-center justify-center space-x-2 p-3 border-2 rounded-lg transition-colors ${
-                formData.type === 'check' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <CreditCard className="h-5 w-5" />
-              <span>Çek</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, type: 'bill' }))}
-              className={`flex items-center justify-center space-x-2 p-3 border-2 rounded-lg transition-colors ${
-                formData.type === 'bill' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <Receipt className="h-5 w-5" />
-              <span>Fatura</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Fatura Türü Seçimi */}
-        {formData.type === 'bill' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fatura Türü
-            </label>
-            <select
-              name="billType"
-              value={formData.billType}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              {Object.entries(billTypeLabels).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Özel Fatura Türü */}
-        {formData.type === 'bill' && formData.billType === 'diger' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Özel Fatura Türü *
-            </label>
-            <input
-              type="text"
-              name="customBillType"
-              value={formData.customBillType}
-              onChange={handleChange}
-              placeholder="Örn: Kira, Sigorta, vb."
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.customBillType ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.customBillType && (
-              <p className="mt-1 text-sm text-red-600">{errors.customBillType}</p>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Oluşturma Tarihi
-            </label>
-            <input
-              type="date"
-              name="createdDate"
-              value={formData.createdDate}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            />
+    <div className="theme-bg min-h-screen py-8">
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="theme-surface rounded-xl shadow-lg border theme-border overflow-hidden">
+          {/* Header */}
+          <div className="theme-primary px-6 py-4">
+            <div className="flex items-center gap-3">
+              {formData.type === 'check' ? (
+                <CreditCard className="w-6 h-6 text-white" />
+              ) : (
+                <Receipt className="w-6 h-6 text-white" />
+              )}
+              <h2 className="text-xl font-bold text-white">
+                {initialData ? 'Düzenle' : 'Yeni'} {formData.type === 'check' ? 'Çek' : 'Fatura'}
+              </h2>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ödeme Tarihi *
-            </label>
-            <input
-              type="date"
-              name="paymentDate"
-              value={formData.paymentDate}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.paymentDate ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.paymentDate && (
-              <p className="mt-1 text-sm text-red-600">{errors.paymentDate}</p>
-            )}
-          </div>
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Tip Seçimi */}
+            <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+              <label className="theme-text block text-sm font-medium mb-3">
+                Ödeme Türü *
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleChange('type', 'check')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    formData.type === 'check'
+                      ? 'theme-primary border-current text-white'
+                      : 'theme-surface theme-border theme-text hover:theme-bg-secondary'
+                  }`}
+                >
+                  <CreditCard className="w-6 h-6 mx-auto mb-2" />
+                  <span className="font-medium">Çek</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChange('type', 'bill')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    formData.type === 'bill'
+                      ? 'theme-primary border-current text-white'
+                      : 'theme-surface theme-border theme-text hover:theme-bg-secondary'
+                  }`}
+                >
+                  <Receipt className="w-6 h-6 mx-auto mb-2" />
+                  <span className="font-medium">Fatura</span>
+                </button>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Miktar (TL) *
-            </label>
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.amount ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.amount && (
-              <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Oluşturan Kişi *
-            </label>
-            <input
-              type="text"
-              name="createdBy"
-              value={formData.createdBy}
-              onChange={handleChange}
-              placeholder="Adı Soyadı"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.createdBy ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.createdBy && (
-              <p className="mt-1 text-sm text-red-600">{errors.createdBy}</p>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ödenecek Firma/Kişi *
-            </label>
-            <input
-              type="text"
-              name="signedTo"
-              value={formData.signedTo}
-              onChange={handleChange}
-              placeholder="Firma/Kişi Adı"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.signedTo ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.signedTo && (
-              <p className="mt-1 text-sm text-red-600">{errors.signedTo}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Tekrarlama Ayarları */}
-        <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <input
-              type="checkbox"
-              name="isRecurring"
-              checked={formData.isRecurring}
-              onChange={handleChange}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label className="text-sm font-medium text-gray-700">
-              Tekrarlayan Ödeme
-            </label>
-          </div>
-
-          {formData.isRecurring && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+            {/* Fatura Türü (sadece bill seçiliyse) */}
+            {formData.type === 'bill' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tekrar Türü
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Fatura Türü *
                 </label>
                 <select
-                  name="recurringType"
-                  value={formData.recurringType}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  value={formData.billType}
+                  onChange={(e) => handleChange('billType', e.target.value)}
+                  className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  {Object.entries(recurringTypeLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
+                  <option value="elektrik">⚡ Elektrik</option>
+                  <option value="su">💧 Su</option>
+                  <option value="dogalgaz">🔥 Doğalgaz</option>
+                  <option value="telefon">📞 Telefon</option>
+                  <option value="internet">🌐 İnternet</option>
+                  <option value="diger">📄 Diğer</option>
                 </select>
+                {formData.billType === 'diger' && (
+                  <input
+                    type="text"
+                    placeholder="Fatura türünü belirtin..."
+                    value={formData.customBillType}
+                    onChange={(e) => handleChange('customBillType', e.target.value)}
+                    className={`theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 mt-2 ${
+                      errors.customBillType ? 'border-red-500' : ''
+                    }`}
+                  />
+                )}
+                {errors.customBillType && (
+                  <p className="text-red-500 text-sm mt-1">{errors.customBillType}</p>
+                )}
+              </div>
+            )}
+
+            {/* Temel Bilgiler */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Oluşturulma Tarihi *
+                </label>
+                <input
+                  type="date"
+                  value={formData.createdDate}
+                  onChange={(e) => handleChange('createdDate', e.target.value)}
+                  className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {formData.recurringType === 'monthly' ? 'Ayın Kaçında' : 
-                   formData.recurringType === 'weekly' ? 'Haftanın Günü' : 'Gün'}
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Ödeme Tarihi *
                 </label>
                 <input
-                  type="number"
-                  name="recurringDay"
-                  value={formData.recurringDay}
-                  onChange={handleChange}
-                  min={formData.recurringType === 'weekly' ? 1 : 1}
-                  max={formData.recurringType === 'weekly' ? 7 : formData.recurringType === 'monthly' ? 31 : 31}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  type="date"
+                  value={formData.paymentDate}
+                  onChange={(e) => handleChange('paymentDate', e.target.value)}
+                  className={`theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    errors.paymentDate ? 'border-red-500' : ''
+                  }`}
                 />
-                {formData.recurringType === 'weekly' && (
-                  <p className="text-xs text-gray-500 mt-1">1=Pazartesi, 7=Pazar</p>
-                )}
-                {formData.recurringType === 'monthly' && (
-                  <p className="text-xs text-gray-500 mt-1">Örn: 15 (Her ayın 15'inde)</p>
+                {errors.paymentDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.paymentDate}</p>
                 )}
               </div>
             </div>
-          )}
-        </div>
 
-        <div className="md:col-span-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              name="isPaid"
-              checked={formData.isPaid}
-              onChange={handleChange}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm font-medium text-gray-700">Ödendi olarak işaretle</span>
-          </label>
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Tutar (TL) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.amount}
+                  onChange={(e) => handleChange('amount', e.target.value)}
+                  className={`theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    errors.amount ? 'border-red-500' : ''
+                  }`}
+                />
+                {errors.amount && (
+                  <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
+                )}
+              </div>
 
-        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            İptal
-          </button>
-          <button
-            type="submit"
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Save className="h-4 w-4" />
-            <span>Kaydet</span>
-          </button>
+              <div>
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Oluşturan Kişi *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Adınızı girin"
+                  value={formData.createdBy}
+                  onChange={(e) => handleChange('createdBy', e.target.value)}
+                  className={`theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    errors.createdBy ? 'border-red-500' : ''
+                  }`}
+                />
+                {errors.createdBy && (
+                  <p className="text-red-500 text-sm mt-1">{errors.createdBy}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="theme-text block text-sm font-medium mb-2">
+                Ödenecek Firma/Kişi *
+              </label>
+              <input
+                type="text"
+                placeholder="Firma veya kişi adını girin"
+                value={formData.signedTo}
+                onChange={(e) => handleChange('signedTo', e.target.value)}
+                className={`theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  errors.signedTo ? 'border-red-500' : ''
+                }`}
+              />
+              {errors.signedTo && (
+                <p className="text-red-500 text-sm mt-1">{errors.signedTo}</p>
+              )}
+            </div>
+
+            {/* Tekrarlayan Ödeme */}
+            <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  checked={formData.isRecurring}
+                  onChange={(e) => handleChange('isRecurring', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="isRecurring" className="theme-text text-sm font-medium">
+                  🔄 Tekrarlayan Ödeme
+                </label>
+              </div>
+
+              {formData.isRecurring && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="theme-text block text-sm font-medium mb-2">
+                        Tekrar Türü
+                      </label>
+                      <select
+                        value={formData.recurringType}
+                        onChange={(e) => handleChange('recurringType', e.target.value)}
+                        className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="weekly">📅 Haftalık</option>
+                        <option value="monthly">📆 Aylık</option>
+                        <option value="yearly">🗓️ Yıllık</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="theme-text block text-sm font-medium mb-2">
+                        {formData.recurringType === 'weekly' ? 'Haftanın Günü' : 
+                         formData.recurringType === 'monthly' ? 'Ayın Günü' : 'Yılın Günü'}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={formData.recurringType === 'monthly' ? "31" : formData.recurringType === 'weekly' ? "7" : "365"}
+                        value={formData.recurringDay}
+                        onChange={(e) => handleChange('recurringDay', parseInt(e.target.value))}
+                        className={`theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                          errors.recurringDay ? 'border-red-500' : ''
+                        }`}
+                      />
+                      {errors.recurringDay && (
+                        <p className="text-red-500 text-sm mt-1">{errors.recurringDay}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="theme-info bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-blue-800 text-sm">
+                      💡 Bu ödeme her {formData.recurringType === 'weekly' ? 'hafta' : 
+                                       formData.recurringType === 'monthly' ? 'ay' : 'yıl'} tekrarlanacak.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ödeme Durumu */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isPaid"
+                checked={formData.isPaid}
+                onChange={(e) => handleChange('isPaid', e.target.checked)}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              />
+              <label htmlFor="isPaid" className="theme-text text-sm font-medium">
+                ✅ Ödendi olarak işaretle
+              </label>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-4 border-t theme-border">
+              <button
+                type="submit"
+                className="theme-button flex-1 px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <Save className="w-5 h-5" />
+                {initialData ? 'Güncelle' : 'Kaydet'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={onCancel}
+                className="theme-button-secondary px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <X className="w-5 h-5" />
+                İptal
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

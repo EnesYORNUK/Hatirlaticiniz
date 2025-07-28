@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { Bell, Download, Shield, Clock, MessageCircle, Bot, Palette, Eye, Moon, Sun, Circle } from 'lucide-react';
+import { Bell, Download, Shield, Clock, MessageCircle, Bot, Palette, Eye, Moon, Sun, Circle, Save, Upload, Download as DownloadIcon, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Loader } from 'lucide-react';
 
 // Global type declaration for window.electronAPI
 declare global {
   interface Window {
     electronAPI?: {
       showNotification: (title: string, body: string) => Promise<void>;
-      checkForUpdates: () => Promise<any>;
+      checkForUpdates: () => Promise<void>;
+      downloadUpdate: () => Promise<void>;
+      installUpdate: () => Promise<void>;
       onUpdateStatus: (callback: (status: string, info?: any) => void) => void;
       removeUpdateStatusListener: () => void;
       getVersion: () => Promise<string>;
-      installUpdate: () => void; // Yeniden başlatma için eklendi
-      [key: string]: any;
+      saveAppData: (key: string, data: any) => Promise<void>;
+      loadAppData: (key: string) => Promise<any>;
     };
   }
 }
@@ -35,785 +37,738 @@ interface SettingsProps {
   settings: SettingsType;
   onSave: (settings: SettingsType) => void;
   onExportData: () => void;
-  onImportData: (data: any) => void;
+  onImportData: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export default function Settings({ settings, onSave, onExportData, onImportData }: SettingsProps) {
-  const [reminderDays, setReminderDays] = useState(settings.reminderDays);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled);
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(settings.autoUpdateEnabled);
-  const [dailyNotificationEnabled, setDailyNotificationEnabled] = useState(settings.dailyNotificationEnabled || false);
-  const [dailyNotificationTime, setDailyNotificationTime] = useState(settings.dailyNotificationTime || '09:00');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Telegram bot state'leri
-  const [telegramBotEnabled, setTelegramBotEnabled] = useState(settings.telegramBotEnabled || false);
-  const [telegramBotToken, setTelegramBotToken] = useState(settings.telegramBotToken || '');
-  const [telegramChatId, setTelegramChatId] = useState(settings.telegramChatId || '');
-
-  // Güncelleme durumu
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error'>('idle');
-  const [updateMessage, setUpdateMessage] = useState('');
+  // Update states
+  const [updateStatus, setUpdateStatus] = useState<string>('idle');
+  const [updateMessage, setUpdateMessage] = useState<string>('');
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [currentVersion, setCurrentVersion] = useState<string>('');
-  
-  // Güncel updateStatus değerini timeout'ta kullanmak için
-  const updateStatusRef = useRef(updateStatus);
-  updateStatusRef.current = updateStatus;
 
   useEffect(() => {
-    console.log('Settings useEffect başlatıldı');
-    console.log('window.electronAPI:', window.electronAPI);
-    console.log('window.electronAPI?.onUpdateStatus:', !!window.electronAPI?.onUpdateStatus);
-    
-    // Mevcut sürümü al
+    // Get current version
     if (window.electronAPI?.getVersion) {
-      window.electronAPI.getVersion().then((version: string) => {
-        console.log('Mevcut sürüm:', version);
+      window.electronAPI.getVersion().then(version => {
         setCurrentVersion(version);
-      }).catch((error: any) => {
-        console.error('Sürüm alınamadı:', error);
+      }).catch(err => {
+        console.error('Version alınamadı:', err);
         setCurrentVersion('Bilinmiyor');
       });
     }
-    
+
+    // Listen for update status
     if (window.electronAPI?.onUpdateStatus) {
       const handleUpdateStatus = (status: string, info?: any) => {
-        console.log('Update status alındı:', status, info);
+        console.log('🔄 Update status:', status, info);
+        setUpdateStatus(status);
+        setUpdateInfo(info);
         
         switch (status) {
-          case 'checking':
-            setUpdateStatus('checking');
+          case 'checking-for-update':
             setUpdateMessage('Güncellemeler kontrol ediliyor...');
             break;
           case 'update-available':
-            setUpdateStatus('available');
-            setUpdateInfo(info);
-            setUpdateMessage(`🎉 Yeni sürüm mevcut: v${info?.version || 'Bilinmiyor'}\n\nOtomatik indiriliyor...`);
+            setUpdateMessage(`Yeni güncelleme mevcut: v${info?.version || 'Bilinmiyor'}`);
             break;
-          case 'not-available':
-            setUpdateStatus('not-available');
-            setUpdateMessage('✅ En son sürümü kullanıyorsunuz!');
-            break;
-          case 'error':
-            setUpdateStatus('error');
-            setUpdateMessage(`❌ Hata: ${info || 'Güncelleme kontrolü başarısız'}`);
+          case 'update-not-available':
+            setUpdateMessage('Uygulama güncel, yeni güncelleme yok.');
             break;
           case 'download-progress':
-            setUpdateStatus('downloading');
-            setUpdateMessage(`⬇️ İndiriliyor... %${Math.round(info?.percent || 0)}`);
+            const percent = Math.round(info?.percent || 0);
+            setUpdateMessage(`Güncelleme indiriliyor... %${percent}`);
             break;
           case 'update-downloaded':
-            setUpdateStatus('downloaded');
-            setUpdateMessage(`✅ Güncelleme hazır! v${updateInfo?.version || info?.version || 'Yeni Sürüm'}\n\n🔄 Yeniden başlatmak için butona basın.`);
+            setUpdateMessage('Güncelleme indirildi! Yeniden başlatma için hazır.');
+            break;
+          case 'error':
+            setUpdateMessage(`Güncelleme hatası: ${info?.message || 'Bilinmeyen hata'}`);
             break;
           default:
-            console.log('Bilinmeyen update status:', status);
-            setUpdateStatus('idle');
             setUpdateMessage('');
         }
       };
 
-      console.log('Event listener kuruldu');
       window.electronAPI.onUpdateStatus(handleUpdateStatus);
 
-      // Cleanup
       return () => {
-        console.log('Event listener temizleniyor');
         if (window.electronAPI?.removeUpdateStatusListener) {
           window.electronAPI.removeUpdateStatusListener();
         }
       };
-    } else {
-      console.log('electronAPI.onUpdateStatus mevcut değil!');
     }
   }, []);
 
-  const handleSave = () => {
-    onSave({
-      reminderDays,
-      notificationsEnabled,
-      autoUpdateEnabled,
-      dailyNotificationEnabled,
-      dailyNotificationTime,
-      lastNotificationCheck: settings.lastNotificationCheck || '',
-      telegramBotEnabled,
-      telegramBotToken,
-      telegramChatId,
-    });
-    alert('Ayarlar kaydedildi!');
+  const handleCheckForUpdates = async () => {
+    if (window.electronAPI?.checkForUpdates) {
+      try {
+        setUpdateStatus('checking-for-update');
+        await window.electronAPI.checkForUpdates();
+      } catch (error) {
+        console.error('Update check failed:', error);
+        setUpdateStatus('error');
+        setUpdateMessage('Güncelleme kontrolü başarısız oldu.');
+      }
+    } else {
+      alert('Güncelleme sistemi kullanılamıyor. Desktop uygulamasında deneyin.');
+    }
   };
 
-  const handleCheckUpdates = async () => {
-    console.log('handleCheckUpdates başlatıldı');
-    console.log('window.electronAPI mevcut mu:', !!window.electronAPI);
-    
-    if (!window.electronAPI) {
-      setUpdateStatus('error');
-      setUpdateMessage('Güncelleme sadece Electron uygulamasında çalışır. Web tarayıcısında çalışmıyor.');
-      return;
-    }
-
-    setUpdateStatus('checking');
-    setUpdateMessage('Güncellemeler kontrol ediliyor...');
-
-    try {
-      console.log('checkForUpdates çağrılıyor...');
-      const result = await window.electronAPI.checkForUpdates();
-      console.log('checkForUpdates sonuç:', result);
-      
-      // Eğer event listener çalışmıyorsa, manual timeout ekle
-      setTimeout(() => {
-        if (updateStatusRef.current === 'checking') {
-          console.log('Timeout: Event listener çalışmıyor, manual güncelleştirme yapılıyor');
-          setUpdateStatus('not-available');
-          setUpdateMessage('Güncelleme kontrolü tamamlandı. Event sistem çalışmıyor, manuel kontrol yapın.');
-        }
-      }, 10000); // 10 saniye timeout
-      
-    } catch (error) {
-      console.error('Update check error:', error);
-      setUpdateStatus('error');
-      setUpdateMessage(`Güncelleme kontrolü hatası: ${error.message || error}`);
+  const handleInstallUpdate = async () => {
+    if (window.electronAPI?.installUpdate) {
+      try {
+        await window.electronAPI.installUpdate();
+      } catch (error) {
+        console.error('Update install failed:', error);
+        setUpdateMessage('Güncelleme kurulumu başarısız oldu.');
+      }
     }
   };
 
   const testTelegramBot = async () => {
-    if (!telegramBotToken) {
-      alert('Lütfen önce Bot Token girin!');
+    if (!settings.telegramBotToken) {
+      alert('❌ Önce Bot Token girin!');
       return;
     }
 
     try {
-      console.log('Bot test başlatıldı, token:', telegramBotToken.substring(0, 10) + '...');
-
-      // 1. Bot bilgilerini kontrol et (getMe)
-      console.log('1. Bot bilgileri kontrol ediliyor...');
-      const botInfoResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getMe`);
+      // 1. Bot token'ını doğrula
+      console.log('🤖 Bot token doğrulanıyor...');
+      const getMeResponse = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getMe`);
+      const getMeData = await getMeResponse.json();
       
-      if (!botInfoResponse.ok) {
-        const errorText = await botInfoResponse.text();
-        console.error('getMe API hatası:', errorText);
-        alert(`❌ Bot token hatası!\n\nHata: ${errorText}\n\n✅ Çözüm:\n1. @BotFather'dan yeni token alın\n2. Token'ı doğru kopyaladığınızdan emin olun\n3. Token boşluk/enter içermesin`);
+      if (!getMeData.ok) {
+        alert(`❌ Bot token geçersiz: ${getMeData.description}`);
         return;
       }
       
-      const botInfo = await botInfoResponse.json();
-      console.log('Bot bilgileri:', botInfo);
+      console.log('✅ Bot token geçerli:', getMeData.result.username);
+
+      // 2. Webhook'ları temizle (eğer varsa)
+      console.log('🧹 Webhook'lar temizleniyor...');
+      const webhookInfoResponse = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getWebhookInfo`);
+      const webhookInfo = await webhookInfoResponse.json();
       
-      if (!botInfo.ok) {
-        alert(`❌ Bot token geçersiz!\n\nBot yanıtı: ${botInfo.description}\n\n✅ @BotFather'dan yeni token alın.`);
-        return;
+      if (webhookInfo.ok && webhookInfo.result.url) {
+        console.log('🗑️ Mevcut webhook temizleniyor...');
+        await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/deleteWebhook`);
       }
 
-      alert(`✅ Bot bulundu!\n\n🤖 Bot Adı: ${botInfo.result.first_name}\n📝 Username: @${botInfo.result.username}\n\n👆 Şimdi bu bota Telegram'da mesaj atın!`);
-
-      // 2. Webhook kontrolü ve temizleme
-      console.log('2. Webhook durumu kontrol ediliyor...');
-      const webhookResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getWebhookInfo`);
-      if (webhookResponse.ok) {
-        const webhookInfo = await webhookResponse.json();
-        console.log('Webhook info:', webhookInfo);
+      // 3. Chat ID'yi kontrol et veya bul
+      if (!settings.telegramChatId) {
+        console.log('🔍 Chat ID aranıyor...');
         
-        if (webhookInfo.result && webhookInfo.result.url) {
-          console.log('Webhook aktif, temizleniyor...');
-          const deleteWebhook = await fetch(`https://api.telegram.org/bot${telegramBotToken}/deleteWebhook`);
-          console.log('Webhook silme sonucu:', await deleteWebhook.json());
-        }
-      }
-
-      // 3. Chat ID bulma - çoklu yöntem
-      if (!telegramChatId) {
-        console.log('3. Chat ID aranıyor...');
-        
-        // 3a. getUpdates ile ara
-        const updatesResponse = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getUpdates?limit=100`);
-        
-        if (!updatesResponse.ok) {
-          const error = await updatesResponse.text();
-          alert(`❌ getUpdates hatası:\n${error}\n\nBot'a Telegram'da mesaj attığınızdan emin olun!`);
-          return;
-        }
-
+        // getUpdates ile mesajları kontrol et
+        const updatesResponse = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/getUpdates?limit=100`);
         const updatesData = await updatesResponse.json();
-        console.log('Updates data:', updatesData);
         
-        if (updatesData.result && updatesData.result.length > 0) {
-          // Tüm mesajları kontrol et ve chat ID'leri topla
-          const chatIds = new Set();
-          updatesData.result.forEach(update => {
-            const chatId = update.message?.chat?.id || 
-                          update.edited_message?.chat?.id || 
-                          update.callback_query?.message?.chat?.id ||
-                          update.channel_post?.chat?.id;
-            if (chatId) {
-              chatIds.add(chatId.toString());
-            }
-          });
+        if (updatesData.ok && updatesData.result.length > 0) {
+          // Tüm chat ID'leri topla ve en son mesajı alan chat ID'yi seç
+          const chatIds = [...new Set(updatesData.result.map((update: any) => update.message?.chat?.id).filter(Boolean))];
           
-          if (chatIds.size > 0) {
-            const chatIdArray = Array.from(chatIds);
-            const foundChatId = chatIdArray[chatIdArray.length - 1]; // En son bulunan
+          if (chatIds.length > 0) {
+            const latestChatId = chatIds[chatIds.length - 1]; // En son mesaj
+            console.log('📱 Chat ID bulundu:', latestChatId);
             
-            setTelegramChatId(foundChatId);
-            alert(`✅ Chat ID bulundu: ${foundChatId}\n\n${chatIdArray.length > 1 ? `(${chatIdArray.length} farklı chat bulundu, en son kullanılan seçildi)` : ''}\n\nŞimdi "Test Et" butonuna tekrar basın!`);
+            // Chat ID'yi kaydet
+            onSave({ ...settings, telegramChatId: latestChatId.toString() });
+            
+            alert(`✅ Chat ID otomatik bulundu!\n\nChat ID: ${latestChatId}\n\nŞimdi test mesajı gönderiliyor...`);
+            
+            // Test mesajı gönder
+            const testResponse = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: latestChatId,
+                text: `🎉 Hatırlatıcınım Bot Testi Başarılı!\n\n✅ Bot bağlantısı kuruldu\n📱 Chat ID: ${latestChatId}\n🤖 Bot: @${getMeData.result.username}\n\nArtık komutları kullanabilirsiniz:\n/start - Başlangıç\n/bugun - Bugün ödenecekler\n/yakin - 7 gün içindekiler\n/tumu - Tüm aktif ödemeler`
+              })
+            });
+            
+            const testData = await testResponse.json();
+            if (testData.ok) {
+              alert('🎉 Test mesajı başarıyla gönderildi!\n\nTelegram\'da kontrol edin.');
+            } else {
+              alert(`❌ Test mesajı gönderilemedi: ${testData.description}`);
+            }
             return;
           }
         }
         
-        // 3b. Manuel chat ID bulma rehberi
-        alert(`📭 Henüz mesaj bulunamadı!\n\n🔧 Manual Chat ID bulma:\n\n1️⃣ Telegram'da @userinfobot'a gidin\n2️⃣ Bot'a /start yazın\n3️⃣ Size Chat ID'nizi verecek\n4️⃣ O ID'yi buraya girin\n\n📱 Alternatif:\n1️⃣ @${botInfo.result.username} bot'unuza git\n2️⃣ /start yazın\n3️⃣ "Merhaba" yazın\n4️⃣ Bu butona tekrar basın`);
+        // Chat ID bulunamadı
+        alert(`❓ Chat ID bulunamadı!\n\n📱 Manuel olarak bulmak için:\n\n1️⃣ @userinfobot'a mesaj yazın\n2️⃣ Veya @chatid_echo_bot'u kullanın\n3️⃣ Aldığınız Chat ID'yi aşağıya girin\n\n💡 Veya bot'unuza herhangi bir mesaj yazıp tekrar test edin.`);
         return;
       }
 
-      // 4. Chat ID varsa test mesajı gönder
-      console.log('4. Test mesajı gönderiliyor...');
-      const response = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+      // 4. Chat ID mevcut, test mesajı gönder
+      console.log('📤 Test mesajı gönderiliyor...');
+      const testResponse = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: telegramChatId,
-          text: `✅ Telegram Bot başarıyla bağlandı!\n\n🤖 Bot: @${botInfo.result.username}\n👤 Chat ID: ${telegramChatId}\n\n📋 Komutlar:\n/bugun - Bugün ödenecekler\n/yakin - Yaklaşan ödemeler\n/tumu - Tüm aktif ödemeler\n/gecmis - Vadesi geçenler\n/istatistik - Genel özet\n\n🎉 Bot hazır ve çalışıyor!`,
-        }),
+          chat_id: settings.telegramChatId,
+          text: `🎉 Hatırlatıcınım Bot Testi Başarılı!\n\n✅ Bot bağlantısı kuruldu\n📱 Chat ID: ${settings.telegramChatId}\n🤖 Bot: @${getMeData.result.username}\n\nKomutları kullanabilirsiniz:\n/start - Başlangıç\n/bugun - Bugün ödenecekler\n/yakin - 7 gün içindekiler\n/tumu - Tüm aktif ödemeler`
+        })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Test mesajı gönderildi:', result);
-        alert('✅ Test mesajı başarıyla gönderildi! Telegram\'ınızı kontrol edin.\n\n🎉 Bot artık aktif ve çalışıyor!');
-      } else {
-        const error = await response.text();
-        console.error('Test mesajı hatası:', error);
-        alert(`❌ Test mesajı gönderilemedi:\n${error}\n\nChat ID doğru mu: ${telegramChatId}`);
-      }
+      const testData = await testResponse.json();
       
-    } catch (error) {
-      console.error('Telegram bot test hatası:', error);
-      alert(`❌ Bağlantı hatası:\n${error}\n\n🔧 Kontrol edin:\n• İnternet bağlantınız\n• Bot token doğru mu\n• Telegram erişilebilir mi`);
-    }
-  };
+      if (testData.ok) {
+        alert('🎉 Test başarılı!\n\nTelegram\'da test mesajı kontrol edin.');
+      } else {
+        alert(`❌ Test mesajı gönderilemedi:\n\n${testData.description}\n\nChat ID'nin doğru olduğundan emin olun.`);
+      }
 
-  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target?.result as string);
-          onImportData(data);
-        } catch (error) {
-          alert('Dosya okuma hatası!');
-        }
-      };
-      reader.readAsText(file);
+    } catch (error) {
+      console.error('❌ Telegram bot test hatası:', error);
+      alert(`❌ Bağlantı hatası:\n\n${error}\n\nİnternet bağlantınızı kontrol edin.`);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">⚙️ Genel Ayarlar</h2>
+    <div className="theme-bg min-h-screen py-8">
+      <div className="max-w-4xl mx-auto px-4 space-y-6">
         
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Kaç gün önceden hatırlatsın?
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="365"
-              value={reminderDays}
-              onChange={(e) => setReminderDays(Number(e.target.value))}
-              className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Ödeme tarihinden {reminderDays} gün önce bildirim gelir
-            </p>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="autoUpdate"
-              checked={autoUpdateEnabled}
-              onChange={(e) => setAutoUpdateEnabled(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="autoUpdate" className="ml-2 text-sm text-gray-700">
-              Otomatik güncellemeler (önerilen)
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">🔔 Bildirim Ayarları</h2>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="notifications"
-              checked={notificationsEnabled}
-              onChange={(e) => setNotificationsEnabled(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="notifications" className="ml-2 text-sm text-gray-700">
-              Masaüstü bildirimlerini etkinleştir
-            </label>
-          </div>
-
-          {notificationsEnabled && (
-            <div className="ml-6 pl-4 border-l-2 border-blue-100 space-y-4">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="dailyNotifications"
-                  checked={dailyNotificationEnabled}
-                  onChange={(e) => setDailyNotificationEnabled(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="dailyNotifications" className="ml-2 text-sm text-gray-700">
-                  Günlük bildirim (o gün ödeme varsa)
-                </label>
-              </div>
-
-              {dailyNotificationEnabled && (
-                <div className="ml-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Günlük bildirim saati:
-                  </label>
-                  <input
-                    type="time"
-                    value={dailyNotificationTime}
-                    onChange={(e) => setDailyNotificationTime(e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Her gün {dailyNotificationTime} saatinde kontrol edilir
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">Bildirim Davranışı:</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• <strong>Hatırlatma</strong>: Ödeme tarihinden {reminderDays} gün önce (tek seferlik)</li>
-                  <li>• <strong>Ödeme Günü</strong>: Ödeme tarihi geldiğinde (tek seferlik)</li>
-                  {dailyNotificationEnabled && (
-                    <li>• <strong>Günlük</strong>: Her gün {dailyNotificationTime}'da o gün ödeme varsa</li>
-                  )}
-                </ul>
-              </div>
+        {/* 🎨 Tema Ayarları Bölümü */}
+        <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="theme-primary rounded-full p-2">
+              <Palette className="w-5 h-5 text-white" />
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Telegram Bot Ayarları */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">🤖 Telegram Bot</h2>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="telegramBot"
-              checked={telegramBotEnabled}
-              onChange={(e) => setTelegramBotEnabled(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="telegramBot" className="ml-2 text-sm text-gray-700">
-              Telegram bot bildirimlerini etkinleştir
-            </label>
-          </div>
-
-          {telegramBotEnabled && (
-            <div className="ml-6 pl-4 border-l-2 border-green-100 space-y-4">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-green-900 mb-2">📋 Bot Kurulum Adımları:</h4>
-                <ol className="text-sm text-green-800 space-y-2 list-decimal list-inside">
-                  <li><strong>@BotFather'a mesaj atın</strong> ve <code>/newbot</code> yazın</li>
-                  <li><strong>Bot token'ını</strong> aşağıya yapıştırın</li>
-                  <li><strong>"Test Et"</strong> butonuna basın → Bot bilgileri kontrol edilir</li>
-                  <li><strong>Bot'unuza mesaj atın</strong> (/start, merhaba vs.)</li>
-                  <li><strong>"Test Et"</strong> butonuna tekrar basın → Chat ID otomatik bulunur</li>
-                </ol>
-                
-                <div className="mt-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
-                  <h5 className="text-sm font-medium text-blue-900 mb-1">🔧 Chat ID Bulunamıyorsa:</h5>
-                  <ul className="text-xs text-blue-800 space-y-1">
-                    <li>• <strong>@userinfobot</strong>'a /start yazın → Chat ID'nizi verir</li>
-                    <li>• <strong>@chatid_echo_bot</strong>'a mesaj atın → Chat ID döner</li>
-                    <li>• Manuel olarak aşağıya yazın ve test edin</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bot Token:
-                </label>
-                <input
-                  type="text"
-                  value={telegramBotToken}
-                  onChange={(e) => setTelegramBotToken(e.target.value)}
-                  placeholder="1234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  @BotFather'dan alacağınız token
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Chat ID:
-                </label>
-                <input
-                  type="text"
-                  value={telegramChatId}
-                  onChange={(e) => setTelegramChatId(e.target.value)}
-                  placeholder="123456789"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Kendi Telegram Chat ID'niz
-                </p>
-              </div>
-
-              <button
-                onClick={testTelegramBot}
-                className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {!telegramChatId ? '🔍 Chat ID Bul & Test Et' : '🧪 Bot\'u Test Et'}
-              </button>
-
-              {!telegramChatId && (
-                <div className="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-400">
-                  <p className="text-sm text-yellow-800">
-                    ⚠️ <strong>Chat ID bulunamadı.</strong> Önce bot'unuza Telegram'da mesaj atın, 
-                    sonra yukarıdaki butona basın.
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">🤖 Bot Komutları:</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• <code>/bugun</code> - Bugün ödenecek çek/faturalar</li>
-                  <li>• <code>/yakin</code> - 7 gün içinde ödenecekler</li>
-                  <li>• <code>/tumu</code> - Tüm aktif ödemeler</li>
-                  <li>• <code>/gecmis</code> - Vadesi geçen ödemeler</li>
-                  <li>• <code>/istatistik</code> - Genel özet</li>
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Basitleştirilmiş Güncelleme Bölümü */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">🔄 Uygulama Güncelleme</h2>
-          {currentVersion && (
-            <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              v{currentVersion}
-            </div>
-          )}
-        </div>
-        
-        <div className="space-y-4">
-          {/* Veri Güvenliği Garantisi */}
-          <div className="bg-green-50 p-3 rounded-lg border-l-4 border-green-400">
-            <div className="flex items-start">
-              <div className="text-green-500 mr-2 text-lg">🛡️</div>
-              <div>
-                <p className="text-sm font-medium text-green-900">Verileriniz Güvende</p>
-                <p className="text-xs text-green-700 mt-1">
-                  Tüm çek ve fatura kayıtlarınız güncelleme sırasında korunur. Ayarlarınız da kaybolmaz.
-                </p>
-              </div>
+            <div>
+              <h3 className="theme-text text-lg font-semibold">🎨 Tema Ayarları</h3>
+              <p className="theme-text-muted text-sm">Uygulamanın görünümünü kişiselleştirin</p>
             </div>
           </div>
 
-          {/* Debug Panel */}
-          <div className="bg-gray-50 p-3 rounded-lg border">
-            <details className="cursor-pointer">
-              <summary className="text-sm font-medium text-gray-700 hover:text-gray-900">
-                🔍 Debug Bilgileri (Geliştirici)
-              </summary>
-              <div className="mt-2 space-y-1 text-xs text-gray-600">
-                <div>• Electron API Mevcut: {window.electronAPI ? '✅ Evet' : '❌ Hayır'}</div>
-                <div>• Update Event Handler: {window.electronAPI?.onUpdateStatus ? '✅ Evet' : '❌ Hayır'}</div>
-                <div>• Mevcut Sürüm: {currentVersion || 'Yükleniyor...'}</div>
-                <div>• Güncelleme Durumu: {updateStatus}</div>
-                <div>• Son Mesaj: {updateMessage || 'Henüz mesaj yok'}</div>
+          <div className="space-y-4">
+            {/* Tema Seçici */}
+            <div>
+              <label className="theme-text block text-sm font-medium mb-3">
+                Tema Seçin
+              </label>
+              <div className="relative">
+                <select
+                  value={settings.theme}
+                  onChange={(e) => onSave({ ...settings, theme: e.target.value as ThemeType })}
+                  className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none bg-white pr-10"
+                >
+                  {themeOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.emoji} {option.label} - {option.description}
+                    </option>
+                  ))}
+                </select>
+                <Eye className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 theme-text-muted pointer-events-none" />
               </div>
-            </details>
-          </div>
-
-          {/* Güncelleme Durumu */}
-          {updateMessage && (
-            <div className={`p-3 rounded-lg text-sm ${
-              updateStatus === 'checking' ? 'bg-blue-50 text-blue-800' :
-              updateStatus === 'available' ? 'bg-green-50 text-green-800' :
-              updateStatus === 'not-available' ? 'bg-gray-50 text-gray-800' :
-              updateStatus === 'error' ? 'bg-red-50 text-red-800' :
-              updateStatus === 'downloading' ? 'bg-yellow-50 text-yellow-800' :
-              updateStatus === 'downloaded' ? 'bg-purple-50 text-purple-800' :
-              'bg-gray-50 text-gray-800'
-            }`}>
-              {updateStatus === 'checking' && '⏳ '}
-              {updateStatus === 'available' && '✅ '}
-              {updateStatus === 'not-available' && 'ℹ️ '}
-              {updateStatus === 'error' && '❌ '}
-              {updateStatus === 'downloading' && '⬇️ '}
-              {updateStatus === 'downloaded' && '✅ '}
-              {updateMessage}
             </div>
-          )}
 
-          {/* Güncelleme Butonları */}
-          <div className="space-y-2">
-            {/* Ana güncelleme butonu */}
-            {updateStatus !== 'downloaded' && (
-              <button
-                onClick={handleCheckUpdates}
-                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  updateStatus === 'checking' || updateStatus === 'downloading'
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : updateStatus === 'available'
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {updateStatus === 'checking' && '⏳ Kontrol Ediliyor...'}
-                {updateStatus === 'downloading' && '⬇️ İndiriliyor...'}
-                {updateStatus === 'available' && '✅ Güncelleme Mevcut!'}
-                {(updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error') && '🔍 Güncellemeleri Kontrol Et'}
-              </button>
-            )}
-
-            {/* Yeniden başlatma butonu */}
-            {updateStatus === 'downloaded' && (
-              <div className="space-y-3">
-                <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400">
-                  <div className="flex items-start">
-                    <div className="text-purple-500 mr-2 text-lg">🎉</div>
-                    <div>
-                      <p className="text-sm font-medium text-purple-900">Güncelleme Hazır!</p>
-                      <p className="text-xs text-purple-700 mt-1">
-                        Yeni sürüm indirildi ve kuruluma hazır. Güncellemeyi uygulamak için uygulamayı yeniden başlatın.
-                      </p>
+            {/* Tema Önizleme Kartları */}
+            <div className="mt-6">
+              <label className="theme-text block text-sm font-medium mb-3">
+                Tema Önizlemesi
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {themeOptions.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => onSave({ ...settings, theme: option.value })}
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-center hover:scale-105 ${
+                      settings.theme === option.value
+                        ? 'theme-primary border-current shadow-lg'
+                        : 'theme-surface theme-border hover:shadow-md'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">{option.emoji}</div>
+                    <div className={`text-xs font-medium ${
+                      settings.theme === option.value ? 'text-white' : 'theme-text'
+                    }`}>
+                      {option.label.replace(' Tema', '')}
                     </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mevcut Tema Info */}
+            <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">
+                  {themeOptions.find(t => t.value === settings.theme)?.emoji}
+                </div>
+                <div>
+                  <div className="theme-text font-medium">
+                    Aktif Tema: {themeOptions.find(t => t.value === settings.theme)?.label}
+                  </div>
+                  <div className="theme-text-muted text-sm">
+                    {themeOptions.find(t => t.value === settings.theme)?.description}
                   </div>
                 </div>
-                
-                <button
-                  onClick={() => {
-                    if (window.electronAPI?.installUpdate) {
-                      window.electronAPI.showNotification('Uygulama Yeniden Başlatılıyor', 'Güncelleme uygulanıyor ve uygulama yeniden başlatılıyor...');
-                      // Küçük bir gecikme ile yeniden başlat
-                      setTimeout(() => {
-                        window.electronAPI.installUpdate();
-                      }, 1000);
-                    } else {
-                      alert('❌ Güncelleme API\'si mevcut değil. Uygulamayı manuel olarak yeniden başlatın.');
-                    }
-                  }}
-                  className="w-full py-3 px-4 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors font-medium"
-                >
-                  🔄 Şimdi Yeniden Başlat & Güncelle
-                </button>
               </div>
-            )}
+            </div>
 
-            {/* Manuel GitHub kontrolü - sadece hata durumunda göster */}
-            {updateStatus === 'error' && (
-              <button
-                onClick={() => {
-                  window.open('https://github.com/EnesYORNUK/Hatirlaticiniz/releases/latest', '_blank');
-                }}
-                className="w-full py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-              >
-                🌐 GitHub'da Manuel Kontrol Et
-              </button>
-            )}
+            {/* Tema İpuçları */}
+            <div className="theme-info bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Circle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="text-blue-800 font-medium text-sm mb-1">💡 Tema İpuçları</div>
+                  <div className="text-blue-700 text-sm space-y-1">
+                    <div>• <strong>Koyu Tema:</strong> Gece kullanımı için ideal</div>
+                    <div>• <strong>Mavi/Gri:</strong> Profesyonel ortamlar için</div>
+                    <div>• <strong>Yeşil/Turkuaz:</strong> Göz yorgunluğunu azaltır</div>
+                    <div>• <strong>Renkli Temalar:</strong> Kişisel kullanım için eğlenceli</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 📢 Bildirim Ayarları */}
+        <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="theme-primary rounded-full p-2">
+              <Bell className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="theme-text text-lg font-semibold">📢 Bildirim Ayarları</h3>
+              <p className="theme-text-muted text-sm">Hatırlatma ve bildirim tercihlerinizi yönetin</p>
+            </div>
           </div>
 
-          {/* Bilgilendirme */}
-          <div className="space-y-3">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-sm text-gray-600">
-                💡 <strong>Nasıl çalışır:</strong> Güncelleme varsa otomatik indirilir ve kuruluma hazır hale gelir. 
-                Tek tuşla uygulamayı yeniden başlatıp güncellemeyi uygulayabilirsiniz.
+          <div className="space-y-6">
+            {/* Hatırlatma Günü */}
+            <div>
+              <label className="theme-text block text-sm font-medium mb-2">
+                Hatırlatma Günü (Gün Önceden)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={settings.reminderDays}
+                onChange={(e) => onSave({ ...settings, reminderDays: parseInt(e.target.value) || 1 })}
+                className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="theme-text-muted text-sm mt-1">
+                Ödeme tarihinden {settings.reminderDays} gün önce hatırlatılacaksınız
               </p>
             </div>
-            
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <h4 className="text-sm font-medium text-blue-900 mb-2">📋 Güncelleme Süreci:</h4>
-              <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
-                <li><strong>Kontrol Et</strong> → GitHub'dan yeni sürüm kontrol edilir</li>
-                <li><strong>İndir</strong> → Güncelleme otomatik indirilir (%0-100)</li>
-                <li><strong>Hazır</strong> → "Yeniden Başlat" butonu görünür</li>
-                <li><strong>Güncelle</strong> → Tek tık ile uygulama güncellenir</li>
-              </ol>
-            </div>
-            
-            <div className="bg-orange-50 p-3 rounded-lg">
-              <h4 className="text-sm font-medium text-orange-900 mb-2">🛡️ Veri Güvenliği Detayları:</h4>
-              <ul className="text-xs text-orange-800 space-y-1">
-                <li>• <strong>Çek/Fatura Kayıtları:</strong> localStorage'da güvenle saklanır</li>
-                <li>• <strong>Ayarlar:</strong> Bildirim ve Telegram ayarları korunur</li>
-                <li>• <strong>Yedekleme:</strong> Güncellemeden önce yedek alabilirsiniz</li>
-                <li>• <strong>Geri Alma:</strong> Sorun olursa eski sürümü yükleyebilirsiniz</li>
-              </ul>
-            </div>
-            
-            <p className="text-xs text-gray-500">
-              ⚠️ <strong>Sorun varsa:</strong> F12 tuşuna basın, Console sekmesini açın ve debug bilgilerini kontrol edin.
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* 🎨 Tema Ayarları Bölümü */}
-      <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="theme-primary rounded-full p-2">
-            <Palette className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="theme-text text-lg font-semibold">🎨 Tema Ayarları</h3>
-            <p className="theme-text-muted text-sm">Uygulamanın görünümünü kişiselleştirin</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {/* Tema Seçici */}
-          <div>
-            <label className="theme-text block text-sm font-medium mb-3">
-              Tema Seçin
-            </label>
-            <div className="relative">
-              <select
-                value={settings.theme}
-                onChange={(e) => onSave({ ...settings, theme: e.target.value as ThemeType })}
-                className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none bg-white pr-10"
-              >
-                {themeOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.emoji} {option.label} - {option.description}
-                  </option>
-                ))}
-              </select>
-              <Eye className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 theme-text-muted pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Tema Önizleme Kartları */}
-          <div className="mt-6">
-            <label className="theme-text block text-sm font-medium mb-3">
-              Tema Önizlemesi
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {themeOptions.map(option => (
-                <button
-                  key={option.value}
-                  onClick={() => onSave({ ...settings, theme: option.value })}
-                  className={`p-3 rounded-lg border-2 transition-all duration-200 text-center hover:scale-105 ${
-                    settings.theme === option.value
-                      ? 'theme-primary border-current shadow-lg'
-                      : 'theme-surface theme-border hover:shadow-md'
-                  }`}
-                >
-                  <div className="text-2xl mb-1">{option.emoji}</div>
-                  <div className={`text-xs font-medium ${
-                    settings.theme === option.value ? 'text-white' : 'theme-text'
-                  }`}>
-                    {option.label.replace(' Tema', '')}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Mevcut Tema Info */}
-          <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">
-                {themeOptions.find(t => t.value === settings.theme)?.emoji}
-              </div>
+            {/* Temel Bildirimler */}
+            <div className="flex items-center justify-between p-4 theme-bg-secondary rounded-lg border theme-border">
               <div>
-                <div className="theme-text font-medium">
-                  Aktif Tema: {themeOptions.find(t => t.value === settings.theme)?.label}
-                </div>
-                <div className="theme-text-muted text-sm">
-                  {themeOptions.find(t => t.value === settings.theme)?.description}
-                </div>
+                <div className="theme-text font-medium">Hatırlatma Bildirimleri</div>
+                <div className="theme-text-muted text-sm">Ödeme tarihi yaklaştığında bildirim al</div>
               </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.notificationsEnabled}
+                  onChange={(e) => onSave({ ...settings, notificationsEnabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {/* Günlük Bildirimler */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 theme-bg-secondary rounded-lg border theme-border">
+                <div>
+                  <div className="theme-text font-medium">Günlük Bildirimler</div>
+                  <div className="theme-text-muted text-sm">Her gün belirli saatte ödeme kontrolü</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.dailyNotificationEnabled}
+                    onChange={(e) => onSave({ ...settings, dailyNotificationEnabled: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {settings.dailyNotificationEnabled && (
+                <div>
+                  <label className="theme-text block text-sm font-medium mb-2">
+                    Günlük Bildirim Saati
+                  </label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 theme-text-muted w-4 h-4" />
+                    <input
+                      type="time"
+                      value={settings.dailyNotificationTime}
+                      onChange={(e) => onSave({ ...settings, dailyNotificationTime: e.target.value })}
+                      className="theme-input w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="theme-text-muted text-sm mt-1">
+                    Her gün saat {settings.dailyNotificationTime} de o gün ödenecek çek/faturaları kontrol et
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 🤖 Telegram Bot Ayarları */}
+        <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="theme-primary rounded-full p-2">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="theme-text text-lg font-semibold">🤖 Telegram Bot</h3>
+              <p className="theme-text-muted text-sm">Telefonunuzdan çek/fatura takibi yapın</p>
             </div>
           </div>
 
-          {/* Tema İpuçları */}
-          <div className="theme-info bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="space-y-6">
+            {/* Bot Enable/Disable */}
+            <div className="flex items-center justify-between p-4 theme-bg-secondary rounded-lg border theme-border">
+              <div>
+                <div className="theme-text font-medium">Telegram Bot</div>
+                <div className="theme-text-muted text-sm">Mobil bildirimler ve komutlar</div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.telegramBotEnabled}
+                  onChange={(e) => onSave({ ...settings, telegramBotEnabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {settings.telegramBotEnabled && (
+              <div className="space-y-4">
+                {/* Bot Token */}
+                <div>
+                  <label className="theme-text block text-sm font-medium mb-2">
+                    Bot Token
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Bot Token'ını buraya girin..."
+                    value={settings.telegramBotToken}
+                    onChange={(e) => onSave({ ...settings, telegramBotToken: e.target.value })}
+                    className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="theme-text-muted text-sm mt-1">
+                    @BotFather'dan aldığınız token
+                  </p>
+                </div>
+
+                {/* Chat ID */}
+                <div>
+                  <label className="theme-text block text-sm font-medium mb-2">
+                    Chat ID (Opsiyonel)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Chat ID otomatik bulunur..."
+                    value={settings.telegramChatId}
+                    onChange={(e) => onSave({ ...settings, telegramChatId: e.target.value })}
+                    className="theme-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="theme-text-muted text-sm mt-1">
+                    Test Et butonuyla otomatik bulunur
+                  </p>
+                </div>
+
+                {/* Test Button */}
+                <button
+                  onClick={testTelegramBot}
+                  className="theme-button w-full px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  {settings.telegramChatId ? 'Test Et' : 'Chat ID Bul & Test Et'}
+                </button>
+
+                {/* Setup Instructions */}
+                <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+                  <h4 className="theme-text font-medium mb-3">📋 Kurulum Adımları:</h4>
+                  <div className="theme-text-muted text-sm space-y-2">
+                    <div>1. Telegram'da <strong>@BotFather</strong>'a git</div>
+                    <div>2. <code className="bg-gray-100 px-1 rounded">/newbot</code> komutunu kullan</div>
+                    <div>3. Bot adı ve kullanıcı adı ver</div>
+                    <div>4. Aldığın <strong>Token</strong>'ı yukarı yapıştır</div>
+                    <div>5. Bot'unuza herhangi bir mesaj yaz</div>
+                    <div>6. <strong>"Test Et"</strong> butonuna bas</div>
+                    <div>7. ✅ Kurulum tamamlandı!</div>
+                  </div>
+                </div>
+
+                {/* Commands List */}
+                <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+                  <h4 className="theme-text font-medium mb-3">🤖 Kullanılabilir Komutlar:</h4>
+                  <div className="theme-text-muted text-sm space-y-1">
+                    <div><code className="bg-gray-100 px-1 rounded">/start</code> - Bot'u başlat</div>
+                    <div><code className="bg-gray-100 px-1 rounded">/bugun</code> - Bugün ödenecekler</div>
+                    <div><code className="bg-gray-100 px-1 rounded">/yakin</code> - 7 gün içindekiler</div>
+                    <div><code className="bg-gray-100 px-1 rounded">/tumu</code> - Tüm aktif ödemeler</div>
+                    <div><code className="bg-gray-100 px-1 rounded">/gecmis</code> - Vadesi geçenler</div>
+                    <div><code className="bg-gray-100 px-1 rounded">/istatistik</code> - Genel özet</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 🔄 Güncelleme Ayarları */}
+        <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="theme-primary rounded-full p-2">
+              <Download className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="theme-text text-lg font-semibold">🔄 Uygulama Güncellemeleri</h3>
+              <p className="theme-text-muted text-sm">Otomatik güncelleme ve sürüm yönetimi</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Current Version */}
+            {currentVersion && (
+              <div className="flex items-center gap-3">
+                <span className="theme-primary text-white px-3 py-1 rounded-full text-sm font-medium">
+                  v{currentVersion}
+                </span>
+                <span className="theme-text-muted text-sm">Mevcut Sürüm</span>
+              </div>
+            )}
+
+            {/* Data Safety Guarantee */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-green-600" />
+                <div>
+                  <div className="text-green-800 font-medium text-sm mb-1">🛡️ Verileriniz Güvende</div>
+                  <div className="text-green-700 text-sm">
+                    Tüm çek/fatura bilgileriniz güncelleme sırasında korunur ve kaybolmaz.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Auto Update Toggle */}
+            <div className="flex items-center justify-between p-4 theme-bg-secondary rounded-lg border theme-border">
+              <div>
+                <div className="theme-text font-medium">Otomatik Güncelleme</div>
+                <div className="theme-text-muted text-sm">Yeni sürümler otomatik kontrol edilsin</div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.autoUpdateEnabled}
+                  onChange={(e) => onSave({ ...settings, autoUpdateEnabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {/* Update Status and Controls */}
+            <div className="space-y-4">
+              {/* Main Update Button */}
+              <button
+                onClick={handleCheckForUpdates}
+                disabled={updateStatus === 'checking-for-update' || updateStatus === 'download-progress'}
+                className={`w-full px-6 py-4 rounded-lg font-medium transition-all flex items-center justify-center gap-3 ${
+                  updateStatus === 'checking-for-update' || updateStatus === 'download-progress'
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : updateStatus === 'update-available'
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : updateStatus === 'update-downloaded'
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                    : 'theme-button'
+                }`}
+              >
+                {updateStatus === 'checking-for-update' && (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    ⏳ Kontrol Ediliyor...
+                  </>
+                )}
+                {updateStatus === 'download-progress' && (
+                  <>
+                    <Download className="w-5 h-5" />
+                    ⬇️ İndiriliyor... {updateInfo?.percent ? `%${Math.round(updateInfo.percent)}` : ''}
+                  </>
+                )}
+                {updateStatus === 'update-available' && (
+                  <>
+                    <Download className="w-5 h-5" />
+                    ✅ Güncelleme Mevcut! İndir
+                  </>
+                )}
+                {updateStatus === 'update-downloaded' && (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    ✅ Güncelleme Hazır!
+                  </>
+                )}
+                {(updateStatus === 'idle' || updateStatus === 'update-not-available') && (
+                  <>
+                    <RefreshCw className="w-5 h-5" />
+                    🔍 Güncellemeleri Kontrol Et
+                  </>
+                )}
+                {updateStatus === 'error' && (
+                  <>
+                    <AlertCircle className="w-5 h-5" />
+                    🔍 Tekrar Kontrol Et
+                  </>
+                )}
+              </button>
+
+              {/* Install Update Button (when downloaded) */}
+              {updateStatus === 'update-downloaded' && (
+                <button
+                  onClick={handleInstallUpdate}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-3"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                  🔄 Şimdi Yeniden Başlat & Güncelle
+                </button>
+              )}
+
+              {/* Manual GitHub Check (only on error) */}
+              {updateStatus === 'error' && (
+                <a
+                  href="https://github.com/EnesYORNUK/Hatirlaticiniz/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-gray-100 hover:bg-gray-200 theme-text px-6 py-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-3 border theme-border"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  🌐 GitHub'da Manuel Kontrol Et
+                </a>
+              )}
+
+              {/* Update Status Message */}
+              {updateMessage && (
+                <div className={`p-4 rounded-lg border text-sm ${
+                  updateStatus === 'error' 
+                    ? 'bg-red-50 border-red-200 text-red-800'
+                    : updateStatus === 'update-not-available'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : updateStatus === 'update-downloaded'
+                    ? 'bg-blue-50 border-blue-200 text-blue-800'
+                    : 'theme-bg-secondary theme-border theme-text'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {updateStatus === 'error' && <AlertCircle className="w-4 h-4" />}
+                    {updateStatus === 'update-not-available' && <CheckCircle className="w-4 h-4" />}
+                    {updateStatus === 'update-downloaded' && <CheckCircle className="w-4 h-4" />}
+                    {updateStatus === 'checking-for-update' && <Loader className="w-4 h-4 animate-spin" />}
+                    <span>{updateMessage}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Debug Panel */}
+            <details className="theme-bg-secondary rounded-lg p-4 border theme-border">
+              <summary className="theme-text font-medium cursor-pointer">🔧 Debug Bilgileri</summary>
+              <div className="theme-text-muted text-sm mt-3 space-y-1">
+                <div>Electron API: {window.electronAPI ? '✅ Mevcut' : '❌ Yok'}</div>
+                <div>Update Handler: {window.electronAPI?.onUpdateStatus ? '✅ Aktif' : '❌ Pasif'}</div>
+                <div>Current Version: {currentVersion || 'Bilinmiyor'}</div>
+                <div>Update Status: {updateStatus}</div>
+                <div>Last Message: {updateMessage || 'Yok'}</div>
+              </div>
+            </details>
+
+            {/* How It Works */}
+            <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+              <h4 className="theme-text font-medium mb-3">🔄 Nasıl Çalışır?</h4>
+              <div className="theme-text-muted text-sm space-y-2">
+                <div><strong>1. Kontrol:</strong> GitHub'daki yeni sürümler kontrol edilir</div>
+                <div><strong>2. İndirme:</strong> Güncelleme arka planda indirilir</div>
+                <div><strong>3. Kurulum:</strong> Uygulama yeniden başlatılır</div>
+                <div><strong>4. Veri Korunması:</strong> Tüm bilgileriniz otomatik korunur</div>
+              </div>
+            </div>
+
+            {/* Update Process */}
+            <div className="theme-bg-secondary rounded-lg p-4 border theme-border">
+              <h4 className="theme-text font-medium mb-3">📋 Güncelleme Süreci</h4>
+              <div className="theme-text-muted text-sm space-y-2">
+                <div>✅ <strong>Güvenli:</strong> Tüm verileriniz korunur</div>
+                <div>⚡ <strong>Hızlı:</strong> Sadece değişen dosyalar indirilir</div>
+                <div>🔄 <strong>Otomatik:</strong> Tek tıkla tam güncelleme</div>
+                <div>💾 <strong>Backup:</strong> Eski sürüm otomatik saklanır</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 💾 Veri Yönetimi */}
+        <div className="theme-surface rounded-lg shadow-md p-6 theme-border border">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="theme-primary rounded-full p-2">
+              <Save className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="theme-text text-lg font-semibold">💾 Veri Yönetimi</h3>
+              <p className="theme-text-muted text-sm">Verilerinizi yedekleyin ve geri yükleyin</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Export Data */}
+            <button
+              onClick={onExportData}
+              className="theme-button flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-colors"
+            >
+              <DownloadIcon className="w-5 h-5" />
+              Verileri Dışa Aktar
+            </button>
+
+            {/* Import Data */}
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={onImportData}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="theme-button-secondary w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-colors"
+              >
+                <Upload className="w-5 h-5" />
+                Verileri İçe Aktar
+              </button>
+            </div>
+          </div>
+
+          <div className="theme-info bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
             <div className="flex items-start gap-3">
               <Circle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="text-blue-800 font-medium text-sm mb-1">💡 Tema İpuçları</div>
+                <div className="text-blue-800 font-medium text-sm mb-1">💡 Veri Güvenliği</div>
                 <div className="text-blue-700 text-sm space-y-1">
-                  <div>• <strong>Koyu Tema:</strong> Gece kullanımı için ideal</div>
-                  <div>• <strong>Mavi/Gri:</strong> Profesyonel ortamlar için</div>
-                  <div>• <strong>Yeşil/Turkuaz:</strong> Göz yorgunluğunu azaltır</div>
-                  <div>• <strong>Renkli Temalar:</strong> Kişisel kullanım için eğlenceli</div>
+                  <div>• Verileriniz sadece bilgisayarınızda saklanır</div>
+                  <div>• Düzenli yedekleme yapmanızı öneriyoruz</div>
+                  <div>• JSON formatında dışa aktarılır</div>
+                  <div>• Güncelleme sırasında veriler otomatik korunur</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">💾 Veri Yedekleme</h2>
-        
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={onExportData}
-              className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              📤 Verileri Dışa Aktar
-            </button>
-            
-            <label className="bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors cursor-pointer text-center">
-              📥 Verileri İçe Aktar
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleFileImport}
-                className="hidden"
-              />
-            </label>
-          </div>
-          
-          <p className="text-sm text-gray-500">
-            Verilerinizi düzenli olarak yedeklemenizi öneririz.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-        >
-          💾 Ayarları Kaydet
-        </button>
       </div>
     </div>
   );

@@ -275,6 +275,18 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* Select styling */
+.theme-input select,
+.theme-input option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Checkbox styling */
+.theme-checkbox {
+  accent-color: var(--color-primary);
+}
+
 .theme-button {
   background-color: var(--color-primary);
   color: white;
@@ -285,6 +297,13 @@
   background-color: var(--color-primary-dark);
 }
 
+.theme-button:disabled {
+  background-color: var(--color-border);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+}
+
 .theme-button-secondary {
   background-color: var(--color-surface);
   color: var(--color-text);
@@ -293,6 +312,78 @@
 
 .theme-button-secondary:hover {
   background-color: var(--color-background-secondary);
+}
+
+/* Toggle switch styling */
+.theme-toggle input:checked + .theme-toggle-slider {
+  background-color: var(--color-primary);
+}
+
+.theme-toggle-slider {
+  background-color: var(--color-border);
+  transition: background-color 0.3s ease;
+}
+
+/* Card hover effects */
+.theme-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Focus styles */
+.theme-focus:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Link styling */
+.theme-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.theme-link:hover {
+  color: var(--color-primary-dark);
+}
+
+/* Code block styling */
+.theme-code {
+  background-color: var(--color-background-secondary);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+/* Progress bar styling */
+.theme-progress {
+  background-color: var(--color-background-secondary);
+}
+
+.theme-progress-bar {
+  background-color: var(--color-primary);
+  transition: width 0.5s ease;
 }
 
 /* Smooth transitions */
