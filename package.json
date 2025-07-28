@@ -5,16 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build-electron": "npm run build && electron-builder",
+    "electron": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "electron:dist": "npm run build && electron-builder",
     "dist": "npm run build && electron-builder",
     "dist-win": "npm run build && electron-builder --win",
     "version:patch": "npm version patch && git push origin main --tags",
     "version:minor": "npm version minor && git push origin main --tags",
     "version:major": "npm version major && git push origin main --tags",
-    "release": "npm run version:patch"
+    "release": "npm run electron:dist",
+    "safe:test": "npm run build && npm run electron:pack",
+    "safe:validate": "npm run safe:test && echo 'Validation successful!'",
+    "safe:minor": "npm run safe:validate && npm run version:minor",
+    "safe:patch": "npm run safe:validate && npm run version:patch",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js"
   },
   "dependencies": {
     "electron-updater": "^6.6.2",

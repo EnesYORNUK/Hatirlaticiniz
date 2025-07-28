@@ -12,10 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Electron build outputs
-electron-dist/
-build/
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -27,3 +23,14 @@ build/
 *.sln
 *.sw?
 .env
+
+# Build artifacts
+electron-dist/
+build/
+
+# Backups (local)
+backups/
+
+# OS generated files
+Thumbs.db
+.DS_Store
