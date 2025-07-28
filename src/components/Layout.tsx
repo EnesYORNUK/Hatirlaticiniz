@@ -9,8 +9,8 @@ interface LayoutProps {
 
 export default function Layout({ children, currentPage, onPageChange }: LayoutProps) {
   const menuItems = [
-    { id: 'list', label: 'Çek Listesi', icon: List },
-    { id: 'add', label: 'Çek Ekle', icon: Plus },
+    { id: 'list', label: 'Ödeme Listesi', icon: List },
+    { id: 'add', label: 'Yeni Ekle', icon: Plus },
     { id: 'settings', label: 'Ayarlar', icon: Settings },
   ];
 

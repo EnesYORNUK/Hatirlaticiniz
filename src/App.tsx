@@ -14,17 +14,35 @@ const defaultSettings: SettingsType = {
   autoUpdateEnabled: true,
 };
 
+// Eski check verilerini yeni formatla uyumlu hale getiren fonksiyon
+const normalizeCheck = (check: any): Check => {
+  return {
+    ...check,
+    // Yeni alanlar için default değerler
+    type: check.type || 'check',
+    billType: check.billType || undefined,
+    customBillType: check.customBillType || undefined,
+    isRecurring: check.isRecurring || false,
+    recurringType: check.recurringType || undefined,
+    recurringDay: check.recurringDay || undefined,
+    nextPaymentDate: check.nextPaymentDate || undefined,
+  };
+};
+
 function App() {
   const [currentPage, setCurrentPage] = useState('list');
-  const [checks, setChecks] = useLocalStorage<Check[]>('hatirlatici-checks', []);
+  const [rawChecks, setRawChecks] = useLocalStorage<any[]>('hatirlatici-checks', []);
   const [settings, setSettings] = useLocalStorage<SettingsType>('hatirlatici-settings', defaultSettings);
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
+
+  // Eski veri formatını normalize et
+  const checks: Check[] = rawChecks.map(normalizeCheck);
 
   // Bildirim sistemi
   const { isElectron } = useElectronNotifications(checks, settings);
 
   useEffect(() => {
-    document.title = 'Hatırlatıcınım - Çek Takip Uygulaması';
+    document.title = 'Hatırlatıcınım - Çek ve Fatura Takip Uygulaması';
   }, []);
 
   const handleAddCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
@@ -34,14 +52,14 @@ function App() {
       createdAt: new Date().toISOString(),
     };
     
-    setChecks(prev => [...prev, newCheck]);
+    setRawChecks(prev => [...prev, newCheck]);
     setCurrentPage('list');
   };
 
   const handleEditCheck = (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (!editingCheck) return;
     
-    setChecks(prev => prev.map(check => 
+    setRawChecks(prev => prev.map(check => 
       check.id === editingCheck.id 
         ? { ...check, ...checkData }
         : check
@@ -52,13 +70,14 @@ function App() {
   };
 
   const handleDeleteCheck = (id: string) => {
-    if (confirm('Bu çeki silmek istediğinizden emin misiniz?')) {
-      setChecks(prev => prev.filter(check => check.id !== id));
+    const itemType = checks.find(c => c.id === id)?.type === 'bill' ? 'faturayı' : 'çeki';
+    if (confirm(`Bu ${itemType} silmek istediğinizden emin misiniz?`)) {
+      setRawChecks(prev => prev.filter(check => check.id !== id));
     }
   };
 
   const handleTogglePaid = (id: string) => {
-    setChecks(prev => prev.map(check =>
+    setRawChecks(prev => prev.map(check =>
       check.id === id ? { ...check, isPaid: !check.isPaid } : check
     ));
   };
@@ -79,9 +98,10 @@ function App() {
 
   const handleExportData = () => {
     const data = {
-      checks,
+      checks: rawChecks,
       settings,
       exportDate: new Date().toISOString(),
+      version: '2.0', // Versiyon bilgisi eklendi
     };
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -99,7 +119,9 @@ function App() {
     try {
       if (data.checks && Array.isArray(data.checks)) {
         if (confirm('Mevcut veriler silinecek ve yeni veriler yüklenecek. Devam etmek istiyor musunuz?')) {
-          setChecks(data.checks);
+          // Eski veri formatını normalize et
+          const normalizedChecks = data.checks.map(normalizeCheck);
+          setRawChecks(normalizedChecks);
           if (data.settings) {
             setSettings({ ...defaultSettings, ...data.settings });
           }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from '../types';
-import { Save, X } from 'lucide-react';
+import { Save, X, CreditCard, Receipt } from 'lucide-react';
 
 interface CheckFormProps {
   onSave: (check: Omit<Check, 'id' | 'createdAt'>) => void;
@@ -16,9 +16,32 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     createdBy: initialData?.createdBy || '',
     signedTo: initialData?.signedTo || '',
     isPaid: initialData?.isPaid || false,
+    // Yeni alanlar
+    type: initialData?.type || 'check' as 'check' | 'bill',
+    billType: initialData?.billType || 'elektrik' as 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger',
+    customBillType: initialData?.customBillType || '',
+    isRecurring: initialData?.isRecurring || false,
+    recurringType: initialData?.recurringType || 'monthly' as 'monthly' | 'weekly' | 'yearly',
+    recurringDay: initialData?.recurringDay || 1,
+    nextPaymentDate: initialData?.nextPaymentDate || '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const billTypeLabels = {
+    elektrik: 'Elektrik',
+    su: 'Su',
+    dogalgaz: 'Doğalgaz',
+    telefon: 'Telefon',
+    internet: 'İnternet',
+    diger: 'Diğer'
+  };
+
+  const recurringTypeLabels = {
+    monthly: 'Aylık',
+    weekly: 'Haftalık',
+    yearly: 'Yıllık'
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -38,17 +61,49 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     }
 
     if (!formData.signedTo.trim()) {
-      newErrors.signedTo = 'İmzalanan kişi gereklidir';
+      newErrors.signedTo = formData.type === 'check' ? 'İmzalanan kişi gereklidir' : 'Ödenecek firma/kişi gereklidir';
+    }
+
+    if (formData.type === 'bill' && formData.billType === 'diger' && !formData.customBillType.trim()) {
+      newErrors.customBillType = 'Özel fatura türü gereklidir';
+    }
+
+    if (formData.isRecurring && !formData.nextPaymentDate) {
+      newErrors.nextPaymentDate = 'Tekrarlayan ödemeler için bir sonraki ödeme tarihi gereklidir';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const generateNextPaymentDate = () => {
+    if (!formData.isRecurring || !formData.paymentDate) return '';
+    
+    const currentDate = new Date(formData.paymentDate);
+    let nextDate = new Date(currentDate);
+
+    switch (formData.recurringType) {
+      case 'weekly':
+        nextDate.setDate(currentDate.getDate() + 7);
+        break;
+      case 'monthly':
+        nextDate.setMonth(currentDate.getMonth() + 1);
+        nextDate.setDate(formData.recurringDay);
+        break;
+      case 'yearly':
+        nextDate.setFullYear(currentDate.getFullYear() + 1);
+        break;
+    }
+
+    return nextDate.toISOString().split('T')[0];
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
+      const nextPaymentDate = formData.isRecurring ? generateNextPaymentDate() : undefined;
+      
       onSave({
         createdDate: formData.createdDate,
         paymentDate: formData.paymentDate,
@@ -56,12 +111,21 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
         createdBy: formData.createdBy.trim(),
         signedTo: formData.signedTo.trim(),
         isPaid: formData.isPaid,
+        type: formData.type,
+        billType: formData.type === 'bill' ? formData.billType : undefined,
+        customBillType: formData.type === 'bill' && formData.billType === 'diger' ? formData.customBillType.trim() : undefined,
+        isRecurring: formData.isRecurring,
+        recurringType: formData.isRecurring ? formData.recurringType : undefined,
+        recurringDay: formData.isRecurring ? formData.recurringDay : undefined,
+        nextPaymentDate,
       });
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
+    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -71,13 +135,18 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+
+    // Auto-generate next payment date when recurring settings change
+    if (name === 'paymentDate' && formData.isRecurring) {
+      setFormData(prev => ({ ...prev, nextPaymentDate: generateNextPaymentDate() }));
+    }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white rounded-xl shadow-lg p-6 max-h-[80vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">
-          {initialData ? 'Çek Düzenle' : 'Yeni Çek Ekle'}
+          {initialData ? `${formData.type === 'check' ? 'Çek' : 'Fatura'} Düzenle` : `Yeni ${formData.type === 'check' ? 'Çek' : 'Fatura'} Ekle`}
         </h2>
         <button
           onClick={onCancel}
@@ -88,6 +157,80 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Çek/Fatura Seçimi */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Ödeme Türü
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, type: 'check' }))}
+              className={`flex items-center justify-center space-x-2 p-3 border-2 rounded-lg transition-colors ${
+                formData.type === 'check' 
+                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              <CreditCard className="h-5 w-5" />
+              <span>Çek</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, type: 'bill' }))}
+              className={`flex items-center justify-center space-x-2 p-3 border-2 rounded-lg transition-colors ${
+                formData.type === 'bill' 
+                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              <Receipt className="h-5 w-5" />
+              <span>Fatura</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Fatura Türü Seçimi */}
+        {formData.type === 'bill' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fatura Türü
+            </label>
+            <select
+              name="billType"
+              value={formData.billType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            >
+              {Object.entries(billTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Özel Fatura Türü */}
+        {formData.type === 'bill' && formData.billType === 'diger' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Özel Fatura Türü *
+            </label>
+            <input
+              type="text"
+              name="customBillType"
+              value={formData.customBillType}
+              onChange={handleChange}
+              placeholder="Örn: Kira, Sigorta, vb."
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                errors.customBillType ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {errors.customBillType && (
+              <p className="mt-1 text-sm text-red-600">{errors.customBillType}</p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -162,14 +305,14 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              İmzalanan Kişi *
+              {formData.type === 'check' ? 'İmzalanan Kişi *' : 'Ödenecek Firma/Kişi *'}
             </label>
             <input
               type="text"
               name="signedTo"
               value={formData.signedTo}
               onChange={handleChange}
-              placeholder="Adı Soyadı"
+              placeholder={formData.type === 'check' ? 'Adı Soyadı' : 'Firma/Kişi Adı'}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                 errors.signedTo ? 'border-red-300' : 'border-gray-300'
               }`}
@@ -178,19 +321,92 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
               <p className="mt-1 text-sm text-red-600">{errors.signedTo}</p>
             )}
           </div>
+        </div>
 
-          <div className="md:col-span-2">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                name="isPaid"
-                checked={formData.isPaid}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Ödendi olarak işaretle</span>
+        {/* Tekrarlama Ayarları */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <input
+              type="checkbox"
+              name="isRecurring"
+              checked={formData.isRecurring}
+              onChange={handleChange}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label className="text-sm font-medium text-gray-700">
+              Tekrarlayan Ödeme
             </label>
           </div>
+
+          {formData.isRecurring && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ml-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tekrar Türü
+                </label>
+                <select
+                  name="recurringType"
+                  value={formData.recurringType}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  {Object.entries(recurringTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {formData.recurringType === 'monthly' ? 'Ayın Kaçında' : 
+                   formData.recurringType === 'weekly' ? 'Haftanın Günü' : 'Gün'}
+                </label>
+                <input
+                  type="number"
+                  name="recurringDay"
+                  value={formData.recurringDay}
+                  onChange={handleChange}
+                  min={formData.recurringType === 'weekly' ? 1 : 1}
+                  max={formData.recurringType === 'weekly' ? 7 : formData.recurringType === 'monthly' ? 31 : 31}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+                {formData.recurringType === 'weekly' && (
+                  <p className="text-xs text-gray-500 mt-1">1=Pazartesi, 7=Pazar</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sonraki Ödeme *
+                </label>
+                <input
+                  type="date"
+                  name="nextPaymentDate"
+                  value={formData.nextPaymentDate}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.nextPaymentDate ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.nextPaymentDate && (
+                  <p className="mt-1 text-sm text-red-600">{errors.nextPaymentDate}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              name="isPaid"
+              checked={formData.isPaid}
+              onChange={handleChange}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Ödendi olarak işaretle</span>
+          </label>
         </div>
 
         <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">

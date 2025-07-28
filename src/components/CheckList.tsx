@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Check } from '../types';
 import { formatDate, getDaysUntilPayment, getPaymentStatus, getStatusColor, getStatusText } from '../utils/dateUtils';
-import { Edit2, Trash2, CheckCircle, Circle, Calendar, User, Banknote, Search } from 'lucide-react';
+import { Edit2, Trash2, CheckCircle, Circle, Calendar, User, Banknote, Search, CreditCard, Receipt, RotateCcw, Zap, Droplets, Flame, Phone, Wifi, FileText } from 'lucide-react';
 
 interface CheckListProps {
   checks: Check[];
@@ -15,15 +15,45 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   const [sortBy, setSortBy] = useState<'paymentDate' | 'amount' | 'createdDate'>('paymentDate');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
+  const getBillTypeIcon = (billType?: string) => {
+    switch (billType) {
+      case 'elektrik': return <Zap className="h-4 w-4 text-yellow-500" />;
+      case 'su': return <Droplets className="h-4 w-4 text-blue-500" />;
+      case 'dogalgaz': return <Flame className="h-4 w-4 text-orange-500" />;
+      case 'telefon': return <Phone className="h-4 w-4 text-green-500" />;
+      case 'internet': return <Wifi className="h-4 w-4 text-purple-500" />;
+      default: return <FileText className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getBillTypeLabel = (billType?: string, customBillType?: string) => {
+    if (billType === 'diger' && customBillType) {
+      return customBillType;
+    }
+    
+    const labels: Record<string, string> = {
+      elektrik: 'Elektrik',
+      su: 'Su',
+      dogalgaz: 'Doğalgaz',
+      telefon: 'Telefon',
+      internet: 'İnternet',
+      diger: 'Diğer'
+    };
+    
+    return billType ? labels[billType] || billType : '';
+  };
+
   const filteredChecks = checks.filter(check => {
     // Arama filtresi
     const searchLower = searchTerm.toLowerCase();
+    const billTypeText = check.type === 'bill' ? getBillTypeLabel(check.billType, check.customBillType) : '';
     const matchesSearch = !searchTerm || 
       check.createdBy.toLowerCase().includes(searchLower) ||
       check.signedTo.toLowerCase().includes(searchLower) ||
       check.amount.toString().includes(searchLower) ||
       formatDate(check.paymentDate).includes(searchLower) ||
-      formatDate(check.createdDate).includes(searchLower);
+      formatDate(check.createdDate).includes(searchLower) ||
+      billTypeText.toLowerCase().includes(searchLower);
 
     if (!matchesSearch) return false;
 
@@ -33,6 +63,9 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     if (filter === 'unpaid') return !check.isPaid;
     if (filter === 'overdue') return !check.isPaid && getDaysUntilPayment(check.paymentDate) < 0;
     if (filter === 'upcoming') return !check.isPaid && getDaysUntilPayment(check.paymentDate) >= 0;
+    if (filter === 'checks') return check.type === 'check';
+    if (filter === 'bills') return check.type === 'bill';
+    if (filter === 'recurring') return check.isRecurring;
     return true;
   });
 
@@ -54,6 +87,9 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     paid: checks.filter(c => c.isPaid).length,
     unpaid: checks.filter(c => !c.isPaid).length,
     overdue: checks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).length,
+    checks: checks.filter(c => c.type === 'check').length,
+    bills: checks.filter(c => c.type === 'bill').length,
+    recurring: checks.filter(c => c.isRecurring).length,
   };
 
   if (checks.length === 0) {
@@ -62,8 +98,8 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Banknote className="h-8 w-8 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz çek eklenmemiş</h3>
-        <p className="text-gray-500">İlk çekinizi eklemek için "Çek Ekle" butonunu kullanın.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz ödeme eklenmemiş</h3>
+        <p className="text-gray-500">İlk çek veya faturanızı eklemek için "Yeni Ekle" butonunu kullanın.</p>
       </div>
     );
   }
@@ -71,10 +107,10 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   return (
     <div className="space-y-6">
       {/* İstatistikler */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-          <div className="text-sm text-gray-600">Toplam Çek</div>
+          <div className="text-sm text-gray-600">Toplam</div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="text-2xl font-bold text-green-600">{stats.paid}</div>
@@ -88,6 +124,18 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
           <div className="text-sm text-gray-600">Vadesi Geçen</div>
         </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="text-2xl font-bold text-purple-600">{stats.checks}</div>
+          <div className="text-sm text-gray-600">Çek</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="text-2xl font-bold text-orange-600">{stats.bills}</div>
+          <div className="text-sm text-gray-600">Fatura</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="text-2xl font-bold text-cyan-600">{stats.recurring}</div>
+          <div className="text-sm text-gray-600">Tekrarlayan</div>
+        </div>
       </div>
 
       {/* Arama ve Filtreler */}
@@ -99,7 +147,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           </div>
           <input
             type="text"
-            placeholder="Kişi adı, miktar, tarih ile ara..."
+            placeholder="Kişi adı, fatura türü, miktar, tarih ile ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -122,11 +170,14 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
               onChange={(e) => setFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">Tüm Çekler</option>
+              <option value="all">Tümü</option>
               <option value="unpaid">Bekleyenler</option>
               <option value="paid">Ödenenler</option>
               <option value="overdue">Vadesi Geçenler</option>
               <option value="upcoming">Vadesi Gelenler</option>
+              <option value="checks">Sadece Çekler</option>
+              <option value="bills">Sadece Faturalar</option>
+              <option value="recurring">Tekrarlayanlar</option>
             </select>
             
             <select
@@ -141,13 +192,13 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           </div>
           
           <div className="text-sm text-gray-600">
-            {filteredChecks.length} çek gösteriliyor
+            {filteredChecks.length} ödeme gösteriliyor
             {searchTerm && <span className="ml-1">"{searchTerm}" için</span>}
           </div>
         </div>
       </div>
 
-      {/* Çek Listesi */}
+      {/* Ödeme Listesi */}
       <div className="space-y-4">
         {sortedChecks.map(check => {
           const status = getPaymentStatus(check.paymentDate, check.isPaid);
@@ -167,6 +218,33 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                       >
                         {check.isPaid ? <CheckCircle className="h-6 w-6" /> : <Circle className="h-6 w-6" />}
                       </button>
+                      
+                      <div className="flex items-center space-x-2">
+                        {check.type === 'check' ? (
+                          <CreditCard className="h-5 w-5 text-purple-600" />
+                        ) : (
+                          <Receipt className="h-5 w-5 text-orange-600" />
+                        )}
+                        
+                        {check.type === 'bill' && (
+                          <div className="flex items-center space-x-1">
+                            {getBillTypeIcon(check.billType)}
+                            <span className="text-sm font-medium text-gray-700">
+                              {getBillTypeLabel(check.billType, check.customBillType)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {check.isRecurring && (
+                          <div className="flex items-center space-x-1">
+                            <RotateCcw className="h-4 w-4 text-cyan-600" />
+                            <span className="text-xs text-cyan-600 font-medium">
+                              {check.recurringType === 'monthly' ? 'Aylık' : 
+                               check.recurringType === 'weekly' ? 'Haftalık' : 'Yıllık'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       
                       <div>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
@@ -197,7 +275,9 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                     <div className="flex items-center space-x-2">
                       <User className="h-4 w-4 text-gray-400" />
                       <div>
-                        <span className="text-gray-600">İmzalanan:</span>
+                        <span className="text-gray-600">
+                          {check.type === 'check' ? 'İmzalanan:' : 'Ödenecek:'}
+                        </span>
                         <span className="ml-1 font-medium text-gray-900">{check.signedTo}</span>
                       </div>
                     </div>
@@ -210,6 +290,18 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                       </div>
                     </div>
                   </div>
+
+                  {/* Tekrarlayan ödeme bilgisi */}
+                  {check.isRecurring && check.nextPaymentDate && (
+                    <div className="flex items-center space-x-2 text-sm bg-cyan-50 px-3 py-2 rounded-lg">
+                      <RotateCcw className="h-4 w-4 text-cyan-600" />
+                      <span className="text-cyan-700">
+                        Sonraki ödeme: <span className="font-medium">{formatDate(check.nextPaymentDate)}</span>
+                        {check.recurringType === 'monthly' && check.recurringDay && 
+                          ` (Her ayın ${check.recurringDay}. günü)`}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2 ml-4">
