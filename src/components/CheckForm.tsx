@@ -61,34 +61,30 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     }
 
     if (!formData.signedTo.trim()) {
-      newErrors.signedTo = formData.type === 'check' ? 'İmzalanan kişi gereklidir' : 'Ödenecek firma/kişi gereklidir';
+      newErrors.signedTo = 'Ödenecek firma/kişi gereklidir';
     }
 
     if (formData.type === 'bill' && formData.billType === 'diger' && !formData.customBillType.trim()) {
       newErrors.customBillType = 'Özel fatura türü gereklidir';
     }
 
-    if (formData.isRecurring && !formData.nextPaymentDate) {
-      newErrors.nextPaymentDate = 'Tekrarlayan ödemeler için bir sonraki ödeme tarihi gereklidir';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const generateNextPaymentDate = () => {
-    if (!formData.isRecurring || !formData.paymentDate) return '';
+  const generateNextPaymentDate = (data = formData) => {
+    if (!data.isRecurring || !data.paymentDate) return '';
     
-    const currentDate = new Date(formData.paymentDate);
+    const currentDate = new Date(data.paymentDate);
     let nextDate = new Date(currentDate);
 
-    switch (formData.recurringType) {
+    switch (data.recurringType) {
       case 'weekly':
         nextDate.setDate(currentDate.getDate() + 7);
         break;
       case 'monthly':
         nextDate.setMonth(currentDate.getMonth() + 1);
-        nextDate.setDate(formData.recurringDay);
+        nextDate.setDate(data.recurringDay);
         break;
       case 'yearly':
         nextDate.setFullYear(currentDate.getFullYear() + 1);
@@ -126,19 +122,28 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     const { name, value, type } = e.target;
     const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
     
-    setFormData(prev => ({
-      ...prev,
+    let newFormData = {
+      ...formData,
       [name]: type === 'checkbox' ? checked : value
-    }));
+    };
+
+    // Ödeme tarihi değiştiğinde veya tekrarlayan ödeme seçildiğinde
+    // ayın kaçında değerini otomatik güncelle
+    if (name === 'paymentDate' && value && newFormData.isRecurring) {
+      const selectedDate = new Date(value);
+      newFormData.recurringDay = selectedDate.getDate();
+      newFormData.nextPaymentDate = generateNextPaymentDate(newFormData);
+    } else if (name === 'isRecurring' && checked && formData.paymentDate) {
+      const selectedDate = new Date(formData.paymentDate);
+      newFormData.recurringDay = selectedDate.getDate();
+      newFormData.nextPaymentDate = generateNextPaymentDate(newFormData);
+    }
+
+    setFormData(newFormData);
 
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-
-    // Auto-generate next payment date when recurring settings change
-    if (name === 'paymentDate' && formData.isRecurring) {
-      setFormData(prev => ({ ...prev, nextPaymentDate: generateNextPaymentDate() }));
     }
   };
 
@@ -305,14 +310,14 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {formData.type === 'check' ? 'İmzalanan Kişi *' : 'Ödenecek Firma/Kişi *'}
+              Ödenecek Firma/Kişi *
             </label>
             <input
               type="text"
               name="signedTo"
               value={formData.signedTo}
               onChange={handleChange}
-              placeholder={formData.type === 'check' ? 'Adı Soyadı' : 'Firma/Kişi Adı'}
+              placeholder="Firma/Kişi Adı"
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                 errors.signedTo ? 'border-red-300' : 'border-gray-300'
               }`}
@@ -339,7 +344,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
           </div>
 
           {formData.isRecurring && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ml-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tekrar Türü
@@ -373,23 +378,8 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
                 {formData.recurringType === 'weekly' && (
                   <p className="text-xs text-gray-500 mt-1">1=Pazartesi, 7=Pazar</p>
                 )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sonraki Ödeme *
-                </label>
-                <input
-                  type="date"
-                  name="nextPaymentDate"
-                  value={formData.nextPaymentDate}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    errors.nextPaymentDate ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                />
-                {errors.nextPaymentDate && (
-                  <p className="mt-1 text-sm text-red-600">{errors.nextPaymentDate}</p>
+                {formData.recurringType === 'monthly' && (
+                  <p className="text-xs text-gray-500 mt-1">Örn: 15 (Her ayın 15'inde)</p>
                 )}
               </div>
             </div>

@@ -90,6 +90,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     checks: checks.filter(c => c.type === 'check').length,
     bills: checks.filter(c => c.type === 'bill').length,
     recurring: checks.filter(c => c.isRecurring).length,
+    // Tutar hesaplamaları
+    totalAmount: checks.reduce((sum, c) => sum + c.amount, 0),
+    paidAmount: checks.filter(c => c.isPaid).reduce((sum, c) => sum + c.amount, 0),
+    unpaidAmount: checks.filter(c => !c.isPaid).reduce((sum, c) => sum + c.amount, 0),
+    overdueAmount: checks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).reduce((sum, c) => sum + c.amount, 0),
   };
 
   if (checks.length === 0) {
@@ -106,36 +111,141 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
 
   return (
     <div className="space-y-6">
-      {/* İstatistikler */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-          <div className="text-sm text-gray-600">Toplam</div>
+      {/* Dashboard */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+          <Banknote className="h-6 w-6 mr-2 text-blue-600" />
+          Ödeme Özeti
+        </h2>
+        
+        {/* Ana İstatistikler */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* Toplam */}
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-xl border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-600 text-sm font-medium">Toplam Ödeme</p>
+                <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
+                <p className="text-sm text-blue-700 mt-1">
+                  {stats.totalAmount.toLocaleString('tr-TR')} ₺
+                </p>
+              </div>
+              <div className="bg-blue-500 p-3 rounded-full">
+                <Banknote className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Bekleyen */}
+          <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 rounded-xl border-l-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-600 text-sm font-medium">Bekleyen</p>
+                <p className="text-3xl font-bold text-orange-900">{stats.unpaid}</p>
+                <p className="text-sm text-orange-700 mt-1">
+                  {stats.unpaidAmount.toLocaleString('tr-TR')} ₺
+                </p>
+              </div>
+              <div className="bg-orange-500 p-3 rounded-full">
+                <Calendar className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Ödenen */}
+          <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-xl border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-600 text-sm font-medium">Ödenen</p>
+                <p className="text-3xl font-bold text-green-900">{stats.paid}</p>
+                <p className="text-sm text-green-700 mt-1">
+                  {stats.paidAmount.toLocaleString('tr-TR')} ₺
+                </p>
+              </div>
+              <div className="bg-green-500 p-3 rounded-full">
+                <CheckCircle className="h-8 w-8 text-white" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-green-600">{stats.paid}</div>
-          <div className="text-sm text-gray-600">Ödenen</div>
+
+        {/* Alt Bilgiler */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Vadesi Geçen - Acil */}
+          {stats.overdue > 0 && (
+            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+              <div className="flex items-center">
+                <div className="bg-red-500 p-2 rounded-full mr-3">
+                  <Circle className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-red-900 font-bold">{stats.overdue}</p>
+                  <p className="text-red-600 text-xs">Vadesi Geçen</p>
+                  <p className="text-red-700 text-xs font-medium">
+                    {stats.overdueAmount.toLocaleString('tr-TR')} ₺
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Çek Sayısı */}
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <div className="flex items-center">
+              <div className="bg-purple-500 p-2 rounded-full mr-3">
+                <CreditCard className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-purple-900 font-bold">{stats.checks}</p>
+                <p className="text-purple-600 text-xs">Çek</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Fatura Sayısı */}
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+            <div className="flex items-center">
+              <div className="bg-orange-500 p-2 rounded-full mr-3">
+                <Receipt className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-orange-900 font-bold">{stats.bills}</p>
+                <p className="text-orange-600 text-xs">Fatura</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Tekrarlayan */}
+          <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+            <div className="flex items-center">
+              <div className="bg-cyan-500 p-2 rounded-full mr-3">
+                <RotateCcw className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-cyan-900 font-bold">{stats.recurring}</p>
+                <p className="text-cyan-600 text-xs">Tekrarlayan</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-blue-600">{stats.unpaid}</div>
-          <div className="text-sm text-gray-600">Bekleyen</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
-          <div className="text-sm text-gray-600">Vadesi Geçen</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-purple-600">{stats.checks}</div>
-          <div className="text-sm text-gray-600">Çek</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-orange-600">{stats.bills}</div>
-          <div className="text-sm text-gray-600">Fatura</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-cyan-600">{stats.recurring}</div>
-          <div className="text-sm text-gray-600">Tekrarlayan</div>
-        </div>
+
+        {/* Ödeme Oranı */}
+        {stats.total > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Ödeme Oranı</span>
+              <span className="text-sm font-medium text-gray-900">
+                %{Math.round((stats.paid / stats.total) * 100)}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(stats.paid / stats.total) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Arama ve Filtreler */}
@@ -275,9 +385,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                     <div className="flex items-center space-x-2">
                       <User className="h-4 w-4 text-gray-400" />
                       <div>
-                        <span className="text-gray-600">
-                          {check.type === 'check' ? 'İmzalanan:' : 'Ödenecek:'}
-                        </span>
+                        <span className="text-gray-600">Ödenecek:</span>
                         <span className="ml-1 font-medium text-gray-900">{check.signedTo}</span>
                       </div>
                     </div>
