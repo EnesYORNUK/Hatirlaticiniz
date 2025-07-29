@@ -30,8 +30,11 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.paymentDate) {
-      newErrors.paymentDate = 'Ödeme tarihi zorunludur';
+    // Ödeme tarihi sadece tekrarlayan değilse veya yıllık tekrarlayanlar için zorunlu
+    if (!formData.isRecurring || formData.recurringType === 'yearly') {
+      if (!formData.paymentDate) {
+        newErrors.paymentDate = 'Ödeme tarihi zorunludur';
+      }
     }
 
     if (!formData.amount) {
@@ -56,24 +59,59 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
   };
 
   const calculateNextPaymentDate = () => {
-    if (!formData.isRecurring || !formData.paymentDate) return undefined;
+    if (!formData.isRecurring) return undefined;
 
-    const baseDate = new Date(formData.paymentDate);
-    let nextDate = new Date(baseDate);
+    const now = new Date();
 
     switch (formData.recurringType) {
       case 'weekly':
-        nextDate.setDate(nextDate.getDate() + 7);
-        break;
-      case 'monthly':
-        nextDate.setMonth(nextDate.getMonth() + 1);
-        break;
-      case 'yearly':
-        nextDate.setFullYear(nextDate.getFullYear() + 1);
-        break;
-    }
+        // Haftalık: Bu haftanın recurringDay gününü bulalım
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi...
+        const targetDay = formData.recurringDay; // 1=Pazartesi, 7=Pazar
+        
+        // JavaScript'te 0=Pazar, 1=Pazartesi... o yüzden convert edelim
+        const jsTargetDay = targetDay === 7 ? 0 : targetDay; // 7=Pazar -> 0
+        
+        let daysUntilTarget = jsTargetDay - dayOfWeek;
+        if (daysUntilTarget <= 0) {
+          daysUntilTarget += 7; // Sonraki haftaya geç
+        }
+        
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + daysUntilTarget);
+        return nextDate.toISOString().split('T')[0];
 
-    return nextDate.toISOString().split('T')[0];
+      case 'monthly':
+        // Aylık: Bu ayın recurringDay gününü bulalım
+        const thisMonth = new Date();
+        thisMonth.setDate(formData.recurringDay);
+        
+        // Eğer bu ayın o günü geçtiyse, gelecek aya geç
+        if (thisMonth <= now) {
+          thisMonth.setMonth(thisMonth.getMonth() + 1);
+        }
+        
+        return thisMonth.toISOString().split('T')[0];
+
+      case 'yearly':
+        // Yıllık: Belirtilen tarih
+        if (!formData.paymentDate) return undefined;
+        
+        const yearlyDate = new Date(formData.paymentDate);
+        const currentYear = now.getFullYear();
+        yearlyDate.setFullYear(currentYear);
+        
+        // Eğer bu yılın o günü geçtiyse, gelecek yıla geç
+        if (yearlyDate <= now) {
+          yearlyDate.setFullYear(currentYear + 1);
+        }
+        
+        return yearlyDate.toISOString().split('T')[0];
+
+      default:
+        return undefined;
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -81,9 +119,17 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     
     if (!validateForm()) return;
 
+    // Tekrarlayan ödeme için paymentDate'i ayarla
+    let finalPaymentDate = formData.paymentDate;
+    
+    if (formData.isRecurring && formData.recurringType !== 'yearly') {
+      // Aylık ve haftalık için sonraki ödeme tarihini kullan
+      finalPaymentDate = calculateNextPaymentDate() || '';
+    }
+
     const checkData: Omit<Check, 'id' | 'createdAt'> = {
       createdDate: formData.createdDate,
-      paymentDate: formData.paymentDate,
+      paymentDate: finalPaymentDate,
       amount: parseFloat(formData.amount),
       createdBy: formData.createdBy.trim(),
       signedTo: formData.signedTo.trim(),
@@ -169,22 +215,46 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
 
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="theme-text block text-sm font-medium mb-2">
-                  Ödeme Tarihi *
-                </label>
-                <input
-                  type="date"
-                  value={formData.paymentDate}
-                  onChange={(e) => handleChange('paymentDate', e.target.value)}
-                  className={`theme-input w-full ${
-                    errors.paymentDate ? 'border-red-500' : ''
-                  }`}
-                />
-                {errors.paymentDate && (
-                  <p className="text-red-500 text-sm mt-1">{errors.paymentDate}</p>
-                )}
-              </div>
+              
+              {/* Ödeme Tarihi - Sadece tekrarlayan değilse */}
+              {!formData.isRecurring && (
+                <div>
+                  <label className="theme-text block text-sm font-medium mb-2">
+                    Ödeme Tarihi *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.paymentDate}
+                    onChange={(e) => handleChange('paymentDate', e.target.value)}
+                    className={`theme-input w-full ${
+                      errors.paymentDate ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.paymentDate && (
+                    <p className="text-red-500 text-sm mt-1">{errors.paymentDate}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Yıllık tekrarlayan için tarih */}
+              {formData.isRecurring && formData.recurringType === 'yearly' && (
+                <div>
+                  <label className="theme-text block text-sm font-medium mb-2">
+                    Yıllık Ödeme Tarihi *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.paymentDate}
+                    onChange={(e) => handleChange('paymentDate', e.target.value)}
+                    className={`theme-input w-full ${
+                      errors.paymentDate ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.paymentDate && (
+                    <p className="text-red-500 text-sm mt-1">{errors.paymentDate}</p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="theme-text block text-sm font-medium mb-2">
@@ -276,20 +346,77 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
                       <option value="monthly">Her ay</option>
                       <option value="yearly">Her yıl</option>
                     </select>
-                    <p className="text-xs theme-text-muted mt-1">
-                      Seçtiğiniz ödeme tarihinden başlayarak {formData.recurringType === 'weekly' ? 'her hafta' : formData.recurringType === 'monthly' ? 'her ay' : 'her yıl'} tekrarlanacak
-                    </p>
                   </div>
+
+                  {/* Aylık için gün seçimi */}
+                  {formData.recurringType === 'monthly' && (
+                    <div>
+                      <label className="theme-text block text-sm font-medium mb-2">
+                        Ayın hangi günü?
+                      </label>
+                      <select
+                        value={formData.recurringDay}
+                        onChange={(e) => handleChange('recurringDay', parseInt(e.target.value))}
+                        className="theme-input w-full"
+                      >
+                        {Array.from({length: 31}, (_, i) => i + 1).map(day => (
+                          <option key={day} value={day}>
+                            {day}. gün
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs theme-text-muted mt-1">
+                        Her ayın bu günü ödeme yapılacak
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Haftalık için gün seçimi */}
+                  {formData.recurringType === 'weekly' && (
+                    <div>
+                      <label className="theme-text block text-sm font-medium mb-2">
+                        Haftanın hangi günü?
+                      </label>
+                      <select
+                        value={formData.recurringDay}
+                        onChange={(e) => handleChange('recurringDay', parseInt(e.target.value))}
+                        className="theme-input w-full"
+                      >
+                        <option value={1}>Pazartesi</option>
+                        <option value={2}>Salı</option>
+                        <option value={3}>Çarşamba</option>
+                        <option value={4}>Perşembe</option>
+                        <option value={5}>Cuma</option>
+                        <option value={6}>Cumartesi</option>
+                        <option value={7}>Pazar</option>
+                      </select>
+                      <p className="text-xs theme-text-muted mt-1">
+                        Her haftanın bu günü ödeme yapılacak
+                      </p>
+                    </div>
+                  )}
 
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <div className="flex items-start gap-2">
                       <Calendar className="w-4 h-4 text-green-600 mt-0.5" />
                       <div className="text-sm text-green-700">
-                        <strong>İlk ödeme:</strong> {formData.paymentDate ? new Date(formData.paymentDate).toLocaleDateString('tr-TR') : 'Tarih seçin'}
-                        <br />
-                        <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'İlk tarihi seçin'}
-                        <br />
-                        <strong>Açıklama:</strong> Bu ödeme otomatik olarak {formData.recurringType === 'weekly' ? 'her hafta' : formData.recurringType === 'monthly' ? 'her ay' : 'her yıl'} tekrarlanacak.
+                        {formData.recurringType === 'yearly' ? (
+                          <>
+                            <strong>Tekrar:</strong> Her yıl {formData.paymentDate ? new Date(formData.paymentDate).toLocaleDateString('tr-TR') : 'Tarih seçin'} tarihinde
+                          </>
+                        ) : formData.recurringType === 'monthly' ? (
+                          <>
+                            <strong>Tekrar:</strong> Her ayın {formData.recurringDay}. günü
+                            <br />
+                            <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'Hesaplanıyor...'}
+                          </>
+                        ) : (
+                          <>
+                            <strong>Tekrar:</strong> Her {['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][formData.recurringDay]}
+                            <br />
+                            <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'Hesaplanıyor...'}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
