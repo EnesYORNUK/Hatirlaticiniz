@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Plus, Settings, List, Palette } from 'lucide-react';
+import { LayoutGrid, Plus, Settings, List } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,54 +9,47 @@ interface LayoutProps {
 
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const menuItems = [
-    { id: 'list', label: 'Ödeme Listesi', icon: List },
-    { id: 'add', label: 'Yeni Ekle', icon: Plus },
-    { id: 'settings', label: 'Ayarlar', icon: Settings },
+    { 
+      id: 'list', 
+      label: '📋 ÖDEMELERİM', 
+      subtitle: 'Tüm çek ve faturaları gör',
+      icon: List 
+    },
+    { 
+      id: 'add', 
+      label: '➕ YENİ EKLE', 
+      subtitle: 'Çek veya fatura ekle',
+      icon: Plus 
+    },
+    { 
+      id: 'settings', 
+      label: '⚙️ AYARLAR', 
+      subtitle: 'Bildirimler ve diğer ayarlar',
+      icon: Settings 
+    },
   ];
 
   return (
     <div className="theme-bg min-h-screen">
-      {/* Header */}
-      <header className="theme-surface shadow-md border-b theme-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="theme-primary rounded-lg p-2">
-                <LayoutGrid className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="theme-text text-xl font-bold">Hatırlatıcınım</h1>
+      {/* Ana Başlık */}
+      <header className="theme-surface shadow-lg border-b-4 theme-border">
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-center gap-4">
+            <div className="theme-primary rounded-xl p-3 shadow-lg">
+              <LayoutGrid className="w-8 h-8 text-white" />
             </div>
-            
-            {/* Tema Göstergesi */}
-            <div className="flex items-center gap-2 theme-bg-secondary px-3 py-1 rounded-full">
-              <Palette className="w-4 h-4 theme-text-muted" />
-              <span className="theme-text-muted text-sm font-medium">
-                {(() => {
-                  const theme = document.documentElement.getAttribute('data-theme') || 'light';
-                  const themeLabels: Record<string, string> = {
-                    light: '🌅 Açık',
-                    dark: '🌙 Koyu',
-                    blue: '🔵 Mavi',
-                    green: '🟢 Yeşil',
-                    orange: '🟠 Turuncu',
-                    purple: '🟣 Mor',
-                    gray: '⚫ Gri',
-                    red: '🔴 Kırmızı',
-                    teal: '🟦 Turkuaz',
-                    pink: '🌸 Pembe'
-                  };
-                  return themeLabels[theme] || '🌅 Açık';
-                })()}
-              </span>
+            <div className="text-center">
+              <h1 className="theme-text text-3xl font-bold">Hatırlatıcınım</h1>
+              <p className="theme-text-muted text-lg">Çek ve Fatura Takip Programı</p>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="theme-bg-secondary border-b theme-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+      {/* Ana Menü - Büyük Butonlar */}
+      <nav className="theme-bg-secondary shadow-md border-b-2 theme-border">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -64,14 +57,28 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`flex items-center gap-2 px-3 py-4 border-b-2 transition-colors ${
+                  className={`p-6 rounded-xl border-3 transition-all duration-200 text-left ${
                     isActive
-                      ? 'border-current theme-primary text-white bg-opacity-10'
-                      : 'border-transparent theme-text-secondary hover:theme-text'
+                      ? 'theme-primary text-white shadow-xl transform scale-105 border-blue-600'
+                      : 'theme-surface theme-border theme-text hover:theme-bg-secondary hover:shadow-lg hover:scale-102'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <div className="flex items-center gap-4">
+                    <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'theme-text'}`} />
+                    <div>
+                      <div className={`text-xl font-bold ${isActive ? 'text-white' : 'theme-text'}`}>
+                        {item.label}
+                      </div>
+                      <div className={`text-sm ${isActive ? 'text-blue-100' : 'theme-text-muted'}`}>
+                        {item.subtitle}
+                      </div>
+                    </div>
+                  </div>
+                  {isActive && (
+                    <div className="mt-2 text-blue-100 text-sm font-medium">
+                      ← Şu anda buradaysınız
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -79,10 +86,19 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Ana İçerik */}
+      <main className="max-w-6xl mx-auto px-6 py-8">
         {children}
       </main>
+
+      {/* Alt Bilgi */}
+      <footer className="theme-bg-secondary border-t theme-border mt-12">
+        <div className="max-w-6xl mx-auto px-6 py-4 text-center">
+          <p className="theme-text-muted text-sm">
+            💡 <strong>İpucu:</strong> Üst menüden istediğiniz bölüme geçebilirsiniz
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
