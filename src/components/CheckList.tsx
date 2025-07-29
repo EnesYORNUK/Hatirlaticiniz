@@ -344,4 +344,3 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     </div>
   );
 }
-}
