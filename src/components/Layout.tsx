@@ -11,45 +11,45 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   const menuItems = [
     { 
       id: 'list', 
-      label: '📋 ÖDEMELERİM', 
-      subtitle: 'Tüm çek ve faturaları gör',
-      icon: List 
+      label: 'Ödemelerim', 
+      icon: List,
+      description: 'Tüm çek ve faturaları görüntüle'
     },
     { 
       id: 'add', 
-      label: '➕ YENİ EKLE', 
-      subtitle: 'Çek veya fatura ekle',
-      icon: Plus 
+      label: 'Yeni Ekle', 
+      icon: Plus,
+      description: 'Çek veya fatura ekle'
     },
     { 
       id: 'settings', 
-      label: '⚙️ AYARLAR', 
-      subtitle: 'Bildirimler ve diğer ayarlar',
-      icon: Settings 
+      label: 'Ayarlar', 
+      icon: Settings,
+      description: 'Uygulama ayarları'
     },
   ];
 
   return (
     <div className="theme-bg min-h-screen">
-      {/* Ana Başlık */}
-      <header className="theme-surface shadow-lg border-b-4 theme-border">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-center gap-4">
-            <div className="theme-primary rounded-xl p-3 shadow-lg">
-              <LayoutGrid className="w-8 h-8 text-white" />
+      {/* Modern Header */}
+      <header className="theme-surface shadow-sm border-b theme-border">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="theme-primary rounded-lg p-2.5 shadow-sm">
+              <LayoutGrid className="w-5 h-5 text-white" />
             </div>
-            <div className="text-center">
-              <h1 className="theme-text text-3xl font-bold">Hatırlatıcınım</h1>
-              <p className="theme-text-muted text-lg">Çek ve Fatura Takip Programı</p>
+            <div>
+              <h1 className="theme-text text-lg font-semibold">Hatırlatıcınım</h1>
+              <p className="theme-text-muted text-sm">Çek ve Fatura Takip</p>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Ana Menü - Büyük Butonlar */}
-      <nav className="theme-bg-secondary shadow-md border-b-2 theme-border">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Compact Navigation */}
+      <nav className="theme-bg-secondary border-b theme-border">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex space-x-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -57,28 +57,14 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`p-6 rounded-xl border-3 transition-all duration-200 text-left ${
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-2 ${
                     isActive
-                      ? 'theme-primary text-white shadow-xl transform scale-105 border-blue-600'
-                      : 'theme-surface theme-border theme-text hover:theme-bg-secondary hover:shadow-lg hover:scale-102'
+                      ? 'border-current theme-primary text-white bg-opacity-10'
+                      : 'border-transparent theme-text-secondary hover:theme-text hover:bg-white hover:bg-opacity-50'
                   }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'theme-text'}`} />
-                    <div>
-                      <div className={`text-xl font-bold ${isActive ? 'text-white' : 'theme-text'}`}>
-                        {item.label}
-                      </div>
-                      <div className={`text-sm ${isActive ? 'text-blue-100' : 'theme-text-muted'}`}>
-                        {item.subtitle}
-                      </div>
-                    </div>
-                  </div>
-                  {isActive && (
-                    <div className="mt-2 text-blue-100 text-sm font-medium">
-                      ← Şu anda buradaysınız
-                    </div>
-                  )}
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
                 </button>
               );
             })}
@@ -86,19 +72,10 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
         </div>
       </nav>
 
-      {/* Ana İçerik */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      {/* Clean Content Area */}
+      <main className="max-w-6xl mx-auto px-6 py-6">
         {children}
       </main>
-
-      {/* Alt Bilgi */}
-      <footer className="theme-bg-secondary border-t theme-border mt-12">
-        <div className="max-w-6xl mx-auto px-6 py-4 text-center">
-          <p className="theme-text-muted text-sm">
-            💡 <strong>İpucu:</strong> Üst menüden istediğiniz bölüme geçebilirsiniz
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
