@@ -698,8 +698,8 @@ ipcMain.handle('check-for-updates', async () => {
   try {
     console.log('🔍 IPC: check-for-updates başlatıldı');
     await autoUpdater.checkForUpdates();
-    console.log('✅ IPC: check-for-updates tamamlandı');
-    return { success: true, message: 'Update check completed' };
+    console.log('✅ IPC: check-for-updates çağrıldı, event\'ler dinleniyor...');
+    return { success: true, message: 'Update check started' };
   } catch (error) {
     console.error('❌ IPC: check-for-updates hatası:', error);
     return { success: false, message: error.message };
@@ -708,14 +708,68 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('download-update', async () => {
   try {
+    console.log('📥 IPC: download-update başlatıldı');
     await autoUpdater.downloadUpdate();
+    return { success: true, message: 'Download started' };
   } catch (error) {
-    throw new Error(`Update download failed: ${error.message}`);
+    console.error('❌ IPC: download-update hatası:', error);
+    return { success: false, message: error.message };
   }
 });
 
 ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall();
+  try {
+    console.log('🔄 IPC: install-update başlatıldı');
+    autoUpdater.quitAndInstall();
+    return { success: true, message: 'Installing update...' };
+  } catch (error) {
+    console.error('❌ IPC: install-update hatası:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// AutoUpdater Event Listeners
+autoUpdater.on('checking-for-update', () => {
+  console.log('🔍 AutoUpdater: Güncellemeler kontrol ediliyor...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'checking-for-update');
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('📥 AutoUpdater: Güncelleme mevcut:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'update-available', info);
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('✅ AutoUpdater: Güncelleme yok, programınız güncel');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'update-not-available', info);
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('❌ AutoUpdater hatası:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'error', { message: err.message });
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  const percent = Math.round(progressObj.percent);
+  console.log(`📥 AutoUpdater: İndiriliyor... %${percent}`);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'download-progress', { percent });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('✅ AutoUpdater: Güncelleme indirildi, yeniden başlatmaya hazır');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'update-downloaded', info);
+  }
 });
 
 // AppData dosya işlemleri
@@ -756,52 +810,5 @@ ipcMain.handle('load-app-data', async (event, key) => {
   } catch (error) {
     console.error('AppData load error:', error);
     return null;
-  }
-});
-
-// Auto updater events
-autoUpdater.on('checking-for-update', () => {
-  console.log('🔄 autoUpdater: checking-for-update');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'checking-for-update');
-  }
-});
-
-autoUpdater.on('update-available', (info) => {
-  console.log('🆕 autoUpdater: update-available', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'update-available', info);
-  }
-});
-
-autoUpdater.on('update-not-available', () => {
-  console.log('✅ autoUpdater: update-not-available');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'update-not-available');
-  }
-});
-
-autoUpdater.on('error', (err) => {
-  console.error('❌ autoUpdater error:', err);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'error', { message: err.message });
-  }
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  console.log('📥 autoUpdater: download-progress', Math.round(progressObj.percent) + '%');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'download-progress', {
-      percent: progressObj.percent,
-      transferred: progressObj.transferred,
-      total: progressObj.total
-    });
-  }
-});
-
-autoUpdater.on('update-downloaded', () => {
-  console.log('✅ autoUpdater: update-downloaded');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'update-downloaded');
   }
 });

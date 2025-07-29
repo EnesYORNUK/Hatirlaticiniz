@@ -27,3 +27,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAppData: (key, data) => ipcRenderer.invoke('save-app-data', key, data),
   loadAppData: (key) => ipcRenderer.invoke('load-app-data', key),
 });
+
+// IPC Renderer'ı da expose et (event listening için)
+contextBridge.exposeInMainWorld('ipcRenderer', {
+  on: (channel, callback) => {
+    const allowedChannels = ['update-status'];
+    if (allowedChannels.includes(channel)) {
+      ipcRenderer.on(channel, callback);
+    }
+  },
+  removeAllListeners: (channel) => {
+    const allowedChannels = ['update-status'];
+    if (allowedChannels.includes(channel)) {
+      ipcRenderer.removeAllListeners(channel);
+    }
+  }
+});

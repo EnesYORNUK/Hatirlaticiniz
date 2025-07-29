@@ -1,15 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, Clock, AlertCircle } from 'lucide-react';
+import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, Clock, AlertCircle, ArrowDownCircle } from 'lucide-react';
 
 declare global {
   interface Window {
     electronAPI?: {
       showNotification: (title: string, body: string) => Promise<void>;
       checkForUpdates: () => Promise<{success: boolean, message: string}>;
+      downloadUpdate: () => Promise<{success: boolean, message: string}>;
+      installUpdate: () => Promise<{success: boolean, message: string}>;
       getVersion: () => Promise<string>;
       saveAppData: (key: string, data: any) => Promise<void>;
       loadAppData: (key: string) => Promise<any>;
+    };
+    ipcRenderer?: {
+      on: (channel: string, callback: (...args: any[]) => void) => void;
+      removeAllListeners: (channel: string) => void;
     };
   }
 }
@@ -33,6 +39,8 @@ interface SettingsProps {
 export default function Settings({ settings, onSave, onExportData, onImportData }: SettingsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [updateStatus, setUpdateStatus] = useState<string>('idle');
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [currentVersion, setCurrentVersion] = useState<string>('');
 
   useEffect(() => {
@@ -42,6 +50,25 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       }).catch(() => {
         setCurrentVersion('Bilinmiyor');
       });
+    }
+
+    // Update status event listener
+    if (window.ipcRenderer) {
+      const handleUpdateStatus = (event: any, status: string, info?: any) => {
+        console.log('🔄 Update status received:', status, info);
+        setUpdateStatus(status);
+        setUpdateInfo(info);
+        
+        if (status === 'download-progress' && info?.percent) {
+          setDownloadProgress(info.percent);
+        }
+      };
+
+      window.ipcRenderer.on('update-status', handleUpdateStatus);
+
+      return () => {
+        window.ipcRenderer?.removeAllListeners('update-status');
+      };
     }
   }, []);
 
@@ -53,11 +80,46 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   const handleCheckForUpdates = async () => {
     if (window.electronAPI?.checkForUpdates) {
       try {
-        setUpdateStatus('checking');
+        setUpdateStatus('checking-for-update');
+        setUpdateInfo(null);
+        setDownloadProgress(0);
+        
         const result = await window.electronAPI.checkForUpdates();
-        setUpdateStatus(result.success ? 'success' : 'error');
+        console.log('🔍 Check for updates result:', result);
       } catch (error) {
+        console.error('❌ Check for updates error:', error);
         setUpdateStatus('error');
+        setUpdateInfo({ message: 'Güncelleme kontrolü başarısız' });
+      }
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (window.electronAPI?.downloadUpdate) {
+      try {
+        setUpdateStatus('download-progress');
+        setDownloadProgress(0);
+        
+        const result = await window.electronAPI.downloadUpdate();
+        console.log('📥 Download update result:', result);
+      } catch (error) {
+        console.error('❌ Download update error:', error);
+        setUpdateStatus('error');
+        setUpdateInfo({ message: 'Güncelleme indirme başarısız' });
+      }
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (window.electronAPI?.installUpdate) {
+      try {
+        const result = await window.electronAPI.installUpdate();
+        console.log('🔄 Install update result:', result);
+        // Program yeniden başlayacak, bu noktaya gelmeyebilir
+      } catch (error) {
+        console.error('❌ Install update error:', error);
+        setUpdateStatus('error');
+        setUpdateInfo({ message: 'Güncelleme kurulumu başarısız' });
       }
     }
   };
@@ -384,17 +446,75 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             </div>
             <button
               onClick={handleCheckForUpdates}
-              disabled={updateStatus === 'checking'}
+              disabled={updateStatus === 'checking-for-update'}
               className={`theme-button flex items-center gap-2 px-4 py-2 ${
-                updateStatus === 'checking' ? 'opacity-50 cursor-not-allowed' : ''
+                updateStatus === 'checking-for-update' ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
-              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
-              {updateStatus === 'checking' ? 'Kontrol Ediliyor...' : 'Güncelleme Kontrol Et'}
+              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking-for-update' ? 'animate-spin' : ''}`} />
+              {updateStatus === 'checking-for-update' ? 'Kontrol Ediliyor...' : 'Güncelleme Kontrol Et'}
             </button>
           </div>
           
-          {updateStatus === 'success' && (
+          {updateStatus === 'checking-for-update' && (
+            <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Güncelleme kontrolü yapılıyor...</span>
+            </div>
+          )}
+
+          {updateStatus === 'update-available' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-lg">
+                <ArrowDownCircle className="w-4 h-4" />
+                <span className="text-sm">
+                  Yeni güncelleme mevcut: v{updateInfo?.version || 'Bilinmiyor'}
+                </span>
+              </div>
+              <button
+                onClick={handleDownloadUpdate}
+                className="theme-button w-full flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Güncellemeyi İndir
+              </button>
+            </div>
+          )}
+
+          {updateStatus === 'download-progress' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg">
+                <ArrowDownCircle className="w-4 h-4" />
+                <span className="text-sm">Güncelleme indiriliyor... {Math.round(downloadProgress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${downloadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {updateStatus === 'update-downloaded' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm">
+                  Güncelleme hazır! Şimdi yeniden başlatın.
+                </span>
+              </div>
+              <button
+                onClick={handleInstallUpdate}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Güncelle ve Yeniden Başlat
+              </button>
+            </div>
+          )}
+
+          {updateStatus === 'update-not-available' && (
             <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
               <CheckCircle className="w-4 h-4" />
               <span className="text-sm">Programınız güncel!</span>
@@ -404,7 +524,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           {updateStatus === 'error' && (
             <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
               <AlertCircle className="w-4 h-4" />
-              <span className="text-sm">Güncelleme kontrolü başarısız</span>
+              <span className="text-sm">Hata: {updateInfo?.message || 'Bilinmiyor'}</span>
             </div>
           )}
 
@@ -412,8 +532,9 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-600 mt-0.5" />
               <div className="text-sm text-blue-700">
-                Güncellemeler GitHub'dan otomatik kontrol edilir. 
-                Yeni sürüm varsa size bildirilir.
+                <strong>Otomatik Güncelleme:</strong> Yeni sürümler GitHub'dan kontrol edilir.
+                <br />
+                <strong>Veri Güvenliği:</strong> Güncellemeler sırasında verileriniz korunur.
               </div>
             </div>
           </div>
