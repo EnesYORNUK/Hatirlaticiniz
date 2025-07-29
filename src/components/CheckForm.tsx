@@ -51,14 +51,6 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
       newErrors.signedTo = 'Kime ödenecek bilgisi zorunludur';
     }
 
-    if (formData.isRecurring && formData.recurringType === 'monthly' && (formData.recurringDay < 1 || formData.recurringDay > 31)) {
-      newErrors.recurringDay = 'Ayın günü 1-31 arasında olmalıdır';
-    }
-
-    if (formData.isRecurring && formData.recurringType === 'weekly' && (formData.recurringDay < 1 || formData.recurringDay > 7)) {
-      newErrors.recurringDay = 'Haftanın günü 1-7 arasında olmalıdır';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -271,52 +263,31 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
               {formData.isRecurring && (
                 <div className="pl-4 border-l-2 border-green-200 space-y-4">
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="theme-text block text-sm font-medium mb-2">
-                        Ne sıklıkla tekrarlanacak?
-                      </label>
-                      <select
-                        value={formData.recurringType}
-                        onChange={(e) => handleChange('recurringType', e.target.value)}
-                        className="theme-input w-full"
-                      >
-                        <option value="weekly">Her hafta</option>
-                        <option value="monthly">Her ay</option>
-                        <option value="yearly">Her yıl</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="theme-text block text-sm font-medium mb-2">
-                        {formData.recurringType === 'weekly' ? 'Haftanın günü' : 
-                         formData.recurringType === 'monthly' ? 'Ayın günü' : 'Yılın günü'}
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={formData.recurringType === 'weekly' ? 7 : formData.recurringType === 'monthly' ? 31 : 365}
-                        value={formData.recurringDay}
-                        onChange={(e) => handleChange('recurringDay', parseInt(e.target.value))}
-                        className={`theme-input w-full ${
-                          errors.recurringDay ? 'border-red-500' : ''
-                        }`}
-                      />
-                      {errors.recurringDay && (
-                        <p className="text-red-500 text-sm mt-1">{errors.recurringDay}</p>
-                      )}
-                      <p className="text-xs theme-text-muted mt-1">
-                        {formData.recurringType === 'weekly' ? '1=Pazartesi, 7=Pazar' : 
-                         formData.recurringType === 'monthly' ? '1-31 arası' : '1-365 arası'}
-                      </p>
-                    </div>
+                  <div>
+                    <label className="theme-text block text-sm font-medium mb-2">
+                      Ne sıklıkla tekrarlanacak?
+                    </label>
+                    <select
+                      value={formData.recurringType}
+                      onChange={(e) => handleChange('recurringType', e.target.value)}
+                      className="theme-input w-full"
+                    >
+                      <option value="weekly">Her hafta</option>
+                      <option value="monthly">Her ay</option>
+                      <option value="yearly">Her yıl</option>
+                    </select>
+                    <p className="text-xs theme-text-muted mt-1">
+                      Seçtiğiniz ödeme tarihinden başlayarak {formData.recurringType === 'weekly' ? 'her hafta' : formData.recurringType === 'monthly' ? 'her ay' : 'her yıl'} tekrarlanacak
+                    </p>
                   </div>
 
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <div className="flex items-start gap-2">
                       <Calendar className="w-4 h-4 text-green-600 mt-0.5" />
                       <div className="text-sm text-green-700">
-                        <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() || 'Hesaplanıyor...'}
+                        <strong>İlk ödeme:</strong> {formData.paymentDate ? new Date(formData.paymentDate).toLocaleDateString('tr-TR') : 'Tarih seçin'}
+                        <br />
+                        <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'İlk tarihi seçin'}
                         <br />
                         <strong>Açıklama:</strong> Bu ödeme otomatik olarak {formData.recurringType === 'weekly' ? 'her hafta' : formData.recurringType === 'monthly' ? 'her ay' : 'her yıl'} tekrarlanacak.
                       </div>

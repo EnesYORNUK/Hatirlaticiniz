@@ -376,23 +376,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         
         <div className="space-y-4">
           
-          {/* Otomatik Güncelleme */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Otomatik Güncelleme</div>
-              <div className="theme-text-muted text-sm">Güncellemeler otomatik indirilsin</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.autoUpdateEnabled}
-                onChange={(e) => handleSettingChange('autoUpdateEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
+          {/* Mevcut Sürüm */}
           <div className="flex items-center justify-between">
             <div>
               <div className="theme-text font-medium">Mevcut Sürüm</div>
@@ -413,9 +397,26 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           {updateStatus === 'success' && (
             <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
               <CheckCircle className="w-4 h-4" />
-              <span className="text-sm">Güncelleme kontrolü tamamlandı</span>
+              <span className="text-sm">Programınız güncel!</span>
             </div>
           )}
+
+          {updateStatus === 'error' && (
+            <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">Güncelleme kontrolü başarısız</span>
+            </div>
+          )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-700">
+                Güncellemeler GitHub'dan otomatik kontrol edilir. 
+                Yeni sürüm varsa size bildirilir.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
