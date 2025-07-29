@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from '../types';
-import { Save, X, CreditCard, Receipt } from 'lucide-react';
+import { Save, X, CreditCard, Receipt, Calendar, Repeat } from 'lucide-react';
 
 interface CheckFormProps {
   onSave: (check: Omit<Check, 'id' | 'createdAt'>) => void;
@@ -19,10 +19,10 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     type: initialData?.type || 'check' as 'check' | 'bill',
     billType: initialData?.billType || 'elektrik' as 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger',
     customBillType: initialData?.customBillType || '',
-    isRecurring: false,
-    recurringType: 'monthly' as 'monthly' | 'weekly' | 'yearly',
-    recurringDay: 1,
-    nextPaymentDate: undefined,
+    isRecurring: initialData?.isRecurring || false,
+    recurringType: initialData?.recurringType || 'monthly' as 'monthly' | 'weekly' | 'yearly',
+    recurringDay: initialData?.recurringDay || 1,
+    nextPaymentDate: initialData?.nextPaymentDate || undefined,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -51,8 +51,37 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
       newErrors.signedTo = 'Kime ödenecek bilgisi zorunludur';
     }
 
+    if (formData.isRecurring && formData.recurringType === 'monthly' && (formData.recurringDay < 1 || formData.recurringDay > 31)) {
+      newErrors.recurringDay = 'Ayın günü 1-31 arasında olmalıdır';
+    }
+
+    if (formData.isRecurring && formData.recurringType === 'weekly' && (formData.recurringDay < 1 || formData.recurringDay > 7)) {
+      newErrors.recurringDay = 'Haftanın günü 1-7 arasında olmalıdır';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const calculateNextPaymentDate = () => {
+    if (!formData.isRecurring || !formData.paymentDate) return undefined;
+
+    const baseDate = new Date(formData.paymentDate);
+    let nextDate = new Date(baseDate);
+
+    switch (formData.recurringType) {
+      case 'weekly':
+        nextDate.setDate(nextDate.getDate() + 7);
+        break;
+      case 'monthly':
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        break;
+      case 'yearly':
+        nextDate.setFullYear(nextDate.getFullYear() + 1);
+        break;
+    }
+
+    return nextDate.toISOString().split('T')[0];
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,10 +99,10 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
       type: formData.type,
       billType: formData.billType,
       customBillType: formData.customBillType.trim(),
-      isRecurring: false,
+      isRecurring: formData.isRecurring,
       recurringType: formData.recurringType,
       recurringDay: formData.recurringDay,
-      nextPaymentDate: undefined,
+      nextPaymentDate: calculateNextPaymentDate(),
     };
 
     onSave(checkData);
@@ -222,6 +251,111 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
                 )}
               </div>
             </div>
+
+            {/* Recurring Payment Settings */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 theme-bg-secondary rounded-lg">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  checked={formData.isRecurring}
+                  onChange={(e) => handleChange('isRecurring', e.target.checked)}
+                  className="theme-checkbox"
+                />
+                <label htmlFor="isRecurring" className="theme-text text-sm font-medium flex items-center gap-2">
+                  <Repeat className="w-4 h-4" />
+                  Tekrarlayan ödeme (düzenli olarak tekrarlanır)
+                </label>
+              </div>
+
+              {formData.isRecurring && (
+                <div className="pl-4 border-l-2 border-green-200 space-y-4">
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="theme-text block text-sm font-medium mb-2">
+                        Ne sıklıkla tekrarlanacak?
+                      </label>
+                      <select
+                        value={formData.recurringType}
+                        onChange={(e) => handleChange('recurringType', e.target.value)}
+                        className="theme-input w-full"
+                      >
+                        <option value="weekly">Her hafta</option>
+                        <option value="monthly">Her ay</option>
+                        <option value="yearly">Her yıl</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="theme-text block text-sm font-medium mb-2">
+                        {formData.recurringType === 'weekly' ? 'Haftanın günü' : 
+                         formData.recurringType === 'monthly' ? 'Ayın günü' : 'Yılın günü'}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={formData.recurringType === 'weekly' ? 7 : formData.recurringType === 'monthly' ? 31 : 365}
+                        value={formData.recurringDay}
+                        onChange={(e) => handleChange('recurringDay', parseInt(e.target.value))}
+                        className={`theme-input w-full ${
+                          errors.recurringDay ? 'border-red-500' : ''
+                        }`}
+                      />
+                      {errors.recurringDay && (
+                        <p className="text-red-500 text-sm mt-1">{errors.recurringDay}</p>
+                      )}
+                      <p className="text-xs theme-text-muted mt-1">
+                        {formData.recurringType === 'weekly' ? '1=Pazartesi, 7=Pazar' : 
+                         formData.recurringType === 'monthly' ? '1-31 arası' : '1-365 arası'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <Calendar className="w-4 h-4 text-green-600 mt-0.5" />
+                      <div className="text-sm text-green-700">
+                        <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() || 'Hesaplanıyor...'}
+                        <br />
+                        <strong>Açıklama:</strong> Bu ödeme otomatik olarak {formData.recurringType === 'weekly' ? 'her hafta' : formData.recurringType === 'monthly' ? 'her ay' : 'her yıl'} tekrarlanacak.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bill Type Selection (only for bills) */}
+            {formData.type === 'bill' && (
+              <div>
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Fatura Türü
+                </label>
+                <select
+                  value={formData.billType}
+                  onChange={(e) => handleChange('billType', e.target.value)}
+                  className="theme-input w-full"
+                >
+                  <option value="elektrik">Elektrik</option>
+                  <option value="su">Su</option>
+                  <option value="dogalgaz">Doğalgaz</option>
+                  <option value="telefon">Telefon</option>
+                  <option value="internet">İnternet</option>
+                  <option value="diger">Diğer</option>
+                </select>
+                
+                {formData.billType === 'diger' && (
+                  <input
+                    type="text"
+                    placeholder="Fatura türünü belirtiniz"
+                    value={formData.customBillType}
+                    onChange={(e) => handleChange('customBillType', e.target.value)}
+                    className="theme-input w-full mt-2"
+                  />
+                )}
+              </div>
+            )}
 
             {/* Payment Status */}
             <div className="flex items-center gap-3 p-3 theme-bg-secondary rounded-lg">

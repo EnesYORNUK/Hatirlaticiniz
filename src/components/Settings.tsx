@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info } from 'lucide-react';
+import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, Clock, AlertCircle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -45,16 +45,9 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
     }
   }, []);
 
-  const handleSave = () => {
-    onSave(settings);
-  };
-
-  const handleThemeChange = (theme: ThemeType) => {
-    onSave({ ...settings, theme });
-  };
-
-  const handleNotificationChange = (enabled: boolean) => {
-    onSave({ ...settings, notificationsEnabled: enabled });
+  const handleSettingChange = (key: keyof SettingsType, value: any) => {
+    const newSettings = { ...settings, [key]: value };
+    onSave(newSettings);
   };
 
   const handleCheckForUpdates = async () => {
@@ -79,6 +72,34 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       } catch (error) {
         console.error('Bildirim test hatası:', error);
       }
+    }
+  };
+
+  const testTelegramBot = async () => {
+    if (!settings.telegramBotToken || !settings.telegramChatId) {
+      alert('Önce Telegram Bot Token ve Chat ID\'yi giriniz');
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: settings.telegramChatId,
+          text: '🎉 Telegram Bot Test Mesajı\n\nBot düzgün çalışıyor! Ödeme hatırlatmaları bu şekilde gelecek.',
+        }),
+      });
+
+      if (response.ok) {
+        alert('✅ Telegram bot testi başarılı! Mesajı kontrol edin.');
+      } else {
+        alert('❌ Telegram bot testi başarısız. Token ve Chat ID\'yi kontrol edin.');
+      }
+    } catch (error) {
+      alert('❌ Telegram bot test hatası: ' + error);
     }
   };
 
@@ -109,7 +130,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           {themeOptions.map((option) => (
             <button
               key={option.value}
-              onClick={() => handleThemeChange(option.value)}
+              onClick={() => handleSettingChange('theme', option.value)}
               className={`p-3 rounded-lg border transition-all text-sm ${
                 settings.theme === option.value
                   ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -140,6 +161,8 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         </h2>
         
         <div className="space-y-4">
+          
+          {/* Masaüstü Bildirimleri */}
           <div className="flex items-center justify-between">
             <div>
               <div className="theme-text font-medium">Masaüstü Bildirimleri</div>
@@ -149,20 +172,147 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               <input
                 type="checkbox"
                 checked={settings.notificationsEnabled}
-                onChange={(e) => handleNotificationChange(e.target.checked)}
+                onChange={(e) => handleSettingChange('notificationsEnabled', e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
-          
+
+          {/* Kaç Gün Önceden Hatırlat */}
           {settings.notificationsEnabled && (
-            <div className="pl-4 border-l-2 border-blue-200">
+            <div className="pl-4 border-l-2 border-blue-200 space-y-3">
+              <div>
+                <label className="theme-text text-sm font-medium block mb-2">
+                  Kaç gün önceden hatırlat?
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 5].map(days => (
+                    <button
+                      key={days}
+                      onClick={() => handleSettingChange('reminderDays', days)}
+                      className={`p-2 rounded-md border text-sm font-medium transition-all ${
+                        settings.reminderDays === days
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'theme-border theme-text hover:theme-bg-secondary'
+                      }`}
+                    >
+                      {days} gün
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <button
                 onClick={testNotification}
                 className="theme-button-secondary px-4 py-2 text-sm"
               >
                 Bildirim Testi
+              </button>
+            </div>
+          )}
+
+          {/* Günlük Bildiri */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">Günlük Özet</div>
+              <div className="theme-text-muted text-sm">Her gün bugünün ödemelerini hatırlat</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.dailyNotificationEnabled}
+                onChange={(e) => handleSettingChange('dailyNotificationEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* Günlük Bildirim Saati */}
+          {settings.dailyNotificationEnabled && (
+            <div className="pl-4 border-l-2 border-green-200">
+              <label className="theme-text text-sm font-medium block mb-2">
+                Günlük bildirim saati
+              </label>
+              <input
+                type="time"
+                value={settings.dailyNotificationTime}
+                onChange={(e) => handleSettingChange('dailyNotificationTime', e.target.value)}
+                className="theme-input w-32 text-sm"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Telegram Bot Settings */}
+      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
+        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
+          <MessageCircle className="w-4 h-4" />
+          Telegram Botu
+        </h2>
+        
+        <div className="space-y-4">
+          
+          {/* Telegram Bot Aktif/Pasif */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">Telegram Bot</div>
+              <div className="theme-text-muted text-sm">Bildirimleri Telegram'dan al</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.telegramBotEnabled}
+                onChange={(e) => handleSettingChange('telegramBotEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* Telegram Bot Ayarları */}
+          {settings.telegramBotEnabled && (
+            <div className="pl-4 border-l-2 border-blue-200 space-y-4">
+              
+              <div>
+                <label className="theme-text text-sm font-medium block mb-2">
+                  Bot Token
+                </label>
+                <input
+                  type="password"
+                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                  value={settings.telegramBotToken}
+                  onChange={(e) => handleSettingChange('telegramBotToken', e.target.value)}
+                  className="theme-input w-full text-sm"
+                />
+                <p className="text-xs theme-text-muted mt-1">
+                  @BotFather'dan aldığınız bot token'ını girin
+                </p>
+              </div>
+
+              <div>
+                <label className="theme-text text-sm font-medium block mb-2">
+                  Chat ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="123456789"
+                  value={settings.telegramChatId}
+                  onChange={(e) => handleSettingChange('telegramChatId', e.target.value)}
+                  className="theme-input w-full text-sm"
+                />
+                <p className="text-xs theme-text-muted mt-1">
+                  Kendi Telegram chat ID'nizi girin
+                </p>
+              </div>
+
+              <button
+                onClick={testTelegramBot}
+                className="theme-button px-4 py-2 text-sm"
+              >
+                Telegram Bot Testi
               </button>
             </div>
           )}
@@ -225,6 +375,24 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         </h2>
         
         <div className="space-y-4">
+          
+          {/* Otomatik Güncelleme */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">Otomatik Güncelleme</div>
+              <div className="theme-text-muted text-sm">Güncellemeler otomatik indirilsin</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.autoUpdateEnabled}
+                onChange={(e) => handleSettingChange('autoUpdateEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <div className="theme-text font-medium">Mevcut Sürüm</div>
