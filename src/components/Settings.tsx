@@ -248,21 +248,20 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 <label className="theme-text text-sm font-medium block mb-2">
                   Kaç gün önceden hatırlat?
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 5].map(days => (
-                    <button
-                      key={days}
-                      onClick={() => handleSettingChange('reminderDays', days)}
-                      className={`p-2 rounded-md border text-sm font-medium transition-all ${
-                        settings.reminderDays === days
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'theme-border theme-text hover:theme-bg-secondary'
-                      }`}
-                    >
-                      {days} gün
-                    </button>
-                  ))}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={settings.reminderDays}
+                    onChange={(e) => handleSettingChange('reminderDays', parseInt(e.target.value) || 1)}
+                    className="theme-input w-20 text-center"
+                  />
+                  <span className="theme-text text-sm">gün önceden</span>
                 </div>
+                <p className="text-xs theme-text-muted mt-1">
+                  1-30 gün arasında bir değer girebilirsiniz
+                </p>
               </div>
               
               <button
