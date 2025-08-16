@@ -143,6 +143,11 @@ function setupNewTelegramCommands() {
     console.log('📱 Chat ID:', msg.chat.id);
     console.log('👤 Kullanıcı:', msg.from.first_name);
     
+    // YENİ: Her komut için veriyi yeniden oku
+    console.log('🔄 /start komutu için veri yeniden okunuyor...');
+    const checks = getChecksData();
+    console.log(`✅ /start komutu için ${checks.length} check alındı`);
+    
     const chatId = msg.chat.id;
     const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
 
@@ -154,6 +159,7 @@ function setupNewTelegramCommands() {
 /istatistik - Genel özet
 
 💡 Chat ID'niz: ${chatId}
+🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu
 Bu ID'yi uygulamanın ayarlarına girin.`;
 
     console.log('📤 /start mesajı gönderiliyor...');
@@ -172,6 +178,12 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/bugun/, (msg) => {
     console.log('🎯 /bugun komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
+    
+    // YENİ: Her komut için veriyi yeniden oku
+    console.log('🔄 /bugun komutu için veri yeniden okunuyor...');
+    const checks = getChecksData();
+    console.log(`✅ /bugun komutu için ${checks.length} check alındı`);
+    
     sendTodayPayments(chatId);
   });
 
@@ -179,6 +191,12 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/yakin/, (msg) => {
     console.log('🎯 /yakin komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
+    
+    // YENİ: Her komut için veriyi yeniden oku
+    console.log('🔄 /yakin komutu için veri yeniden okunuyor...');
+    const checks = getChecksData();
+    console.log(`✅ /yakin komutu için ${checks.length} check alındı`);
+    
     sendUpcomingPayments(chatId);
   });
 
@@ -186,6 +204,12 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/tumu/, (msg) => {
     console.log('🎯 /tumu komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
+    
+    // YENİ: Her komut için veriyi yeniden oku
+    console.log('🔄 /tumu komutu için veri yeniden okunuyor...');
+    const checks = getChecksData();
+    console.log(`✅ /tumu komutu için ${checks.length} check alındı`);
+    
     sendAllPayments(chatId);
   });
 
@@ -193,6 +217,12 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/gecmis/, (msg) => {
     console.log('🎯 /gecmis komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
+    
+    // YENİ: Her komut için veriyi yeniden oku
+    console.log('🔄 /gecmis komutu için veri yeniden okunuyor...');
+    const checks = getChecksData();
+    console.log(`✅ /gecmis komutu için ${checks.length} check alındı`);
+    
     sendOverduePayments(chatId);
   });
 
@@ -200,6 +230,12 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/istatistik/, (msg) => {
     console.log('🎯 /istatistik komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
+    
+    // YENİ: Her komut için veriyi yeniden oku
+    console.log('🔄 /istatistik komutu için veri yeniden okunuyor...');
+    const checks = getChecksData();
+    console.log(`✅ /istatistik komutu için ${checks.length} check alındı`);
+    
     sendStatistics(chatId);
   });
 
@@ -319,6 +355,25 @@ function getChecksData() {
         if (key.includes('hatirlatici')) {
           delete require.cache[key];
           console.log('🧹 Cache temizlendi:', key);
+        }
+      });
+    }
+    
+    // YENİ: Dosya sistemini yeniden tara
+    console.log('📂 Dosya sistemi yeniden taranıyor...');
+    const appDataPath = getAppDataPath();
+    
+    // Tüm dosyaları yeniden tara
+    if (fs.existsSync(appDataPath)) {
+      const files = fs.readdirSync(appDataPath);
+      console.log('📊 Bulunan dosyalar:', files);
+      
+      // Dosya zamanlarını kontrol et
+      files.forEach(file => {
+        if (file.endsWith('.json')) {
+          const filePath = path.join(appDataPath, file);
+          const stats = fs.statSync(filePath);
+          console.log(`📄 ${file}: ${stats.size} bytes, ${stats.mtime.toLocaleString('tr-TR')}`);
         }
       });
     }
