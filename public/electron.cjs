@@ -308,85 +308,109 @@ function sendTestMessage(chatId) {
 
 function getChecksData() {
   try {
-    console.log('🔄 Telegram bot için GÜNCEL veri okunuyor...');
+    console.log('🔄 Telegram bot için GÜNCEL veri alınıyor...');
     
-    // Her seferinde dosyaları yeniden oku - cache yok!
-    const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
-    const localStoragePath = path.join(getAppDataPath(), 'hatirlatici-localStorage.json');
+    // YENİ YÖNTEM: Her seferinde dosyaları yeniden oku ve cache'i temizle
+    console.log('🧹 Cache temizleniyor ve dosyalar yeniden okunuyor...');
     
-    console.log('📂 Dosya yolları kontrol ediliyor...');
-    console.log('📄 Checks dosyası:', checksPath);
-    console.log('📄 localStorage dosyası:', localStoragePath);
+    // Node.js cache'ini temizle
+    if (require.cache) {
+      Object.keys(require.cache).forEach(key => {
+        if (key.includes('hatirlatici')) {
+          delete require.cache[key];
+          console.log('🧹 Cache temizlendi:', key);
+        }
+      });
+    }
+    
+    // Dosya sisteminden oku
+    return getChecksDataFromFiles();
+    
+  } catch (error) {
+    console.error('❌ getChecksData kritik hata:', error.message);
+    console.error('❌ Stack trace:', error.stack);
+    return [];
+  }
+}
+
+// Dosya sisteminden veri okuma fonksiyonu
+function getChecksDataFromFiles() {
+  try {
+    console.log('📂 Dosya sisteminden veri okunuyor...');
+    
+    // YENİ YÖNTEM: Dosya sistemini yeniden tara ve en güncel dosyayı bul
+    const appDataPath = getAppDataPath();
+    console.log('📂 AppData klasörü:', appDataPath);
+    
+    // Tüm JSON dosyalarını tara
+    const allFiles = [];
+    if (fs.existsSync(appDataPath)) {
+      const files = fs.readdirSync(appDataPath);
+      files.forEach(file => {
+        if (file.endsWith('.json')) {
+          const filePath = path.join(appDataPath, file);
+          const stats = fs.statSync(filePath);
+          allFiles.push({
+            name: file,
+            path: filePath,
+            size: stats.size,
+            modified: stats.mtime,
+            age: Date.now() - stats.mtime.getTime()
+          });
+        }
+      });
+    }
+    
+    // Dosyaları son güncelleme zamanına göre sırala (en yeni önce)
+    allFiles.sort((a, b) => a.age - b.age);
+    
+    console.log('📊 Bulunan dosyalar:');
+    allFiles.forEach(file => {
+      console.log(`📄 ${file.name}: ${file.size} bytes, ${Math.round(file.age / 1000)} saniye önce`);
+    });
     
     let checks = [];
     let dataSource = 'unknown';
     let lastModified = null;
     
-    // 1. Önce AppData'dan okumaya çalış
-    if (fs.existsSync(checksPath)) {
+    // En güncel dosyadan veri okumaya çalış
+    for (const file of allFiles) {
       try {
-        const data = fs.readFileSync(checksPath, 'utf8');
+        console.log(`🔄 ${file.name} dosyası okunuyor...`);
+        const data = fs.readFileSync(file.path, 'utf8');
         const parsedData = JSON.parse(data);
         
-        if (parsedData && Array.isArray(parsedData) && parsedData.length > 0) {
+        if (file.name === 'hatirlatici-checks.json' && Array.isArray(parsedData)) {
           checks = parsedData;
-          dataSource = 'AppData';
-          
-          const fileStats = fs.statSync(checksPath);
-          lastModified = fileStats.mtime;
-          
-          console.log('✅ AppData\'dan veri yüklendi:');
-          console.log(`📊 Check sayısı: ${checks.length}`);
-          console.log(`📅 Son güncelleme: ${lastModified.toLocaleString('tr-TR')}`);
-          console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
-        } else {
-          console.log('⚠️ AppData dosyası boş veya geçersiz');
+          dataSource = 'AppData (Checks)';
+          lastModified = file.modified;
+          console.log(`✅ ${file.name} dosyasından ${checks.length} check yüklendi`);
+          break;
+        } else if (file.name === 'hatirlatici-localStorage.json' && parsedData.checks && Array.isArray(parsedData.checks)) {
+          checks = parsedData.checks;
+          dataSource = 'localStorage';
+          lastModified = file.modified;
+          console.log(`✅ ${file.name} dosyasından ${checks.length} check yüklendi`);
+          break;
+        } else if (file.name.includes('localStorage') && parsedData.checks && Array.isArray(parsedData.checks)) {
+          checks = parsedData.checks;
+          dataSource = 'localStorage (Generic)';
+          lastModified = file.modified;
+          console.log(`✅ ${file.name} dosyasından ${checks.length} check yüklendi`);
+          break;
         }
       } catch (error) {
-        console.error('❌ AppData parse hatası:', error.message);
-      }
-    } else {
-      console.log('⚠️ AppData checks dosyası bulunamadı');
-    }
-    
-    // 2. Eğer AppData'dan veri yoksa, localStorage'dan oku
-    if (!checks || checks.length === 0) {
-      console.log('🔄 localStorage\'dan veri okunmaya çalışılıyor...');
-      
-      if (fs.existsSync(localStoragePath)) {
-        try {
-          const localStorageData = fs.readFileSync(localStoragePath, 'utf8');
-          const localStorage = JSON.parse(localStorageData);
-          
-          if (localStorage && localStorage.checks && Array.isArray(localStorage.checks) && localStorage.checks.length > 0) {
-            checks = localStorage.checks;
-            dataSource = 'localStorage';
-            
-            const fileStats = fs.statSync(localStoragePath);
-            lastModified = fileStats.mtime;
-            
-            console.log('✅ localStorage\'dan veri yüklendi:');
-            console.log(`📊 Check sayısı: ${checks.length}`);
-            console.log(`📅 Son güncelleme: ${lastModified.toLocaleString('tr-TR')}`);
-            console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
-          } else {
-            console.log('⚠️ localStorage checks verisi boş veya geçersiz');
-          }
-        } catch (error) {
-          console.error('❌ localStorage parse hatası:', error.message);
-        }
-      } else {
-        console.log('⚠️ localStorage dosyası bulunamadı');
+        console.error(`❌ ${file.name} dosyası okunamadı:`, error.message);
       }
     }
     
-    // 3. Veri kontrolü
+    // Veri kontrolü
     if (!checks || checks.length === 0) {
       console.log('❌ Hiç check verisi bulunamadı!');
       return [];
     }
     
-    // 4. Veri doğrulama ve temizleme
+    // Veri doğrulama ve temizleme
     const validChecks = checks.filter(check => {
       const isValid = check && 
                      check.id && 
@@ -408,7 +432,7 @@ function getChecksData() {
     console.log(`📊 Kaynak: ${dataSource}`);
     console.log(`📅 Son güncelleme: ${lastModified ? lastModified.toLocaleString('tr-TR') : 'Bilinmiyor'}`);
     
-    // 5. Her check için detaylı log
+    // Her check için detaylı log
     validChecks.forEach((check, index) => {
       if (check.isRecurring && check.nextPaymentDate) {
         const daysLeft = Math.ceil((new Date(check.nextPaymentDate) - new Date()) / (1000 * 60 * 60 * 24));
@@ -421,8 +445,7 @@ function getChecksData() {
     
     return validChecks;
   } catch (error) {
-    console.error('❌ getChecksData kritik hata:', error.message);
-    console.error('❌ Stack trace:', error.stack);
+    console.error('❌ getChecksDataFromFiles hatası:', error.message);
     return [];
   }
 }
@@ -1129,6 +1152,59 @@ ipcMain.handle('show-notification', async (event, title, body) => {
   
   // Telegram bildirimi de gönder
   sendTelegramNotification(title, body);
+});
+
+// Telegram bot için güncel veri al
+ipcMain.handle('get-telegram-data', async (event) => {
+  try {
+    console.log('🔄 IPC: Telegram bot için güncel veri isteniyor...');
+    
+    // Renderer process'ten güncel veriyi al
+    const checks = await event.sender.executeJavaScript(`
+      (() => {
+        try {
+          const checksData = localStorage.getItem('hatirlatici-checks');
+          if (checksData) {
+            return JSON.parse(checksData);
+          }
+          return [];
+        } catch (error) {
+          console.error('Telegram data error:', error);
+          return [];
+        }
+      })()
+    `);
+    
+    console.log(`✅ IPC: Renderer'dan ${checks.length} check alındı`);
+    
+    // Veri doğrulama
+    const validChecks = checks.filter(check => {
+      return check && 
+             check.id && 
+             check.paymentDate && 
+             typeof check.amount === 'number' &&
+             check.createdBy &&
+             check.signedTo;
+    });
+    
+    console.log(`✅ IPC: ${validChecks.length} geçerli check bulundu`);
+    
+    return {
+      success: true,
+      checks: validChecks,
+      timestamp: new Date().toISOString(),
+      source: 'Renderer Process'
+    };
+  } catch (error) {
+    console.error('❌ IPC: Telegram data hatası:', error.message);
+    return {
+      success: false,
+      error: error.message,
+      checks: [],
+      timestamp: new Date().toISOString(),
+      source: 'Error'
+    };
+  }
 });
 
 ipcMain.handle('app-version', () => {
