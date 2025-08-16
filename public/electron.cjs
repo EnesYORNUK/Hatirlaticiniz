@@ -69,77 +69,47 @@ const getAppDataPath = () => {
 // Telegram Bot Fonksiyonları
 function initializeTelegramBot() {
   try {
-    // TelegramBot sınıfı yüklenmemişse çık
-    if (!TelegramBot) {
-      console.log('❌ TelegramBot sınıfı mevcut değil, bot başlatılamıyor');
-      return;
-    }
-
     console.log('🤖 Telegram bot başlatılıyor...');
     
-    const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      console.log('⚠️ Settings dosyası bulunamadı:', settingsPath);
-      return;
-    }
-
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    console.log('📋 Bot ayarları:', {
-      enabled: settings.telegramBotEnabled,
-      hasToken: !!settings.telegramBotToken,
-      hasChatId: !!settings.telegramChatId
-    });
+    // Settings'den bot bilgilerini al
+    const settings = getSettingsData();
     
     if (!settings.telegramBotEnabled || !settings.telegramBotToken) {
-      console.log('❌ Bot disabled veya token yok');
-      if (telegramBot) {
-        console.log('🔄 Mevcut bot durduruluyor...');
-        telegramBot.stopPolling();
-        telegramBot = null;
-      }
+      console.log('⚠️ Telegram bot devre dışı veya token yok');
       return;
     }
 
-    // Mevcut bot'u durdur
-    if (telegramBot) {
-      console.log('🔄 Mevcut bot durduruluyor...');
-      telegramBot.stopPolling();
-    }
+    console.log('✅ Bot token bulundu, bot başlatılıyor...');
+    
+    // Bot'u oluştur
+    telegramBot = new TelegramBot(settings.telegramBotToken, { polling: true });
+    
+    // Bot başlatıldığında veri kontrolü yap
+    telegramBot.on('polling_error', (error) => {
+      console.error('❌ Telegram bot polling hatası:', error.message);
+    });
 
-    // Yeni bot oluştur
-    console.log('🚀 Yeni bot oluşturuluyor...');
-    telegramBot = new TelegramBot(settings.telegramBotToken, { 
-      polling: {
-        interval: 1000,
-        autoStart: true,
-        params: {
-          timeout: 10
-        }
+    telegramBot.on('webhook_error', (error) => {
+      console.error('❌ Telegram bot webhook hatası:', error.message);
+    });
+
+    // Bot başlatıldığında güncel veri kontrolü
+    telegramBot.on('polling_start', () => {
+      console.log('🚀 Telegram bot polling başladı');
+      
+      // Güncel veri kontrolü
+      const checks = getChecksData();
+      console.log(`📊 Bot başlatıldığında ${checks.length} ödeme bulundu`);
+      
+      // Veri kaynağını kontrol et
+      const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
+      if (fs.existsSync(checksPath)) {
+        const fileStats = fs.statSync(checksPath);
+        console.log(`📅 Son veri güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
       }
     });
-    
-    console.log('✅ Bot oluşturuldu, komutlar kuruluyor...');
-    setupTelegramCommands();
-    
-    // Bot başarıyla başladığında log
-    telegramBot.on('polling_error', (error) => {
-      console.error('❌ Bot polling hatası:', error.message);
-    });
 
-    telegramBot.on('error', (error) => {
-      console.error('❌ Bot genel hatası:', error.message);
-    });
-
-    // Bot mesaj aldığında log
-    telegramBot.on('message', (msg) => {
-      console.log('📨 Bot mesaj aldı:', {
-        chat_id: msg.chat.id,
-        text: msg.text,
-        from: msg.from.first_name
-      });
-    });
-
-    console.log('🎉 Telegram bot başarıyla başlatıldı!');
+    console.log('✅ Telegram bot başarıyla başlatıldı!');
     
   } catch (error) {
     console.error('❌ Telegram bot başlatılamadı:', error);
@@ -235,6 +205,8 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
 
 function getChecksData() {
   try {
+    console.log('🔄 Telegram bot için güncel veri okunuyor...');
+    
     // Önce AppData'dan okumaya çalış
     const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
     console.log('📂 Checks dosyası aranıyor:', checksPath);
@@ -246,6 +218,11 @@ function getChecksData() {
       const data = fs.readFileSync(checksPath, 'utf8');
       checks = JSON.parse(data);
       console.log('📊 AppData\'dan okunan check sayısı:', checks.length);
+      
+      // Dosya son güncelleme zamanını kontrol et
+      const fileStats = fs.statSync(checksPath);
+      const lastModified = fileStats.mtime;
+      console.log('📅 AppData dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
     } else {
       console.log('⚠️ AppData\'da checks dosyası bulunamadı');
     }
@@ -264,6 +241,11 @@ function getChecksData() {
           if (localStorage.checks) {
             checks = localStorage.checks;
             console.log('📊 localStorage\'dan okunan check sayısı:', checks.length);
+            
+            // localStorage dosya zamanını da kontrol et
+            const localStorageStats = fs.statSync(localStoragePath);
+            const localStorageModified = localStorageStats.mtime;
+            console.log('📅 localStorage dosya son güncelleme:', localStorageModified.toLocaleString('tr-TR'));
           }
         } catch (error) {
           console.error('❌ localStorage okunamadı:', error.message);
@@ -288,17 +270,12 @@ function getChecksData() {
     
     console.log('✅ Geçerli check sayısı:', validChecks.length);
     
-    // Veri güncelliğini kontrol et
-    if (fs.existsSync(checksPath)) {
-      const fileStats = fs.statSync(checksPath);
-      const lastModified = fileStats.mtime;
-      console.log('📅 AppData dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
-    }
-    
-    // Son güncelleme zamanını ekle
+    // Tekrarlayan ödemeler için nextPaymentDate kontrolü
     validChecks.forEach(check => {
       if (check.isRecurring && check.nextPaymentDate) {
-        console.log(`🔄 Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate}`);
+        console.log(`🔄 Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Ödeme: ${check.paymentDate}`);
+      } else {
+        console.log(`📅 Normal: ${check.signedTo} - Ödeme: ${check.paymentDate}`);
       }
     });
     
@@ -423,6 +400,8 @@ function sendTodayPayments(chatId) {
     const checks = getChecksData();
     const today = new Date().toDateString();
     
+    console.log(`📊 Toplam ${checks.length} ödeme bulundu, bugün kontrol ediliyor...`);
+    
     const todayChecks = checks.filter(check => {
       if (check.isPaid) return false;
       
@@ -430,8 +409,10 @@ function sendTodayPayments(chatId) {
       let checkDate;
       if (check.isRecurring && check.nextPaymentDate) {
         checkDate = new Date(check.nextPaymentDate).toDateString();
+        console.log(`🔄 Tekrarlayan kontrol: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Bugün: ${checkDate === today}`);
       } else {
         checkDate = new Date(check.paymentDate).toDateString();
+        console.log(`📅 Normal kontrol: ${check.signedTo} - Ödeme: ${check.paymentDate} - Bugün: ${checkDate === today}`);
       }
       
       const isToday = checkDate === today;
