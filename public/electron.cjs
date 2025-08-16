@@ -69,7 +69,7 @@ const getAppDataPath = () => {
 // Telegram Bot Fonksiyonları
 function initializeTelegramBot() {
   try {
-    console.log('🤖 Telegram bot başlatılıyor...');
+    console.log('🤖 YENİ Telegram bot sistemi başlatılıyor...');
     
     // Settings'den bot bilgilerini al
     const settings = getSettingsData();
@@ -79,119 +79,58 @@ function initializeTelegramBot() {
       return;
     }
 
-    console.log('✅ Bot token bulundu, bot başlatılıyor...');
+    console.log('✅ Bot token bulundu, yeni sistem kuruluyor...');
     
-    // Bot'u oluştur
-    telegramBot = new TelegramBot(settings.telegramBotToken, { 
-      polling: false // Manuel kontrol için false
-    });
-    
-    console.log('🔧 Bot oluşturuldu, komutlar kuruluyor...');
-    
-    // Bot komutlarını hemen kur
-    setupTelegramCommands();
-    
-    // Bot başlatıldığında veri kontrolü yap
-    telegramBot.on('polling_error', (error) => {
-      console.error('❌ Telegram bot polling hatası:', error.message);
-    });
-
-    telegramBot.on('webhook_error', (error) => {
-      console.error('❌ Telegram bot webhook hatası:', error.message);
-    });
-
-    // Bot başlatıldığında güncel veri kontrolü
-    telegramBot.on('polling_start', () => {
-      console.log('🚀 Telegram bot polling başladı');
-      
-      // Güncel veri kontrolü
-      const checks = getChecksData();
-      console.log(`📊 Bot başlatıldığında ${checks.length} ödeme bulundu`);
-      
-      // Veri kaynağını kontrol et
-      const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
-      if (fs.existsSync(checksPath)) {
-        const fileStats = fs.statSync(checksPath);
-        console.log(`📅 Son veri güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
+    // Eski bot'u temizle
+    if (telegramBot) {
+      try {
+        telegramBot.stopPolling();
+        telegramBot = null;
+        console.log('🧹 Eski bot temizlendi');
+      } catch (error) {
+        console.log('⚠️ Eski bot temizlenirken hata:', error.message);
       }
-      
-      // Bot durumunu kontrol et
-      console.log('🔍 Bot durumu kontrol ediliyor...');
-      console.log('📱 Bot aktif:', telegramBot.isPolling());
-      console.log('🆔 Bot token:', settings.telegramBotToken.substring(0, 10) + '...');
-    });
-
-    console.log('✅ Telegram bot başarıyla başlatıldı!');
-    
-    // Manuel olarak polling'i başlat
-    try {
-      console.log('🔄 Manuel polling başlatılıyor...');
-      telegramBot.startPolling();
-      console.log('✅ Manuel polling başlatıldı!');
-      
-      // Polling başladıktan sonra durumu kontrol et
-      setTimeout(() => {
-        console.log('🔍 Polling durumu kontrol ediliyor...');
-        console.log('📱 Bot polling:', telegramBot.isPolling());
-        console.log('📨 Bot mesaj dinliyor mu?');
-        
-        // Bot test mesajı gönder
-        if (settings.telegramChatId) {
-          console.log('🧪 Test mesajı gönderiliyor...');
-          
-          // Güncel veri ile test mesajı
-          const checks = getChecksData();
-          const today = new Date().toDateString();
-          const todayChecks = checks.filter(check => {
-            if (check.isPaid) return false;
-            let checkDate;
-            if (check.isRecurring && check.nextPaymentDate) {
-              checkDate = new Date(check.nextPaymentDate).toDateString();
-            } else {
-              checkDate = new Date(check.paymentDate).toDateString();
-            }
-            return checkDate === today;
-          });
-          
-          let testMessage = '🤖 Bot başlatıldı ve komutları dinliyor!\n\n';
-          testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
-          testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n\n`;
-          testMessage += '📋 Test komutları:\n';
-          testMessage += '• /start - Yardım menüsü\n';
-          testMessage += '• /bugun - Bugün ödenecekler\n';
-          testMessage += '• /yakin - Yakın ödemeler\n';
-          testMessage += '• /tumu - Tüm ödemeler\n';
-          testMessage += '• /gecmis - Gecikmiş ödemeler\n';
-          testMessage += '• /istatistik - İstatistikler';
-          
-          telegramBot.sendMessage(settings.telegramChatId, testMessage).then(() => {
-            console.log('✅ Test mesajı gönderildi');
-            console.log('📊 Test mesajında gösterilen veri:', {
-              totalChecks: checks.length,
-              todayChecks: todayChecks.length
-            });
-          }).catch(err => {
-            console.error('❌ Test mesajı gönderilemedi:', err.message);
-          });
-        }
-      }, 3000);
-      
-    } catch (error) {
-      console.error('❌ Manuel polling başlatılamadı:', error.message);
     }
     
+    // Yeni bot'u oluştur
+    telegramBot = new TelegramBot(settings.telegramBotToken, { 
+      polling: true,
+      interval: 1000,
+      autoStart: true
+    });
+    
+    console.log('🔧 Yeni bot oluşturuldu, komutlar kuruluyor...');
+    
+    // Yeni komut sistemini kur
+    setupNewTelegramCommands();
+    
+    // Bot durumunu kontrol et
+    console.log('🔍 Yeni bot durumu kontrol ediliyor...');
+    console.log('📱 Bot polling:', telegramBot.isPolling());
+    console.log('🆔 Bot token:', settings.telegramBotToken.substring(0, 10) + '...');
+    
+    // Test mesajı gönder
+    if (settings.telegramChatId) {
+      setTimeout(() => {
+        sendTestMessage(settings.telegramChatId);
+      }, 2000);
+    }
+    
+    console.log('✅ YENİ Telegram bot sistemi başarıyla başlatıldı!');
+    
   } catch (error) {
-    console.error('❌ Telegram bot başlatılamadı:', error);
+ {
+    console.error('❌ Yeni Telegram bot başlatılamadı:', error);
   }
 }
 
-function setupTelegramCommands() {
+function setupNewTelegramCommands() {
   if (!telegramBot) {
     console.log('❌ Bot mevcut değil, komutlar kurulamadı');
     return;
   }
 
-  console.log('📝 Telegram komutları kuruluyor...');
+  console.log('📝 YENİ Telegram komut sistemi kuruluyor...');
 
   // Tüm mevcut listener'ları temizle
   telegramBot.removeAllListeners('text');
@@ -294,7 +233,76 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
     console.error('❌ Telegram bot hatası:', error.message);
   });
 
-  console.log('✅ Tüm komutlar başarıyla kuruldu!');
+  console.log('✅ YENİ komut sistemi başarıyla kuruldu!');
+}
+
+// Yeni test mesaj fonksiyonu
+function sendTestMessage(chatId) {
+  try {
+    console.log('🧪 Yeni test mesajı gönderiliyor...');
+    
+    // Güncel veriyi al
+    const checks = getChecksData();
+    const now = new Date();
+    const today = now.toDateString();
+    
+    // Bugün ödenecek ödemeleri hesapla
+    const todayChecks = checks.filter(check => {
+      if (check.isPaid) return false;
+      
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate).toDateString();
+        console.log(`🔄 Test - Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate}`);
+      } else {
+        checkDate = new Date(check.paymentDate).toDateString();
+        console.log(`📅 Test - Normal: ${check.signedTo} - Ödeme: ${check.paymentDate}`);
+      }
+      
+      return checkDate === today;
+    });
+    
+    // Gecikmiş ödemeleri hesapla
+    const overdueChecks = checks.filter(check => {
+      if (check.isPaid) return false;
+      
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+      } else {
+        checkDate = new Date(check.paymentDate);
+      }
+      
+      return checkDate < now;
+    });
+    
+    let testMessage = '🤖 YENİ Bot sistemi başlatıldı!\n\n';
+    testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
+    testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n`;
+    testMessage += `⚠️ Gecikmiş: ${overdueChecks.length} ödeme\n\n`;
+    testMessage += '📋 Kullanılabilir komutlar:\n';
+    testMessage += '• /start - Yardım menüsü\n';
+    testMessage += '• /bugun - Bugün ödenecekler\n';
+    testMessage += '• /yakin - Yakın ödemeler\n';
+    testMessage += '• /tumu - Tüm ödemeler\n';
+    testMessage += '• /gecmis - Gecikmiş ödemeler\n';
+    testMessage += '• /istatistik - İstatistikler\n\n';
+    testMessage += '🔄 Yeni sistem: Güncel veri garantisi!';
+    
+    telegramBot.sendMessage(chatId, testMessage).then(() => {
+      console.log('✅ Yeni test mesajı gönderildi');
+      console.log('📊 Test mesajında gösterilen veri:', {
+        totalChecks: checks.length,
+        todayChecks: todayChecks.length,
+        overdueChecks: overdueChecks.length
+      });
+    }).catch(err => {
+      console.error('❌ Yeni test mesajı gönderilemedi:', err.message);
+    });
+    
+  } catch (error) {
+    console.error('❌ Test mesajı hatası:', error.message);
+  }
 }
 
 function getChecksData() {
