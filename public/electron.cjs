@@ -83,16 +83,13 @@ function initializeTelegramBot() {
     
     // Bot'u oluştur
     telegramBot = new TelegramBot(settings.telegramBotToken, { 
-      polling: {
-        interval: 1000,
-        autoStart: true,
-        params: {
-          timeout: 10
-        }
-      }
+      polling: false // Manuel kontrol için false
     });
     
-    console.log('🔧 Bot oluşturuldu, polling başlatılıyor...');
+    console.log('🔧 Bot oluşturuldu, komutlar kuruluyor...');
+    
+    // Bot komutlarını hemen kur
+    setupTelegramCommands();
     
     // Bot başlatıldığında veri kontrolü yap
     telegramBot.on('polling_error', (error) => {
@@ -118,10 +115,6 @@ function initializeTelegramBot() {
         console.log(`📅 Son veri güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
       }
       
-      // Bot komutlarını kur
-      console.log('🔧 Bot komutları kuruluyor...');
-      setupTelegramCommands();
-      
       // Bot durumunu kontrol et
       console.log('🔍 Bot durumu kontrol ediliyor...');
       console.log('📱 Bot aktif:', telegramBot.isPolling());
@@ -135,6 +128,33 @@ function initializeTelegramBot() {
       console.log('🔄 Manuel polling başlatılıyor...');
       telegramBot.startPolling();
       console.log('✅ Manuel polling başlatıldı!');
+      
+      // Polling başladıktan sonra durumu kontrol et
+      setTimeout(() => {
+        console.log('🔍 Polling durumu kontrol ediliyor...');
+        console.log('📱 Bot polling:', telegramBot.isPolling());
+        console.log('📨 Bot mesaj dinliyor mu?');
+        
+        // Bot test mesajı gönder
+        if (settings.telegramChatId) {
+          console.log('🧪 Test mesajı gönderiliyor...');
+          telegramBot.sendMessage(settings.telegramChatId, 
+            '🤖 Bot başlatıldı ve komutları dinliyor!\n\n' +
+            '📋 Test komutları:\n' +
+            '• /start - Yardım menüsü\n' +
+            '• /bugun - Bugün ödenecekler\n' +
+            '• /yakin - Yakın ödemeler\n' +
+            '• /tumu - Tüm ödemeler\n' +
+            '• /gecmis - Gecikmiş ödemeler\n' +
+            '• /istatistik - İstatistikler'
+          ).then(() => {
+            console.log('✅ Test mesajı gönderildi');
+          }).catch(err => {
+            console.error('❌ Test mesajı gönderilemedi:', err.message);
+          });
+        }
+      }, 3000);
+      
     } catch (error) {
       console.error('❌ Manuel polling başlatılamadı:', error.message);
     }
@@ -155,10 +175,15 @@ function setupTelegramCommands() {
   // Tüm mevcut listener'ları temizle
   telegramBot.removeAllListeners('text');
   telegramBot.removeAllListeners('message');
+  
+  console.log('🧹 Eski listener\'lar temizlendi');
 
   // /start komutu
   telegramBot.onText(/\/start/, (msg) => {
     console.log('🎯 /start komutu alındı:', msg.from.first_name);
+    console.log('📱 Chat ID:', msg.chat.id);
+    console.log('👤 Kullanıcı:', msg.from.first_name);
+    
     const chatId = msg.chat.id;
     const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
 
@@ -172,9 +197,16 @@ function setupTelegramCommands() {
 💡 Chat ID'niz: ${chatId}
 Bu ID'yi uygulamanın ayarlarına girin.`;
 
+    console.log('📤 /start mesajı gönderiliyor...');
     telegramBot.sendMessage(chatId, welcomeMessage)
-      .then(() => console.log('✅ /start yanıtı gönderildi'))
-      .catch(err => console.error('❌ /start yanıt hatası:', err.message));
+      .then(() => {
+        console.log('✅ /start yanıtı gönderildi');
+        console.log('📨 Mesaj uzunluğu:', welcomeMessage.length);
+      })
+      .catch(err => {
+        console.error('❌ /start yanıt hatası:', err.message);
+        console.error('🔍 Hata detayı:', err);
+      });
   });
 
   // /bugun komutu
@@ -217,16 +249,22 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
     console.log('📨 Mesaj alındı:', {
       chatId: msg.chat.id,
       text: msg.text,
-      from: msg.from?.first_name || 'Bilinmeyen'
+      from: msg.from?.first_name || 'Bilinmeyen',
+      type: msg.text ? 'text' : 'other'
     });
     
-    if (msg.text && msg.text.startsWith('/') && 
-        !['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik'].includes(msg.text)) {
-      console.log('❓ Bilinmeyen komut:', msg.text);
-      const chatId = msg.chat.id;
-      telegramBot.sendMessage(chatId, 
-        `❓ Bilinmeyen komut: ${msg.text}\n\n📋 Geçerli komutlar:\n/start /bugun /yakin /tumu /gecmis /istatistik`
-      );
+    if (msg.text && msg.text.startsWith('/')) {
+      console.log('🔍 Komut tespit edildi:', msg.text);
+      
+      if (!['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik'].includes(msg.text)) {
+        console.log('❓ Bilinmeyen komut:', msg.text);
+        const chatId = msg.chat.id;
+        telegramBot.sendMessage(chatId, 
+          `❓ Bilinmeyen komut: ${msg.text}\n\n📋 Geçerli komutlar:\n/start /bugun /yakin /tumu /gecmis /istatistik`
+        );
+      } else {
+        console.log('✅ Bilinen komut:', msg.text);
+      }
     }
   });
 
