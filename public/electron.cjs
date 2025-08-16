@@ -119,7 +119,6 @@ function initializeTelegramBot() {
     console.log('✅ YENİ Telegram bot sistemi başarıyla başlatıldı!');
     
   } catch (error) {
- {
     console.error('❌ Yeni Telegram bot başlatılamadı:', error);
   }
 }
