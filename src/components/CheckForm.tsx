@@ -62,12 +62,23 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     if (!formData.isRecurring) return undefined;
 
     const now = new Date();
+    let baseDate: Date;
+
+    // Base date'i belirle
+    if (formData.recurringType === 'yearly' && formData.paymentDate) {
+      // Yıllık için seçilen tarihi kullan
+      baseDate = new Date(formData.paymentDate);
+    } else {
+      // Aylık ve haftalık için bugünü kullan
+      baseDate = new Date();
+    }
+
+    let nextDate = new Date(baseDate);
 
     switch (formData.recurringType) {
       case 'weekly':
         // Haftalık: Bu haftanın recurringDay gününü bulalım
-        const today = new Date();
-        const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi...
+        const dayOfWeek = now.getDay(); // 0=Pazar, 1=Pazartesi...
         const targetDay = formData.recurringDay; // 1=Pazartesi, 7=Pazar
         
         // JavaScript'te 0=Pazar, 1=Pazartesi... o yüzden convert edelim
@@ -78,40 +89,41 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
           daysUntilTarget += 7; // Sonraki haftaya geç
         }
         
-        const nextDate = new Date(today);
-        nextDate.setDate(today.getDate() + daysUntilTarget);
-        return nextDate.toISOString().split('T')[0];
+        nextDate = new Date(now);
+        nextDate.setDate(now.getDate() + daysUntilTarget);
+        break;
 
       case 'monthly':
         // Aylık: Bu ayın recurringDay gününü bulalım
-        const thisMonth = new Date();
-        thisMonth.setDate(formData.recurringDay);
+        nextDate = new Date(now);
+        nextDate.setDate(formData.recurringDay);
         
         // Eğer bu ayın o günü geçtiyse, gelecek aya geç
-        if (thisMonth <= now) {
-          thisMonth.setMonth(thisMonth.getMonth() + 1);
+        if (nextDate <= now) {
+          nextDate.setMonth(nextDate.getMonth() + 1);
         }
-        
-        return thisMonth.toISOString().split('T')[0];
+        break;
 
       case 'yearly':
         // Yıllık: Belirtilen tarih
         if (!formData.paymentDate) return undefined;
         
-        const yearlyDate = new Date(formData.paymentDate);
+        nextDate = new Date(formData.paymentDate);
         const currentYear = now.getFullYear();
-        yearlyDate.setFullYear(currentYear);
+        nextDate.setFullYear(currentYear);
         
         // Eğer bu yılın o günü geçtiyse, gelecek yıla geç
-        if (yearlyDate <= now) {
-          yearlyDate.setFullYear(currentYear + 1);
+        if (nextDate <= now) {
+          nextDate.setFullYear(currentYear + 1);
         }
-        
-        return yearlyDate.toISOString().split('T')[0];
+        break;
 
       default:
         return undefined;
     }
+
+    console.log(`📅 ${formData.recurringType} tekrarlayan ödeme - Sonraki tarih:`, nextDate.toISOString().split('T')[0]);
+    return nextDate.toISOString().split('T')[0];
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -121,10 +133,19 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
 
     // Tekrarlayan ödeme için paymentDate'i ayarla
     let finalPaymentDate = formData.paymentDate;
+    let finalNextPaymentDate = undefined;
     
-    if (formData.isRecurring && formData.recurringType !== 'yearly') {
-      // Aylık ve haftalık için sonraki ödeme tarihini kullan
-      finalPaymentDate = calculateNextPaymentDate() || '';
+    if (formData.isRecurring) {
+      if (formData.recurringType === 'yearly') {
+        // Yıllık için paymentDate kullan
+        finalPaymentDate = formData.paymentDate;
+        finalNextPaymentDate = calculateNextPaymentDate();
+      } else {
+        // Aylık ve haftalık için bugünün tarihini kullan
+        const today = new Date();
+        finalPaymentDate = today.toISOString().split('T')[0];
+        finalNextPaymentDate = calculateNextPaymentDate();
+      }
     }
 
     const checkData: Omit<Check, 'id' | 'createdAt'> = {
@@ -140,9 +161,10 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
       isRecurring: formData.isRecurring,
       recurringType: formData.recurringType,
       recurringDay: formData.recurringDay,
-      nextPaymentDate: calculateNextPaymentDate(),
+      nextPaymentDate: finalNextPaymentDate,
     };
 
+    console.log('💾 Kaydedilecek veri:', checkData);
     onSave(checkData);
   };
 

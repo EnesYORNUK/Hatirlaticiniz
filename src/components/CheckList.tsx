@@ -151,14 +151,19 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       let checkDate: Date;
       if (check.isRecurring && check.nextPaymentDate) {
         checkDate = new Date(check.nextPaymentDate);
+        console.log(`🔄 Tekrarlayan ödeme: ${check.signedTo} - Sonraki tarih: ${check.nextPaymentDate}`);
       } else {
         checkDate = new Date(check.paymentDate);
+        console.log(`📅 Normal ödeme: ${check.signedTo} - Ödeme tarihi: ${check.paymentDate}`);
       }
       
       const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const isNotOverdue = daysUntil >= 0;
+      
+      console.log(`⏰ ${check.signedTo}: ${daysUntil} gün kaldı, Geciken: ${!isNotOverdue}`);
       
       // Sadece henüz vadesi gelmemiş olanlar (gecikenler hariç)
-      return daysUntil >= 0;
+      return isNotOverdue;
     });
   };
   
@@ -172,14 +177,19 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       let checkDate: Date;
       if (check.isRecurring && check.nextPaymentDate) {
         checkDate = new Date(check.nextPaymentDate);
+        console.log(`🔄 Tekrarlayan geciken: ${check.signedTo} - Sonraki tarih: ${check.nextPaymentDate}`);
       } else {
         checkDate = new Date(check.paymentDate);
+        console.log(`📅 Normal geciken: ${check.signedTo} - Ödeme tarihi: ${check.paymentDate}`);
       }
       
       const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const isOverdue = daysUntil < 0;
+      
+      console.log(`⚠️ ${check.signedTo}: ${Math.abs(daysUntil)} gün gecikmiş, Geciken: ${isOverdue}`);
       
       // Sadece vadesi geçmiş olanlar
-      return daysUntil < 0;
+      return isOverdue;
     });
   };
   
