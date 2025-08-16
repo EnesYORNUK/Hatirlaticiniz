@@ -82,7 +82,17 @@ function initializeTelegramBot() {
     console.log('✅ Bot token bulundu, bot başlatılıyor...');
     
     // Bot'u oluştur
-    telegramBot = new TelegramBot(settings.telegramBotToken, { polling: true });
+    telegramBot = new TelegramBot(settings.telegramBotToken, { 
+      polling: {
+        interval: 1000,
+        autoStart: true,
+        params: {
+          timeout: 10
+        }
+      }
+    });
+    
+    console.log('🔧 Bot oluşturuldu, polling başlatılıyor...');
     
     // Bot başlatıldığında veri kontrolü yap
     telegramBot.on('polling_error', (error) => {
@@ -107,9 +117,27 @@ function initializeTelegramBot() {
         const fileStats = fs.statSync(checksPath);
         console.log(`📅 Son veri güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
       }
+      
+      // Bot komutlarını kur
+      console.log('🔧 Bot komutları kuruluyor...');
+      setupTelegramCommands();
+      
+      // Bot durumunu kontrol et
+      console.log('🔍 Bot durumu kontrol ediliyor...');
+      console.log('📱 Bot aktif:', telegramBot.isPolling());
+      console.log('🆔 Bot token:', settings.telegramBotToken.substring(0, 10) + '...');
     });
 
     console.log('✅ Telegram bot başarıyla başlatıldı!');
+    
+    // Manuel olarak polling'i başlat
+    try {
+      console.log('🔄 Manuel polling başlatılıyor...');
+      telegramBot.startPolling();
+      console.log('✅ Manuel polling başlatıldı!');
+    } catch (error) {
+      console.error('❌ Manuel polling başlatılamadı:', error.message);
+    }
     
   } catch (error) {
     console.error('❌ Telegram bot başlatılamadı:', error);
@@ -126,6 +154,7 @@ function setupTelegramCommands() {
 
   // Tüm mevcut listener'ları temizle
   telegramBot.removeAllListeners('text');
+  telegramBot.removeAllListeners('message');
 
   // /start komutu
   telegramBot.onText(/\/start/, (msg) => {
@@ -185,6 +214,12 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
 
   // Bilinmeyen komutlar için
   telegramBot.on('message', (msg) => {
+    console.log('📨 Mesaj alındı:', {
+      chatId: msg.chat.id,
+      text: msg.text,
+      from: msg.from?.first_name || 'Bilinmeyen'
+    });
+    
     if (msg.text && msg.text.startsWith('/') && 
         !['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik'].includes(msg.text)) {
       console.log('❓ Bilinmeyen komut:', msg.text);
