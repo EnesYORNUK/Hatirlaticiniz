@@ -174,55 +174,92 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
     });
   }, [checks, settings, showNotification]);
 
-  // Günlük bildirimleri kontrol et
+  // Günlük bildirim kontrolü
   const checkDailyNotifications = useCallback(() => {
-    if (!settings.notificationsEnabled || !settings.dailyNotificationEnabled) return;
-    if (wasDailyCheckDoneToday()) return;
-    if (!isDailyNotificationTime()) return;
+    if (!settings.dailyNotificationEnabled || !settings.dailyNotificationTime) return;
 
-    // Bugün ödenmesi gereken ödemeler
-    const todayPayments = checks.filter(check => 
-      !check.isPaid && isToday(check.paymentDate)
-    );
+    const now = new Date();
+    const today = now.toDateString();
+    
+    // Bugün zaten kontrol edildi mi?
+    if (settings.lastNotificationCheck === today) return;
 
-    if (todayPayments.length > 0) {
-      // Günlük bildirim gönder
-      const titles = todayPayments.map(check => {
-        const type = check.type === 'bill' ? 'Fatura' : 'Çek';
-        return `${check.signedTo} (${type})`;
-      });
+    // Ayarlanan saat geldi mi?
+    const [hour, minute] = settings.dailyNotificationTime.split(':').map(Number);
+    const targetTime = new Date();
+    targetTime.setHours(hour, minute, 0, 0);
+    
+    // 5 dakika tolerans
+    const timeDiff = Math.abs(now.getTime() - targetTime.getTime());
+    if (timeDiff > 5 * 60 * 1000) return;
 
-      showNotification(
-        `📅 Bugün ${todayPayments.length} Ödeme Var`,
-        `Ödenmesi gerekenler: ${titles.slice(0, 3).join(', ')}${titles.length > 3 ? ' ve diğerleri' : ''}`
-      );
+    // Günlük özet bildirimi gönder
+    const unpaidChecks = checks.filter(c => !c.isPaid);
+    const overdueChecks = unpaidChecks.filter(c => getDaysUntilPayment(c.paymentDate) < 0);
+    const todayChecks = unpaidChecks.filter(c => {
+      const checkDate = new Date(c.paymentDate);
+      return checkDate.toDateString() === today;
+    });
 
-      // Her check için günlük bildirim geçmişine kaydet
-      todayPayments.forEach(check => {
-        const history = getNotificationHistory();
-        const newEntry: NotificationHistory = {
-          checkId: check.id,
-          notificationType: 'daily',
-          sentAt: new Date().toISOString(),
-          paymentDate: check.paymentDate,
-        };
-        history.push(newEntry);
-        saveNotificationHistory(history);
-      });
+    let title = '📅 Günlük Ödeme Hatırlatıcısı';
+    let body = '';
 
-      // Son kontrol zamanını güncelle
-      const updatedSettings = {
-        ...settings,
-        lastNotificationCheck: new Date().toISOString(),
-      };
-      
-      // Settings'i güncelleme - localStorage'a kaydet
-      try {
-        localStorage.setItem('hatirlatici-settings', JSON.stringify(updatedSettings));
-      } catch (error) {
-        console.error('Settings güncellenemedi:', error);
-      }
+    if (overdueChecks.length > 0) {
+      body += `⚠️ ${overdueChecks.length} gecikmiş ödeme var!\n`;
     }
+    
+    if (todayChecks.length > 0) {
+      body += `🔴 Bugün ${todayChecks.length} ödeme var\n`;
+    }
+    
+    if (unpaidChecks.length > 0) {
+      body += `📋 Toplam ${unpaidChecks.length} bekleyen ödeme\n`;
+      body += `💰 Toplam: ${unpaidChecks.reduce((sum, c) => sum + c.amount, 0).toLocaleString('tr-TR')} ₺`;
+    } else {
+      body = '🎉 Tüm ödemeler tamamlandı!';
+    }
+
+    showNotification(title, body);
+    
+    // Son kontrol tarihini güncelle
+    if (window.electronAPI?.saveAppData) {
+      window.electronAPI.saveAppData('settings', {
+        ...settings,
+        lastNotificationCheck: today
+      });
+    }
+  }, [checks, settings, showNotification]);
+
+  // Bilgisayar açıldığında bildirim kontrolü
+  const checkStartupNotifications = useCallback(() => {
+    if (!settings.notificationsEnabled) return;
+
+    // Uygulama açıldıktan 2 saniye sonra kontrol et
+    setTimeout(() => {
+      const unpaidChecks = checks.filter(c => !c.isPaid);
+      const overdueChecks = unpaidChecks.filter(c => getDaysUntilPayment(c.paymentDate) < 0);
+      const todayChecks = unpaidChecks.filter(c => {
+        const checkDate = new Date(c.paymentDate);
+        return checkDate.toDateString() === new Date().toDateString();
+      });
+
+      if (overdueChecks.length > 0) {
+        showNotification(
+          '⚠️ Gecikmiş Ödemeler Var!',
+          `${overdueChecks.length} ödeme vadesi geçmiş. Hemen kontrol edin!`
+        );
+      } else if (todayChecks.length > 0) {
+        showNotification(
+          '🔴 Bugün Ödenecek Ödemeler Var!',
+          `${todayChecks.length} ödeme bugün vadesi doluyor.`
+        );
+      } else if (unpaidChecks.length > 0) {
+        showNotification(
+          '📋 Bekleyen Ödemeler',
+          `${unpaidChecks.length} ödeme bekliyor. Toplam: ${unpaidChecks.reduce((sum, c) => sum + c.amount, 0).toLocaleString('tr-TR')} ₺`
+        );
+      }
+    }, 2000);
   }, [checks, settings, showNotification]);
 
   // İzin isteme effect'i
@@ -253,6 +290,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
     // İlk kontrolleri yap
     checkReminderNotifications();
     checkDailyNotifications();
+    checkStartupNotifications(); // Başlangıçta da çalıştır
 
     // Periyodik kontroller için interval'lar
     const reminderInterval = setInterval(checkReminderNotifications, 60 * 60 * 1000); // Her saat
@@ -262,7 +300,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
       clearInterval(reminderInterval);
       clearInterval(dailyInterval);
     };
-  }, [checkReminderNotifications, checkDailyNotifications]);
+  }, [checkReminderNotifications, checkDailyNotifications, checkStartupNotifications]);
 
   return { requestPermission, showNotification, isElectron };
 }

@@ -76,19 +76,54 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   // Bu haftaki ödemeler
   const getThisWeekChecks = () => {
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(startOfWeek.getDate() + 6));
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Pazartesi başlangıç
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Pazar bitiş
+    endOfWeek.setHours(23, 59, 59, 999);
     
     return checks.filter(check => {
-      const checkDate = new Date(check.paymentDate);
+      if (check.isPaid) return false; // Sadece ödenmemiş olanlar
+      
+      // Tekrarlayan ödemeler için nextPaymentDate kullan
+      const checkDate = check.isRecurring && check.nextPaymentDate 
+        ? new Date(check.nextPaymentDate) 
+        : new Date(check.paymentDate);
+      
       return checkDate >= startOfWeek && checkDate <= endOfWeek;
+    });
+  };
+
+  // Bu ayki ödemeler (daha doğru hesaplama)
+  const getThisMonthChecks = () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    return checks.filter(check => {
+      if (check.isPaid) return false; // Sadece ödenmemiş olanlar
+      
+      // Tekrarlayan ödemeler için nextPaymentDate kullan
+      const checkDate = check.isRecurring && check.nextPaymentDate 
+        ? new Date(check.nextPaymentDate) 
+        : new Date(check.paymentDate);
+      
+      return checkDate >= startOfMonth && checkDate <= endOfMonth;
     });
   };
 
   const dashboardChecks = getDashboardChecks();
   const thisWeekChecks = getThisWeekChecks();
+  const thisMonthChecks = getThisMonthChecks();
   const recurringChecks = checks.filter(c => c.isRecurring);
-  const biggestPayment = checks.reduce((max, check) => check.amount > max.amount ? check : max, checks[0] || { amount: 0, signedTo: '-' });
+  
+  // En büyük ödeme (sadece ödenmemiş olanlar arasından)
+  const biggestPayment = checks
+    .filter(c => !c.isPaid)
+    .reduce((max, check) => check.amount > max.amount ? check : max, 
+      { amount: 0, signedTo: '-', paymentDate: '' } as Check);
   
   const stats = {
     total: dashboardChecks.length,
@@ -101,6 +136,8 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     overdueAmount: dashboardChecks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).reduce((sum, c) => sum + c.amount, 0),
     thisWeek: thisWeekChecks.length,
     thisWeekAmount: thisWeekChecks.reduce((sum, c) => sum + c.amount, 0),
+    thisMonth: thisMonthChecks.length,
+    thisMonthAmount: thisMonthChecks.reduce((sum, c) => sum + c.amount, 0),
     recurring: recurringChecks.length,
     recurringAmount: recurringChecks.reduce((sum, c) => sum + c.amount, 0),
   };
@@ -186,19 +223,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         return (
           <div key="thisMonth" className="theme-surface p-4 rounded-lg shadow-sm border theme-border text-center bg-orange-50 dark:bg-orange-900/20">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {dashboardChecks.filter(c => {
-                const checkDate = new Date(c.paymentDate);
-                const now = new Date();
-                return checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear();
-              }).length}
+              {stats.thisMonth}
             </div>
             <div className="text-xs text-orange-700 dark:text-orange-300 mb-1">Bu Ay</div>
             <div className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              {dashboardChecks.filter(c => {
-                const checkDate = new Date(c.paymentDate);
-                const now = new Date();
-                return checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear();
-              }).reduce((sum, c) => sum + c.amount, 0).toLocaleString('tr-TR')} ₺
+              {stats.thisMonthAmount.toLocaleString('tr-TR')} ₺
             </div>
           </div>
         );
@@ -314,248 +343,4 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                     className="theme-checkbox"
                   />
                   <div>
-                    <label htmlFor={`widget-${widget.id}`} className="theme-text text-sm font-medium cursor-pointer">
-                      {widget.label}
-                    </label>
-                    <div className="text-xs theme-text-muted">
-                      {widget.description}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Period Info */}
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold theme-text">{getPeriodText()}</h3>
-          <p className="text-sm theme-text-muted">Toplam {stats.totalAmount.toLocaleString('tr-TR')} ₺</p>
-        </div>
-        
-        {/* Dynamic Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {dashboardWidgets.map(widgetId => renderWidget(widgetId))}
-        </div>
-
-        {/* Empty State */}
-        {dashboardWidgets.length === 0 && (
-          <div className="text-center py-8 theme-text-muted">
-            <p>Hiç widget seçilmemiş.</p>
-            <button
-              onClick={() => setShowDashboardEditor(true)}
-              className="theme-button mt-2"
-            >
-              Widget Ekle
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Search and Filters */}
-      <div className="theme-surface rounded-lg shadow-sm p-4 border theme-border space-y-4">
-        
-        {/* Search */}
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 theme-text-muted" />
-          </div>
-          <input
-            type="text"
-            placeholder="Kişi adı, firma adı veya tutar ile ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="theme-input w-full pl-10 pr-10"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center theme-text-muted hover:theme-text text-lg font-bold"
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            { id: 'all', label: 'Tümü', count: stats.total },
-            { id: 'unpaid', label: 'Bekleyen', count: stats.unpaid },
-            { id: 'paid', label: 'Ödenen', count: stats.paid },
-            { id: 'overdue', label: 'Geciken', count: stats.overdue },
-          ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => setFilter(item.id)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                filter === item.id
-                  ? 'theme-primary text-white'
-                  : 'theme-surface theme-border theme-text hover:theme-bg-secondary border'
-              }`}
-            >
-              {item.label} ({item.count})
-            </button>
-          ))}
-        </div>
-
-        {filteredChecks.length !== checks.length && (
-          <div className="text-sm theme-text-muted">
-            {filteredChecks.length} ödeme gösteriliyor
-            {searchTerm && <span className="ml-1">"{searchTerm}" araması için</span>}
-          </div>
-        )}
-      </div>
-
-      {/* Payment List */}
-      <div className="space-y-3">
-        {sortedChecks.map(check => {
-          const daysUntil = getDaysUntilPayment(check.paymentDate);
-          const isOverdue = !check.isPaid && daysUntil < 0;
-          const isToday = daysUntil === 0;
-          
-          return (
-            <div 
-              key={check.id} 
-              className={`theme-surface rounded-lg shadow-sm border p-4 transition-all hover:shadow-md ${
-                check.isPaid 
-                  ? 'border-green-200 bg-green-50' 
-                  : isOverdue 
-                    ? 'border-red-200 bg-red-50' 
-                    : isToday
-                      ? 'border-orange-200 bg-orange-50'
-                      : 'theme-border'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                
-                {/* Left Side */}
-                <div className="flex items-center gap-3 flex-1">
-                  
-                  {/* Status Toggle */}
-                  <button
-                    onClick={() => onTogglePaid(check.id)}
-                    className={`p-1.5 rounded-full transition-all ${
-                      check.isPaid 
-                        ? 'text-green-600 hover:text-green-700' 
-                        : 'theme-text-muted hover:theme-text'
-                    }`}
-                  >
-                    {check.isPaid ? <CheckCircle className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-                  </button>
-                  
-                  {/* Type Icon */}
-                  <div className={`p-2 rounded-lg ${
-                    check.type === 'check' ? 'bg-purple-100' : 'bg-orange-100'
-                  }`}>
-                    {check.type === 'check' ? (
-                      <CreditCard className="h-4 w-4 text-purple-600" />
-                    ) : (
-                      <Receipt className="h-4 w-4 text-orange-600" />
-                    )}
-                  </div>
-                  
-                  {/* Main Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="theme-text font-medium truncate">
-                        {check.signedTo}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        check.isPaid 
-                          ? 'bg-green-100 text-green-700' 
-                          : isOverdue 
-                            ? 'bg-red-100 text-red-700'
-                            : isToday
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {check.isPaid 
-                          ? 'Ödendi' 
-                          : isOverdue 
-                            ? 'Gecikti'
-                            : isToday
-                              ? 'Bugün'
-                              : 'Beklemede'
-                        }
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm theme-text-muted">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {check.createdBy}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(check.paymentDate)}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs">
-                        ✓ {formatDate(check.createdAt)}
-                      </span>
-                      {!check.isPaid && (
-                        <span className={`font-medium ${
-                          isOverdue ? 'text-red-600' : isToday ? 'text-orange-600' : 'text-blue-600'
-                        }`}>
-                          {daysUntil === 0 
-                            ? 'Bugün ödenecek' 
-                            : daysUntil > 0 
-                              ? `${daysUntil} gün kaldı`
-                              : `${Math.abs(daysUntil)} gün geçti`
-                          }
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side */}
-                <div className="flex items-center gap-3">
-                  
-                  {/* Amount */}
-                  <div className="text-right">
-                    <div className="text-lg font-bold theme-text">
-                      {check.amount.toLocaleString('tr-TR')} ₺
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onEdit(check)}
-                      className="p-2 theme-text-muted hover:text-blue-600 transition-colors rounded-md hover:bg-blue-50"
-                      title="Düzenle"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => onDelete(check.id)}
-                      className="p-2 theme-text-muted hover:text-red-600 transition-colors rounded-md hover:bg-red-50"
-                      title="Sil"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      
-      {/* No Results */}
-      {filteredChecks.length === 0 && checks.length > 0 && (
-        <div className="theme-surface rounded-lg shadow-sm p-8 text-center border theme-border">
-          <div className="w-16 h-16 theme-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="h-8 w-8 theme-text-muted" />
-          </div>
-          <h3 className="text-lg font-semibold theme-text mb-2">Arama sonucu bulunamadı</h3>
-          <p className="theme-text-muted">
-            "{searchTerm}" aramanız için uygun ödeme bulunamadı.<br/>
-            Farklı anahtar kelimeler deneyin veya filtreleri değiştirin.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
+                    <label htmlFor={`widget-${widget.id}`
