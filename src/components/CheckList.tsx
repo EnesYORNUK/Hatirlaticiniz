@@ -88,9 +88,12 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       if (check.isPaid) return false; // Sadece ödenmemiş olanlar
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
-      const checkDate = check.isRecurring && check.nextPaymentDate 
-        ? new Date(check.nextPaymentDate) 
-        : new Date(check.paymentDate);
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+      } else {
+        checkDate = new Date(check.paymentDate);
+      }
       
       return checkDate >= startOfWeek && checkDate <= endOfWeek;
     });
@@ -106,9 +109,12 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       if (check.isPaid) return false; // Sadece ödenmemiş olanlar
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
-      const checkDate = check.isRecurring && check.nextPaymentDate 
-        ? new Date(check.nextPaymentDate) 
-        : new Date(check.paymentDate);
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+      } else {
+        checkDate = new Date(check.paymentDate);
+      }
       
       return checkDate >= startOfMonth && checkDate <= endOfMonth;
     });

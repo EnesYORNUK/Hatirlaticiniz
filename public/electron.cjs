@@ -246,10 +246,64 @@ function getChecksData() {
     const data = fs.readFileSync(checksPath, 'utf8');
     const checks = JSON.parse(data);
     console.log('📊 Bulunan check sayısı:', checks.length);
-    return checks;
+    
+    // Veri doğrulama ve temizleme
+    const validChecks = checks.filter(check => {
+      return check && 
+             check.id && 
+             check.paymentDate && 
+             typeof check.amount === 'number' &&
+             check.createdBy &&
+             check.signedTo;
+    });
+    
+    console.log('✅ Geçerli check sayısı:', validChecks.length);
+    return validChecks;
   } catch (error) {
     console.error('❌ Checks verisi okunamadı:', error.message);
     return [];
+  }
+}
+
+function getSettingsData() {
+  try {
+    const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
+    console.log('📂 Settings dosyası aranıyor:', settingsPath);
+    
+    if (!fs.existsSync(settingsPath)) {
+      console.log('⚠️ Settings dosyası bulunamadı, default değerler kullanılıyor');
+      return {
+        reminderDays: 3,
+        notificationsEnabled: true,
+        autoUpdateEnabled: true,
+        dailyNotificationEnabled: true,
+        dailyNotificationTime: '09:00',
+        lastNotificationCheck: '',
+        telegramBotEnabled: false,
+        telegramBotToken: '',
+        telegramChatId: '',
+        theme: 'light'
+      };
+    }
+    
+    const data = fs.readFileSync(settingsPath, 'utf8');
+    const settings = JSON.parse(data);
+    console.log('✅ Settings yüklendi');
+    return settings;
+  } catch (error) {
+    console.error('❌ Settings verisi okunamadı:', error.message);
+    return {
+      reminderDays: 3,
+      notificationsEnabled: true,
+      autoUpdateEnabled: true,
+      dailyNotificationEnabled: true,
+      dailyNotificationTime: '09:00',
+      lastNotificationCheck: '',
+      telegramBotEnabled: false,
+      telegramBotToken: '',
+      telegramChatId: '',
+      theme: 'light'
+    };
   }
 }
 
@@ -291,11 +345,19 @@ function sendTodayPayments(chatId) {
       if (check.isPaid) return false;
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
-      const checkDate = check.isRecurring && check.nextPaymentDate 
-        ? new Date(check.nextPaymentDate).toDateString()
-        : new Date(check.paymentDate).toDateString();
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate).toDateString();
+      } else {
+        checkDate = new Date(check.paymentDate).toDateString();
+      }
       
-      return checkDate === today;
+      const isToday = checkDate === today;
+      if (isToday) {
+        console.log(`✅ Bugün: ${check.signedTo} - ${check.amount} TL`);
+      }
+      
+      return isToday;
     });
 
     console.log('📊 Bugün ödenecek sayısı:', todayChecks.length);
@@ -322,19 +384,31 @@ function sendUpcomingPayments(chatId) {
   try {
     console.log('⏰ Yakın ödemeler sorgulanıyor...');
     const checks = getChecksData();
+    const settings = getSettingsData();
     const now = new Date();
-    const reminderDays = 3; // 3 gün hatırlatma
+    const reminderDays = settings.reminderDays || 3; // Settings'den al
+    
+    console.log(`📅 Reminder günleri: ${reminderDays}`);
     
     const upcomingChecks = checks.filter(check => {
       if (check.isPaid) return false;
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
-      const checkDate = check.isRecurring && check.nextPaymentDate 
-        ? new Date(check.nextPaymentDate)
-        : new Date(check.paymentDate);
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+      } else {
+        checkDate = new Date(check.paymentDate);
+      }
       
       const daysUntil = Math.ceil((checkDate - now) / (1000 * 60 * 60 * 24));
-      return daysUntil >= 0 && daysUntil <= reminderDays;
+      const isInRange = daysUntil >= 0 && daysUntil <= reminderDays;
+      
+      if (isInRange) {
+        console.log(`✅ ${check.signedTo}: ${daysUntil} gün kaldı`);
+      }
+      
+      return isInRange;
     });
 
     // Tarihe göre sırala
@@ -378,6 +452,8 @@ function sendAllPayments(chatId) {
     // Sadece ödenmemiş olanları göster
     const unpaidChecks = checks.filter(check => !check.isPaid);
     
+    console.log(`📊 Toplam: ${checks.length}, Ödenmemiş: ${unpaidChecks.length}`);
+    
     if (unpaidChecks.length === 0) {
       const message = '🎉 Tüm ödemeler tamamlandı!';
       telegramBot.sendMessage(chatId, message);
@@ -420,11 +496,20 @@ function sendOverduePayments(chatId) {
       if (check.isPaid) return false;
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
-      const checkDate = check.isRecurring && check.nextPaymentDate 
-        ? new Date(check.nextPaymentDate)
-        : new Date(check.paymentDate);
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+      } else {
+        checkDate = new Date(check.paymentDate);
+      }
       
-      return checkDate < now;
+      const isOverdue = checkDate < now;
+      if (isOverdue) {
+        const daysOverdue = Math.ceil((now - checkDate) / (1000 * 60 * 60 * 24));
+        console.log(`⚠️ Gecikmiş: ${check.signedTo} - ${daysOverdue} gün`);
+      }
+      
+      return isOverdue;
     });
 
     // Gecikme gününe göre sırala (en çok geciken önce)
