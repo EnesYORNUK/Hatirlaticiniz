@@ -285,17 +285,20 @@ function getChecksData() {
     console.log('📂 Checks dosyası aranıyor:', checksPath);
     
     let checks = [];
+    let dataSource = 'unknown';
     
     if (fs.existsSync(checksPath)) {
       // AppData'dan oku
       const data = fs.readFileSync(checksPath, 'utf8');
       checks = JSON.parse(data);
+      dataSource = 'AppData';
       console.log('📊 AppData\'dan okunan check sayısı:', checks.length);
       
       // Dosya son güncelleme zamanını kontrol et
       const fileStats = fs.statSync(checksPath);
       const lastModified = fileStats.mtime;
       console.log('📅 AppData dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
+      console.log('📊 Dosya boyutu:', fileStats.size, 'bytes');
     } else {
       console.log('⚠️ AppData\'da checks dosyası bulunamadı');
     }
@@ -313,12 +316,14 @@ function getChecksData() {
           
           if (localStorage.checks) {
             checks = localStorage.checks;
+            dataSource = 'localStorage';
             console.log('📊 localStorage\'dan okunan check sayısı:', checks.length);
             
             // localStorage dosya zamanını da kontrol et
             const localStorageStats = fs.statSync(localStoragePath);
             const localStorageModified = localStorageStats.mtime;
             console.log('📅 localStorage dosya son güncelleme:', localStorageModified.toLocaleString('tr-TR'));
+            console.log('📊 Dosya boyutu:', localStorageStats.size, 'bytes');
           }
         } catch (error) {
           console.error('❌ localStorage okunamadı:', error.message);
@@ -341,7 +346,7 @@ function getChecksData() {
              check.signedTo;
     });
     
-    console.log('✅ Geçerli check sayısı:', validChecks.length);
+    console.log(`✅ Geçerli check sayısı: ${validChecks.length} (Kaynak: ${dataSource})`);
     
     // Tekrarlayan ödemeler için nextPaymentDate kontrolü
     validChecks.forEach(check => {
@@ -1090,40 +1095,74 @@ autoUpdater.on('update-downloaded', (info) => {
 // AppData dosya işlemleri
 ipcMain.handle('save-app-data', async (event, key, data) => {
   try {
+    console.log(`💾 AppData kaydetme: ${key}`);
     const appDataPath = getAppDataPath();
     
     if (!fs.existsSync(appDataPath)) {
       fs.mkdirSync(appDataPath, { recursive: true });
+      console.log('📁 AppData klasörü oluşturuldu:', appDataPath);
     }
     
-    const filePath = path.join(appDataPath, `${key}.json`);
+    // Dosya adlarını düzelt
+    let fileName = key;
+    if (key === 'checks') fileName = 'hatirlatici-checks';
+    if (key === 'settings') fileName = 'hatirlatici-settings';
+    
+    const filePath = path.join(appDataPath, `${fileName}.json`);
+    console.log('📄 Dosya yolu:', filePath);
+    
+    // Veriyi kaydet
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    console.log(`✅ ${key} verisi kaydedildi:`, filePath);
+    
+    // Dosya boyutunu kontrol et
+    const fileStats = fs.statSync(filePath);
+    console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
+    console.log(`📅 Son güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
     
     // Settings değiştiğinde Telegram bot'u yeniden başlat
-    if (key === 'hatirlatici-settings') {
+    if (key === 'settings') {
+      console.log('🔄 Settings değişti, Telegram bot yeniden başlatılıyor...');
       setTimeout(initializeTelegramBot, 1000);
     }
     
     return true;
   } catch (error) {
-    console.error('AppData save error:', error);
+    console.error('❌ AppData save error:', error);
     return false;
   }
 });
 
 ipcMain.handle('load-app-data', async (event, key) => {
   try {
+    console.log(`📂 AppData yükleme: ${key}`);
     const appDataPath = getAppDataPath();
-    const filePath = path.join(appDataPath, `${key}.json`);
+    
+    // Dosya adlarını düzelt
+    let fileName = key;
+    if (key === 'checks') fileName = 'hatirlatici-checks';
+    if (key === 'settings') fileName = 'hatirlatici-settings';
+    
+    const filePath = path.join(appDataPath, `${fileName}.json`);
+    console.log('📄 Dosya yolu:', filePath);
     
     if (!fs.existsSync(filePath)) {
+      console.log('⚠️ Dosya bulunamadı:', filePath);
       return null;
     }
     
     const data = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
+    const parsedData = JSON.parse(data);
+    
+    // Dosya bilgilerini logla
+    const fileStats = fs.statSync(filePath);
+    console.log(`✅ ${key} verisi yüklendi:`, filePath);
+    console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
+    console.log(`📅 Son güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
+    
+    return parsedData;
   } catch (error) {
-    console.error('AppData load error:', error);
+    console.error('❌ AppData load error:', error);
     return null;
   }
 });
