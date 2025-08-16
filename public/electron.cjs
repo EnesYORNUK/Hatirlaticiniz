@@ -286,7 +286,9 @@ function sendTestMessage(chatId) {
     testMessage += '• /tumu - Tüm ödemeler\n';
     testMessage += '• /gecmis - Gecikmiş ödemeler\n';
     testMessage += '• /istatistik - İstatistikler\n\n';
-    testMessage += '🔄 Yeni sistem: Güncel veri garantisi!';
+    testMessage += '🔄 Yeni sistem: Güncel veri garantisi!\n';
+    testMessage += `📅 Veri kaynağı: ${checks.length} ödeme bulundu\n`;
+    testMessage += `⏰ Bot başlatma: ${new Date().toLocaleString('tr-TR')}`;
     
     telegramBot.sendMessage(chatId, testMessage).then(() => {
       console.log('✅ Yeni test mesajı gönderildi');
@@ -306,88 +308,121 @@ function sendTestMessage(chatId) {
 
 function getChecksData() {
   try {
-    console.log('🔄 Telegram bot için güncel veri okunuyor...');
+    console.log('🔄 Telegram bot için GÜNCEL veri okunuyor...');
     
-    // Önce AppData'dan okumaya çalış
+    // Her seferinde dosyaları yeniden oku - cache yok!
     const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
-    console.log('📂 Checks dosyası aranıyor:', checksPath);
+    const localStoragePath = path.join(getAppDataPath(), 'hatirlatici-localStorage.json');
+    
+    console.log('📂 Dosya yolları kontrol ediliyor...');
+    console.log('📄 Checks dosyası:', checksPath);
+    console.log('📄 localStorage dosyası:', localStoragePath);
     
     let checks = [];
     let dataSource = 'unknown';
+    let lastModified = null;
     
+    // 1. Önce AppData'dan okumaya çalış
     if (fs.existsSync(checksPath)) {
-      // AppData'dan oku
-      const data = fs.readFileSync(checksPath, 'utf8');
-      checks = JSON.parse(data);
-      dataSource = 'AppData';
-      console.log('📊 AppData\'dan okunan check sayısı:', checks.length);
-      
-      // Dosya son güncelleme zamanını kontrol et
-      const fileStats = fs.statSync(checksPath);
-      const lastModified = fileStats.mtime;
-      console.log('📅 AppData dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
-      console.log('📊 Dosya boyutu:', fileStats.size, 'bytes');
+      try {
+        const data = fs.readFileSync(checksPath, 'utf8');
+        const parsedData = JSON.parse(data);
+        
+        if (parsedData && Array.isArray(parsedData) && parsedData.length > 0) {
+          checks = parsedData;
+          dataSource = 'AppData';
+          
+          const fileStats = fs.statSync(checksPath);
+          lastModified = fileStats.mtime;
+          
+          console.log('✅ AppData\'dan veri yüklendi:');
+          console.log(`📊 Check sayısı: ${checks.length}`);
+          console.log(`📅 Son güncelleme: ${lastModified.toLocaleString('tr-TR')}`);
+          console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
+        } else {
+          console.log('⚠️ AppData dosyası boş veya geçersiz');
+        }
+      } catch (error) {
+        console.error('❌ AppData parse hatası:', error.message);
+      }
     } else {
-      console.log('⚠️ AppData\'da checks dosyası bulunamadı');
+      console.log('⚠️ AppData checks dosyası bulunamadı');
     }
     
-    // Eğer AppData'dan veri yoksa veya boşsa, localStorage'dan okumaya çalış
+    // 2. Eğer AppData'dan veri yoksa, localStorage'dan oku
     if (!checks || checks.length === 0) {
       console.log('🔄 localStorage\'dan veri okunmaya çalışılıyor...');
       
-      // localStorage dosyasını bul
-      const localStoragePath = path.join(getAppDataPath(), 'hatirlatici-localStorage.json');
       if (fs.existsSync(localStoragePath)) {
         try {
           const localStorageData = fs.readFileSync(localStoragePath, 'utf8');
           const localStorage = JSON.parse(localStorageData);
           
-          if (localStorage.checks) {
+          if (localStorage && localStorage.checks && Array.isArray(localStorage.checks) && localStorage.checks.length > 0) {
             checks = localStorage.checks;
             dataSource = 'localStorage';
-            console.log('📊 localStorage\'dan okunan check sayısı:', checks.length);
             
-            // localStorage dosya zamanını da kontrol et
-            const localStorageStats = fs.statSync(localStoragePath);
-            const localStorageModified = localStorageStats.mtime;
-            console.log('📅 localStorage dosya son güncelleme:', localStorageModified.toLocaleString('tr-TR'));
-            console.log('📊 Dosya boyutu:', localStorageStats.size, 'bytes');
+            const fileStats = fs.statSync(localStoragePath);
+            lastModified = fileStats.mtime;
+            
+            console.log('✅ localStorage\'dan veri yüklendi:');
+            console.log(`📊 Check sayısı: ${checks.length}`);
+            console.log(`📅 Son güncelleme: ${lastModified.toLocaleString('tr-TR')}`);
+            console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
+          } else {
+            console.log('⚠️ localStorage checks verisi boş veya geçersiz');
           }
         } catch (error) {
-          console.error('❌ localStorage okunamadı:', error.message);
+          console.error('❌ localStorage parse hatası:', error.message);
         }
+      } else {
+        console.log('⚠️ localStorage dosyası bulunamadı');
       }
     }
     
+    // 3. Veri kontrolü
     if (!checks || checks.length === 0) {
-      console.log('⚠️ Hiç check verisi bulunamadı');
+      console.log('❌ Hiç check verisi bulunamadı!');
       return [];
     }
     
-    // Veri doğrulama ve temizleme
+    // 4. Veri doğrulama ve temizleme
     const validChecks = checks.filter(check => {
-      return check && 
-             check.id && 
-             check.paymentDate && 
-             typeof check.amount === 'number' &&
-             check.createdBy &&
-             check.signedTo;
+      const isValid = check && 
+                     check.id && 
+                     check.paymentDate && 
+                     typeof check.amount === 'number' &&
+                     check.createdBy &&
+                     check.signedTo;
+      
+      if (!isValid) {
+        console.log(`⚠️ Geçersiz check filtrelendi:`, check);
+      }
+      
+      return isValid;
     });
     
-    console.log(`✅ Geçerli check sayısı: ${validChecks.length} (Kaynak: ${dataSource})`);
+    console.log(`✅ Veri doğrulama tamamlandı:`);
+    console.log(`📊 Toplam check: ${checks.length}`);
+    console.log(`📊 Geçerli check: ${validChecks.length}`);
+    console.log(`📊 Kaynak: ${dataSource}`);
+    console.log(`📅 Son güncelleme: ${lastModified ? lastModified.toLocaleString('tr-TR') : 'Bilinmiyor'}`);
     
-    // Tekrarlayan ödemeler için nextPaymentDate kontrolü
-    validChecks.forEach(check => {
+    // 5. Her check için detaylı log
+    validChecks.forEach((check, index) => {
       if (check.isRecurring && check.nextPaymentDate) {
-        console.log(`🔄 Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Ödeme: ${check.paymentDate}`);
+        const daysLeft = Math.ceil((new Date(check.nextPaymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+        console.log(`🔄 [${index + 1}] Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Gün: ${daysLeft}`);
       } else {
-        console.log(`📅 Normal: ${check.signedTo} - Ödeme: ${check.paymentDate}`);
+        const daysLeft = Math.ceil((new Date(check.paymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+        console.log(`📅 [${index + 1}] Normal: ${check.signedTo} - Ödeme: ${check.paymentDate} - Gün: ${daysLeft}`);
       }
     });
     
     return validChecks;
   } catch (error) {
-    console.error('❌ Checks verisi okunamadı:', error.message);
+    console.error('❌ getChecksData kritik hata:', error.message);
+    console.error('❌ Stack trace:', error.stack);
     return [];
   }
 }
@@ -626,7 +661,10 @@ function sendUpcomingPayments(chatId) {
 function sendAllPayments(chatId) {
   try {
     console.log('📋 Tüm ödemeler sorgulanıyor...');
+    
+    // Her seferinde GÜNCEL veriyi al
     const checks = getChecksData();
+    console.log(`🔄 Güncel veri alındı: ${checks.length} ödeme`);
     
     if (checks.length === 0) {
       const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
@@ -636,7 +674,6 @@ function sendAllPayments(chatId) {
 
     // Sadece ödenmemiş olanları göster
     const unpaidChecks = checks.filter(check => !check.isPaid);
-    
     console.log(`📊 Toplam: ${checks.length}, Ödenmemiş: ${unpaidChecks.length}`);
     
     if (unpaidChecks.length === 0) {
@@ -645,11 +682,13 @@ function sendAllPayments(chatId) {
       return;
     }
 
-    // Her ödeme için detaylı debug
-    console.log('🔍 Ödeme detayları:');
+    // Her ödeme için detaylı debug ve doğrulama
+    console.log('🔍 Ödeme detayları ve doğrulama:');
+    const validUnpaidChecks = [];
+    
     unpaidChecks.forEach((check, index) => {
       const now = new Date();
-      let checkDate, daysLeft;
+      let checkDate, daysLeft, isValid = true;
       
       if (check.isRecurring && check.nextPaymentDate) {
         checkDate = new Date(check.nextPaymentDate);
@@ -658,35 +697,56 @@ function sendAllPayments(chatId) {
         console.log(`   📅 nextPaymentDate: ${check.nextPaymentDate}`);
         console.log(`   📅 paymentDate: ${check.paymentDate}`);
         console.log(`   ⏰ Gün: ${daysLeft} (${daysLeft < 0 ? 'Gecikmiş' : 'Bekliyor'})`);
+        
+        // Tarih doğrulama
+        if (isNaN(checkDate.getTime())) {
+          console.log(`   ❌ Geçersiz nextPaymentDate: ${check.nextPaymentDate}`);
+          isValid = false;
+        }
       } else {
         checkDate = new Date(check.paymentDate);
         daysLeft = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         console.log(`${index + 1}. 📅 Normal: ${check.signedTo}`);
         console.log(`   📅 paymentDate: ${check.paymentDate}`);
         console.log(`   ⏰ Gün: ${daysLeft} (${daysLeft < 0 ? 'Gecikmiş' : 'Bekliyor'})`);
+        
+        // Tarih doğrulama
+        if (isNaN(checkDate.getTime())) {
+          console.log(`   ❌ Geçersiz paymentDate: ${check.paymentDate}`);
+          isValid = false;
+        }
+      }
+      
+      if (isValid) {
+        validUnpaidChecks.push(check);
+      } else {
+        console.log(`   ⚠️ Geçersiz check filtrelendi: ${check.signedTo}`);
       }
     });
+    
+    console.log(`✅ Geçerli ödenmemiş check sayısı: ${validUnpaidChecks.length}`);
 
     // Tarihe göre sırala
-    unpaidChecks.sort((a, b) => {
+    validUnpaidChecks.sort((a, b) => {
       const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
       const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
       return dateA - dateB;
     });
 
-    let message = `📋 Toplam ${unpaidChecks.length} bekleyen ödeme var:\n\n`;
+    let message = `📋 Toplam ${validUnpaidChecks.length} bekleyen ödeme var:\n\n`;
     
     // İlk 10 tanesini göster
-    const checksToShow = unpaidChecks.slice(0, 10);
+    const checksToShow = validUnpaidChecks.slice(0, 10);
     checksToShow.forEach((check, index) => {
       message += `${index + 1}. ${formatCheck(check)}\n\n`;
     });
 
-    if (unpaidChecks.length > 10) {
-      message += `... ve ${unpaidChecks.length - 10} ödeme daha\n\n`;
+    if (validUnpaidChecks.length > 10) {
+      message += `... ve ${validUnpaidChecks.length - 10} ödeme daha\n\n`;
     }
     
     message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+    message += `\n🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu`;
 
     telegramBot.sendMessage(chatId, message);
   } catch (error) {
