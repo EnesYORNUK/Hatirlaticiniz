@@ -138,17 +138,38 @@ function initializeTelegramBot() {
         // Bot test mesajı gönder
         if (settings.telegramChatId) {
           console.log('🧪 Test mesajı gönderiliyor...');
-          telegramBot.sendMessage(settings.telegramChatId, 
-            '🤖 Bot başlatıldı ve komutları dinliyor!\n\n' +
-            '📋 Test komutları:\n' +
-            '• /start - Yardım menüsü\n' +
-            '• /bugun - Bugün ödenecekler\n' +
-            '• /yakin - Yakın ödemeler\n' +
-            '• /tumu - Tüm ödemeler\n' +
-            '• /gecmis - Gecikmiş ödemeler\n' +
-            '• /istatistik - İstatistikler'
-          ).then(() => {
+          
+          // Güncel veri ile test mesajı
+          const checks = getChecksData();
+          const today = new Date().toDateString();
+          const todayChecks = checks.filter(check => {
+            if (check.isPaid) return false;
+            let checkDate;
+            if (check.isRecurring && check.nextPaymentDate) {
+              checkDate = new Date(check.nextPaymentDate).toDateString();
+            } else {
+              checkDate = new Date(check.paymentDate).toDateString();
+            }
+            return checkDate === today;
+          });
+          
+          let testMessage = '🤖 Bot başlatıldı ve komutları dinliyor!\n\n';
+          testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
+          testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n\n`;
+          testMessage += '📋 Test komutları:\n';
+          testMessage += '• /start - Yardım menüsü\n';
+          testMessage += '• /bugun - Bugün ödenecekler\n';
+          testMessage += '• /yakin - Yakın ödemeler\n';
+          testMessage += '• /tumu - Tüm ödemeler\n';
+          testMessage += '• /gecmis - Gecikmiş ödemeler\n';
+          testMessage += '• /istatistik - İstatistikler';
+          
+          telegramBot.sendMessage(settings.telegramChatId, testMessage).then(() => {
             console.log('✅ Test mesajı gönderildi');
+            console.log('📊 Test mesajında gösterilen veri:', {
+              totalChecks: checks.length,
+              todayChecks: todayChecks.length
+            });
           }).catch(err => {
             console.error('❌ Test mesajı gönderilemedi:', err.message);
           });
@@ -451,8 +472,18 @@ function formatCheck(check) {
     : '';
   
   const amount = check.amount.toLocaleString('tr-TR');
-  const date = new Date(check.paymentDate).toLocaleDateString('tr-TR');
-  const daysLeft = Math.ceil((new Date(check.paymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+  
+  // Tekrarlayan ödemeler için nextPaymentDate kullan, normal ödemeler için paymentDate
+  let displayDate, daysLeft;
+  if (check.isRecurring && check.nextPaymentDate) {
+    displayDate = new Date(check.nextPaymentDate).toLocaleDateString('tr-TR');
+    daysLeft = Math.ceil((new Date(check.nextPaymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+    console.log(`🔄 formatCheck - Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Gün: ${daysLeft}`);
+  } else {
+    displayDate = new Date(check.paymentDate).toLocaleDateString('tr-TR');
+    daysLeft = Math.ceil((new Date(check.paymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+    console.log(`📅 formatCheck - Normal: ${check.signedTo} - Ödeme: ${check.paymentDate} - Gün: ${daysLeft}`);
+  }
   
   let status = '';
   if (check.isPaid) {
@@ -468,7 +499,7 @@ function formatCheck(check) {
   return `${type}${typeDetails}
 💰 ${amount} TL
 🏢 ${check.signedTo}
-📅 ${date}
+📅 ${displayDate}
 ${status}`;
 }
 
@@ -484,18 +515,20 @@ function sendTodayPayments(chatId) {
       if (check.isPaid) return false;
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
-      let checkDate;
+      let checkDate, checkDateString;
       if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate).toDateString();
-        console.log(`🔄 Tekrarlayan kontrol: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Bugün: ${checkDate === today}`);
+        checkDate = new Date(check.nextPaymentDate);
+        checkDateString = checkDate.toDateString();
+        console.log(`🔄 Tekrarlayan kontrol: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Bugün: ${checkDateString === today}`);
       } else {
-        checkDate = new Date(check.paymentDate).toDateString();
-        console.log(`📅 Normal kontrol: ${check.signedTo} - Ödeme: ${check.paymentDate} - Bugün: ${checkDate === today}`);
+        checkDate = new Date(check.paymentDate);
+        checkDateString = checkDate.toDateString();
+        console.log(`📅 Normal kontrol: ${check.signedTo} - Ödeme: ${check.paymentDate} - Bugün: ${checkDateString === today}`);
       }
       
-      const isToday = checkDate === today;
+      const isToday = checkDateString === today;
       if (isToday) {
-        console.log(`✅ Bugün: ${check.signedTo} - ${check.amount} TL`);
+        console.log(`✅ Bugün: ${check.signedTo} - ${check.amount} TL - Tarih: ${checkDateString}`);
       }
       
       return isToday;
