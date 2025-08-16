@@ -638,6 +638,28 @@ function sendAllPayments(chatId) {
       return;
     }
 
+    // Her ödeme için detaylı debug
+    console.log('🔍 Ödeme detayları:');
+    unpaidChecks.forEach((check, index) => {
+      const now = new Date();
+      let checkDate, daysLeft;
+      
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+        daysLeft = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        console.log(`${index + 1}. 🔄 Tekrarlayan: ${check.signedTo}`);
+        console.log(`   📅 nextPaymentDate: ${check.nextPaymentDate}`);
+        console.log(`   📅 paymentDate: ${check.paymentDate}`);
+        console.log(`   ⏰ Gün: ${daysLeft} (${daysLeft < 0 ? 'Gecikmiş' : 'Bekliyor'})`);
+      } else {
+        checkDate = new Date(check.paymentDate);
+        daysLeft = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        console.log(`${index + 1}. 📅 Normal: ${check.signedTo}`);
+        console.log(`   📅 paymentDate: ${check.paymentDate}`);
+        console.log(`   ⏰ Gün: ${daysLeft} (${daysLeft < 0 ? 'Gecikmiş' : 'Bekliyor'})`);
+      }
+    });
+
     // Tarihe göre sırala
     unpaidChecks.sort((a, b) => {
       const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);

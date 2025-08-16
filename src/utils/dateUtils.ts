@@ -37,16 +37,26 @@ export function formatCurrencyResponsive(amount: number, isSmallScreen: boolean 
   return formatCurrency(amount);
 }
 
-export function getDaysUntilPayment(paymentDate: string): number {
+export function getDaysUntilPayment(paymentDate: string, nextPaymentDate?: string, isRecurring?: boolean): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Saat dilimi sorunlarını önlemek için
 
-  const payment = new Date(paymentDate);
-  payment.setHours(0, 0, 0, 0);
+  // Tekrarlayan ödemeler için nextPaymentDate kullan
+  let targetDate: Date;
+  if (isRecurring && nextPaymentDate) {
+    targetDate = new Date(nextPaymentDate);
+    console.log(`🔄 getDaysUntilPayment - Tekrarlayan: ${nextPaymentDate}`);
+  } else {
+    targetDate = new Date(paymentDate);
+    console.log(`📅 getDaysUntilPayment - Normal: ${paymentDate}`);
+  }
+  
+  targetDate.setHours(0, 0, 0, 0);
 
-  const diffTime = payment.getTime() - today.getTime();
+  const diffTime = targetDate.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
+  console.log(`⏰ Gün hesaplama: ${diffDays} gün`);
   return diffDays;
 }
 

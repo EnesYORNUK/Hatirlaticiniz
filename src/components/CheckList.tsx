@@ -43,7 +43,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     if (filter === 'all') return true;
     if (filter === 'paid') return check.isPaid;
     if (filter === 'unpaid') return !check.isPaid;
-    if (filter === 'overdue') return !check.isPaid && getDaysUntilPayment(check.paymentDate) < 0;
+    if (filter === 'overdue') return !check.isPaid && getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring) < 0;
     return true;
   });
 
