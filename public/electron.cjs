@@ -235,18 +235,46 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
 
 function getChecksData() {
   try {
+    // Önce AppData'dan okumaya çalış
     const checksPath = path.join(getAppDataPath(), 'hatirlatici-checks.json');
     console.log('📂 Checks dosyası aranıyor:', checksPath);
     
-    if (!fs.existsSync(checksPath)) {
-      console.log('⚠️ Checks dosyası bulunamadı, localStorage\'dan okunamaz');
-      return [];
+    let checks = [];
+    
+    if (fs.existsSync(checksPath)) {
+      // AppData'dan oku
+      const data = fs.readFileSync(checksPath, 'utf8');
+      checks = JSON.parse(data);
+      console.log('📊 AppData\'dan okunan check sayısı:', checks.length);
+    } else {
+      console.log('⚠️ AppData\'da checks dosyası bulunamadı');
     }
     
-    // Her çağrıda dosyayı yeniden oku (güncel veri için)
-    const data = fs.readFileSync(checksPath, 'utf8');
-    const checks = JSON.parse(data);
-    console.log('📊 Bulunan check sayısı:', checks.length);
+    // Eğer AppData'dan veri yoksa veya boşsa, localStorage'dan okumaya çalış
+    if (!checks || checks.length === 0) {
+      console.log('🔄 localStorage\'dan veri okunmaya çalışılıyor...');
+      
+      // localStorage dosyasını bul
+      const localStoragePath = path.join(getAppDataPath(), 'hatirlatici-localStorage.json');
+      if (fs.existsSync(localStoragePath)) {
+        try {
+          const localStorageData = fs.readFileSync(localStoragePath, 'utf8');
+          const localStorage = JSON.parse(localStorageData);
+          
+          if (localStorage.checks) {
+            checks = localStorage.checks;
+            console.log('📊 localStorage\'dan okunan check sayısı:', checks.length);
+          }
+        } catch (error) {
+          console.error('❌ localStorage okunamadı:', error.message);
+        }
+      }
+    }
+    
+    if (!checks || checks.length === 0) {
+      console.log('⚠️ Hiç check verisi bulunamadı');
+      return [];
+    }
     
     // Veri doğrulama ve temizleme
     const validChecks = checks.filter(check => {
@@ -261,9 +289,18 @@ function getChecksData() {
     console.log('✅ Geçerli check sayısı:', validChecks.length);
     
     // Veri güncelliğini kontrol et
-    const fileStats = fs.statSync(checksPath);
-    const lastModified = fileStats.mtime;
-    console.log('📅 Dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
+    if (fs.existsSync(checksPath)) {
+      const fileStats = fs.statSync(checksPath);
+      const lastModified = fileStats.mtime;
+      console.log('📅 AppData dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
+    }
+    
+    // Son güncelleme zamanını ekle
+    validChecks.forEach(check => {
+      if (check.isRecurring && check.nextPaymentDate) {
+        console.log(`🔄 Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate}`);
+      }
+    });
     
     return validChecks;
   } catch (error) {
@@ -274,12 +311,45 @@ function getChecksData() {
 
 function getSettingsData() {
   try {
+    // Önce AppData'dan okumaya çalış
     const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
     console.log('📂 Settings dosyası aranıyor:', settingsPath);
     
-    if (!fs.existsSync(settingsPath)) {
-      console.log('⚠️ Settings dosyası bulunamadı, default değerler kullanılıyor');
-      return {
+    let settings = null;
+    
+    if (fs.existsSync(settingsPath)) {
+      // AppData'dan oku
+      const data = fs.readFileSync(settingsPath, 'utf8');
+      settings = JSON.parse(data);
+      console.log('✅ AppData\'dan settings yüklendi');
+    } else {
+      console.log('⚠️ AppData\'da settings dosyası bulunamadı');
+    }
+    
+    // Eğer AppData'dan veri yoksa, localStorage'dan okumaya çalış
+    if (!settings) {
+      console.log('🔄 localStorage\'dan settings okunmaya çalışılıyor...');
+      
+      const localStoragePath = path.join(getAppDataPath(), 'hatirlatici-localStorage.json');
+      if (fs.existsSync(localStoragePath)) {
+        try {
+          const localStorageData = fs.readFileSync(localStoragePath, 'utf8');
+          const localStorage = JSON.parse(localStorageData);
+          
+          if (localStorage.settings) {
+            settings = localStorage.settings;
+            console.log('✅ localStorage\'dan settings yüklendi');
+          }
+        } catch (error) {
+          console.error('❌ localStorage settings okunamadı:', error.message);
+        }
+      }
+    }
+    
+    // Default değerler
+    if (!settings) {
+      console.log('⚠️ Settings bulunamadı, default değerler kullanılıyor');
+      settings = {
         reminderDays: 3,
         notificationsEnabled: true,
         autoUpdateEnabled: true,
@@ -293,16 +363,14 @@ function getSettingsData() {
       };
     }
     
-    // Her çağrıda dosyayı yeniden oku (güncel veri için)
-    const data = fs.readFileSync(settingsPath, 'utf8');
-    const settings = JSON.parse(data);
-    console.log('✅ Settings yüklendi');
-    
     // Veri güncelliğini kontrol et
-    const fileStats = fs.statSync(settingsPath);
-    const lastModified = fileStats.mtime;
-    console.log('📅 Settings son güncelleme:', lastModified.toLocaleString('tr-TR'));
+    if (fs.existsSync(settingsPath)) {
+      const fileStats = fs.statSync(settingsPath);
+      const lastModified = fileStats.mtime;
+      console.log('📅 Settings son güncelleme:', lastModified.toLocaleString('tr-TR'));
+    }
     
+    console.log('📅 Reminder günleri:', settings.reminderDays);
     return settings;
   } catch (error) {
     console.error('❌ Settings verisi okunamadı:', error.message);
