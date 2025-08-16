@@ -131,14 +131,37 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     .reduce((max, check) => check.amount > max.amount ? check : max, 
       { amount: 0, signedTo: '-', paymentDate: '' } as Check);
   
+  // Bekleyen ödemeler (gecikenler hariç - sadece henüz vadesi gelmemiş olanlar)
+  const getPendingChecks = () => {
+    return checks.filter(check => {
+      if (check.isPaid) return false;
+      
+      // Tekrarlayan ödemeler için nextPaymentDate kullan
+      let checkDate: Date;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate);
+      } else {
+        checkDate = new Date(check.paymentDate);
+      }
+      
+      const now = new Date();
+      const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Sadece henüz vadesi gelmemiş olanlar (gecikenler hariç)
+      return daysUntil >= 0;
+    });
+  };
+  
+  const pendingChecks = getPendingChecks();
+  
   const stats = {
     total: dashboardChecks.length,
     paid: dashboardChecks.filter(c => c.isPaid).length,
-    unpaid: dashboardChecks.filter(c => !c.isPaid).length,
+    unpaid: pendingChecks.length, // Gecikenler hariç bekleyen ödemeler
     overdue: dashboardChecks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).length,
     totalAmount: dashboardChecks.reduce((sum, c) => sum + c.amount, 0),
     paidAmount: dashboardChecks.filter(c => c.isPaid).reduce((sum, c) => sum + c.amount, 0),
-    unpaidAmount: dashboardChecks.filter(c => !c.isPaid).reduce((sum, c) => sum + c.amount, 0),
+    unpaidAmount: pendingChecks.reduce((sum, c) => sum + c.amount, 0), // Gecikenler hariç
     overdueAmount: dashboardChecks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate) < 0).reduce((sum, c) => sum + c.amount, 0),
     thisWeek: thisWeekChecks.length,
     thisWeekAmount: thisWeekChecks.reduce((sum, c) => sum + c.amount, 0),

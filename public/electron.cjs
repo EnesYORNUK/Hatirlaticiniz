@@ -243,6 +243,7 @@ function getChecksData() {
       return [];
     }
     
+    // Her çağrıda dosyayı yeniden oku (güncel veri için)
     const data = fs.readFileSync(checksPath, 'utf8');
     const checks = JSON.parse(data);
     console.log('📊 Bulunan check sayısı:', checks.length);
@@ -258,6 +259,12 @@ function getChecksData() {
     });
     
     console.log('✅ Geçerli check sayısı:', validChecks.length);
+    
+    // Veri güncelliğini kontrol et
+    const fileStats = fs.statSync(checksPath);
+    const lastModified = fileStats.mtime;
+    console.log('📅 Dosya son güncelleme:', lastModified.toLocaleString('tr-TR'));
+    
     return validChecks;
   } catch (error) {
     console.error('❌ Checks verisi okunamadı:', error.message);
@@ -286,9 +293,16 @@ function getSettingsData() {
       };
     }
     
+    // Her çağrıda dosyayı yeniden oku (güncel veri için)
     const data = fs.readFileSync(settingsPath, 'utf8');
     const settings = JSON.parse(data);
     console.log('✅ Settings yüklendi');
+    
+    // Veri güncelliğini kontrol et
+    const fileStats = fs.statSync(settingsPath);
+    const lastModified = fileStats.mtime;
+    console.log('📅 Settings son güncelleme:', lastModified.toLocaleString('tr-TR'));
+    
     return settings;
   } catch (error) {
     console.error('❌ Settings verisi okunamadı:', error.message);
@@ -363,7 +377,7 @@ function sendTodayPayments(chatId) {
     console.log('📊 Bugün ödenecek sayısı:', todayChecks.length);
 
     if (todayChecks.length === 0) {
-      const message = '🎉 Bugün ödenecek çek/fatura yok!';
+      const message = '🎉 Bugün ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
       telegramBot.sendMessage(chatId, message);
       return;
     }
@@ -372,6 +386,8 @@ function sendTodayPayments(chatId) {
     todayChecks.forEach((check, index) => {
       message += `${index + 1}. ${formatCheck(check)}\n\n`;
     });
+    
+    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
 
     telegramBot.sendMessage(chatId, message);
   } catch (error) {
@@ -421,7 +437,7 @@ function sendUpcomingPayments(chatId) {
     console.log('📊 Yakın ödeme sayısı:', upcomingChecks.length);
 
     if (upcomingChecks.length === 0) {
-      const message = `🎉 Önümüzdeki ${reminderDays} günde ödenecek çek/fatura yok!`;
+      const message = `🎉 Önümüzdeki ${reminderDays} günde ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
       telegramBot.sendMessage(chatId, message);
       return;
     }
@@ -430,6 +446,8 @@ function sendUpcomingPayments(chatId) {
     upcomingChecks.forEach((check, index) => {
       message += `${index + 1}. ${formatCheck(check)}\n\n`;
     });
+    
+    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
 
     telegramBot.sendMessage(chatId, message);
   } catch (error) {
@@ -444,7 +462,7 @@ function sendAllPayments(chatId) {
     const checks = getChecksData();
     
     if (checks.length === 0) {
-      const message = '📭 Henüz hiç ödeme eklenmemiş.';
+      const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
       telegramBot.sendMessage(chatId, message);
       return;
     }
@@ -455,7 +473,7 @@ function sendAllPayments(chatId) {
     console.log(`📊 Toplam: ${checks.length}, Ödenmemiş: ${unpaidChecks.length}`);
     
     if (unpaidChecks.length === 0) {
-      const message = '🎉 Tüm ödemeler tamamlandı!';
+      const message = '🎉 Tüm ödemeler tamamlandı!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
       telegramBot.sendMessage(chatId, message);
       return;
     }
@@ -476,8 +494,10 @@ function sendAllPayments(chatId) {
     });
 
     if (unpaidChecks.length > 10) {
-      message += `... ve ${unpaidChecks.length - 10} ödeme daha`;
+      message += `... ve ${unpaidChecks.length - 10} ödeme daha\n\n`;
     }
+    
+    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
 
     telegramBot.sendMessage(chatId, message);
   } catch (error) {
@@ -522,7 +542,7 @@ function sendOverduePayments(chatId) {
     console.log('📊 Gecikmiş ödeme sayısı:', overdueChecks.length);
 
     if (overdueChecks.length === 0) {
-      const message = '🎉 Gecikmiş ödeme yok!';
+      const message = '🎉 Gecikmiş ödeme yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
       telegramBot.sendMessage(chatId, message);
       return;
     }
@@ -531,6 +551,8 @@ function sendOverduePayments(chatId) {
     overdueChecks.forEach((check, index) => {
       message += `${index + 1}. ${formatCheck(check)}\n\n`;
     });
+    
+    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
 
     telegramBot.sendMessage(chatId, message);
   } catch (error) {
@@ -545,7 +567,7 @@ function sendStatistics(chatId) {
     const checks = getChecksData();
     
     if (checks.length === 0) {
-      const message = '📭 Henüz hiç ödeme eklenmemiş.';
+      const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
       telegramBot.sendMessage(chatId, message);
       return;
     }
