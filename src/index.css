@@ -67,119 +67,119 @@ p {
   line-height: 1.6;
 }
 
-/* 🎨 Modern Tema Sistemi - Yüksek Kontrast */
+/* 🎨 Modern Tema Sistemi - Soft & Comfortable */
 :root {
-  /* 🌅 Light Theme - Modern & Clean */
-  --color-primary: #2563EB;
-  --color-primary-dark: #1D4ED8;
-  --color-secondary: #059669;
-  --color-accent: #D97706;
-  --color-background: #FFFFFF;
-  --color-background-secondary: #F8FAFC;
+  /* 🌅 Light Theme - Soft & Clean */
+  --color-primary: #4F46E5;
+  --color-primary-dark: #3730A3;
+  --color-secondary: #10B981;
+  --color-accent: #F59E0B;
+  --color-background: #FEFEFE;
+  --color-background-secondary: #F9FAFB;
   --color-surface: #FFFFFF;
-  --color-border: #E2E8F0;
-  --color-text: #0F172A;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748B;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  --color-border: #E5E7EB;
+  --color-text: #1F2937;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
-/* 🌙 Dark Theme */
+/* 🌙 Dark Theme - Soft & Warm */
 [data-theme="dark"] {
-  --color-primary: #60A5FA;
-  --color-primary-dark: #3B82F6;
+  --color-primary: #6366F1;
+  --color-primary-dark: #4F46E5;
   --color-secondary: #34D399;
   --color-accent: #FBBF24;
-  --color-background: #0F172A;
-  --color-background-secondary: #1E293B;
-  --color-surface: #334155;
-  --color-border: #475569;
-  --color-text: #F8FAFC;
-  --color-text-secondary: #E2E8F0;
-  --color-text-muted: #CBD5E1;
-  --color-success: #22C55E;
-  --color-warning: #FCD34D;
+  --color-background: #111827;
+  --color-background-secondary: #1F2937;
+  --color-surface: #374151;
+  --color-border: #4B5563;
+  --color-text: #F9FAFB;
+  --color-text-secondary: #D1D5DB;
+  --color-text-muted: #9CA3AF;
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
   --color-error: #F87171;
   --color-info: #60A5FA;
 }
 
-/* 🔵 Blue Theme */
+/* 🔵 Blue Theme - Soft Ocean */
 [data-theme="blue"] {
-  --color-primary: #1E40AF;
-  --color-primary-dark: #1D4ED8;
-  --color-secondary: #0284C7;
-  --color-accent: #0891B2;
-  --color-background: #F0F9FF;
-  --color-background-secondary: #E0F2FE;
+  --color-primary: #3B82F6;
+  --color-primary-dark: #2563EB;
+  --color-secondary: #06B6D4;
+  --color-accent: #0EA5E9;
+  --color-background: #F8FAFC;
+  --color-background-secondary: #F1F5F9;
   --color-surface: #FFFFFF;
-  --color-border: #7DD3FC;
-  --color-text: #0C4A6E;
-  --color-text-secondary: #0369A1;
-  --color-text-muted: #0284C7;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  --color-border: #CBD5E1;
+  --color-text: #1E293B;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
-/* 🟢 Green Theme */
+/* 🟢 Green Theme - Soft Nature */
 [data-theme="green"] {
-  --color-primary: #15803D;
-  --color-primary-dark: #166534;
-  --color-secondary: #059669;
-  --color-accent: #65A30D;
-  --color-background: #F0FDF4;
-  --color-background-secondary: #DCFCE7;
+  --color-primary: #22C55E;
+  --color-primary-dark: #16A34A;
+  --color-secondary: #10B981;
+  --color-accent: #84CC16;
+  --color-background: #F9FDF9;
+  --color-background-secondary: #F0FDF4;
   --color-surface: #FFFFFF;
-  --color-border: #86EFAC;
-  --color-text: #14532D;
-  --color-text-secondary: #166534;
-  --color-text-muted: #059669;
-  --color-success: #15803D;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  --color-border: #D1FAE5;
+  --color-text: #1F2937;
+  --color-text-secondary: #374151;
+  --color-text-muted: #6B7280;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
-/* 🟠 Orange Theme */
+/* 🟠 Orange Theme - Soft Sunset */
 [data-theme="orange"] {
-  --color-primary: #C2410C;
-  --color-primary-dark: #9A3412;
-  --color-secondary: #EA580C;
-  --color-accent: #F97316;
-  --color-background: #FFF7ED;
-  --color-background-secondary: #FFEDD5;
+  --color-primary: #F97316;
+  --color-primary-dark: #EA580C;
+  --color-secondary: #FB923C;
+  --color-accent: #FBBF24;
+  --color-background: #FFFBF5;
+  --color-background-secondary: #FEF3E2;
   --color-surface: #FFFFFF;
-  --color-border: #FBD5AA;
-  --color-text: #9A3412;
-  --color-text-secondary: #C2410C;
-  --color-text-muted: #EA580C;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  --color-border: #FED7AA;
+  --color-text: #1F2937;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #6B7280;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
-/* 🟣 Purple Theme */
+/* 🟣 Purple Theme - Soft Lavender */
 [data-theme="purple"] {
-  --color-primary: #7C3AED;
-  --color-primary-dark: #6D28D9;
-  --color-secondary: #8B5CF6;
-  --color-accent: #A78BFA;
-  --color-background: #FAF5FF;
-  --color-background-secondary: #F3E8FF;
+  --color-primary: #8B5CF6;
+  --color-primary-dark: #7C3AED;
+  --color-secondary: #A78BFA;
+  --color-accent: #C4B5FD;
+  --color-background: #FDFAFF;
+  --color-background-secondary: #F9F5FF;
   --color-surface: #FFFFFF;
-  --color-border: #C4B5FD;
-  --color-text: #581C87;
-  --color-text-secondary: #6D28D9;
-  --color-text-muted: #7C3AED;
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  --color-border: #E9D5FF;
+  --color-text: #1F2937;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #6B7280;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
 }
 
 /* 🎨 Utility Classes */
@@ -247,7 +247,7 @@ p {
 
 .theme-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
   outline: none;
 }
 
@@ -287,8 +287,8 @@ select.theme-input option {
 .theme-button:hover {
   background-color: var(--color-primary-dark);
   border-color: var(--color-primary-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .theme-button:active {
@@ -320,8 +320,8 @@ select.theme-input option {
 .theme-button-secondary:hover {
   background-color: var(--color-background-secondary);
   border-color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
 }
 
 .theme-button-secondary:active {
@@ -340,8 +340,8 @@ select.theme-input option {
 
 /* Card hover effects - Subtle */
 .theme-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: translateY(-0.5px);
 }
 
 /* Modern Scrollbar */
@@ -414,7 +414,7 @@ select.theme-input option {
 }
 
 [data-theme="dark"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 [data-theme="dark"] select.theme-input option {
@@ -427,7 +427,7 @@ select.theme-input option {
 }
 
 [data-theme="dark"] .theme-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* 🌟 Smooth transitions */
