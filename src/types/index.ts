@@ -40,18 +40,28 @@ export interface Settings {
   telegramBotToken: string;
   telegramChatId: string;
   theme: ThemeType; // 🎨 Yeni tema seçeneği
+  // 💊 Hap sistemi ayarları
+  medicationNotificationsEnabled: boolean;
+  medicationReminderMinutes: number; // Kaç dakika önce hatırlatsın
+  showMedicationsInDashboard: boolean;
+  medicationSoundEnabled: boolean;
 }
 
 // Bildirim geçmişi için yeni interface
 export interface NotificationHistory {
   checkId: string;
-  notificationType: 'reminder' | 'due-today' | 'daily';
+  notificationType: 'reminder' | 'due-today' | 'daily' | 'medication'; // Hap bildirimi eklendi
   sentAt: string; // ISO string
   paymentDate: string; // Hangi ödeme tarihi için gönderildi
+  medicationId?: string; // Hap bildirimi için
 }
 
 export interface NotificationData {
   title: string;
   body: string;
   icon?: string;
+  type?: 'payment' | 'medication'; // Bildirim türü
 }
+
+// Hap sistemi export'ları
+export * from './medication';

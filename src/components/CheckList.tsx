@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Check } from '../types';
 import { formatDate, getDaysUntilPayment } from '../utils/dateUtils';
-import { Edit2, Trash2, CheckCircle, Circle, Calendar, User, Banknote, Search, CreditCard, Receipt } from 'lucide-react';
+import { Edit2, Trash2, CheckCircle, Circle, Calendar, User, Banknote, Search, CreditCard, Receipt, Pill, Clock } from 'lucide-react';
+import { useMedications } from '../hooks/useMedications';
+import { DailyMedicationSchedule } from '../types/medication';
 
 interface CheckListProps {
   checks: Check[];
@@ -15,9 +17,20 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dashboardPeriod, setDashboardPeriod] = useState<string>('all'); // all, thisMonth, thisYear
   const [dashboardWidgets, setDashboardWidgets] = useState<string[]>([
-    'total', 'paid', 'unpaid', 'overdue', 'insights'
+    'total', 'paid', 'unpaid', 'overdue', 'todayMedications', 'insights'
   ]);
   const [showDashboardEditor, setShowDashboardEditor] = useState<boolean>(false);
+
+  // İlaç hook'u
+  const {
+    getTodaySchedule,
+    getStats: getMedicationStats,
+    markMedicationTaken
+  } = useMedications();
+
+  // İlaç verileri
+  const todayMedicationSchedule = getTodaySchedule();
+  const medicationStats = getMedicationStats();
 
   const availableWidgets = [
     { id: 'total', label: 'Toplam Ödemeler', description: 'Toplam ödeme sayısı ve tutarı' },
@@ -28,6 +41,9 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     { id: 'thisMonth', label: 'Bu Ay Detay', description: 'Bu ayki ödemeler detayı' },
     { id: 'recurring', label: 'Tekrarlayan', description: 'Tekrarlayan ödemeler' },
     { id: 'biggestPayment', label: 'En Büyük Ödeme', description: 'En yüksek tutarlı ödeme' },
+    { id: 'todayMedications', label: 'Bugünün İlaçları', description: 'Bugün alınacak ilaçlar' },
+    { id: 'medicationStats', label: 'İlaç İstatistikleri', description: 'İlaç uyum oranları' },
+    { id: 'weeklyMedications', label: 'Haftalık İlaç Program', description: 'Bu haftanın ilaç programı' },
     { id: 'insights', label: 'İstatistikler', description: 'Ödeme oranı, ortalama vs.' },
   ];
 
@@ -327,11 +343,84 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           </div>
         );
 
+      case 'todayMedications':
+        return (
+          <div key="todayMedications" className="theme-surface p-4 rounded-lg shadow-sm border theme-border bg-blue-50 dark:bg-blue-900/20 col-span-full">
+            <div className="flex items-center gap-2 mb-3">
+              <Pill className="w-5 h-5 text-blue-600" />
+              <h4 className="font-medium text-blue-700 dark:text-blue-300">Bugünün İlaçları</h4>
+            </div>
+            
+            {todayMedicationSchedule.medications.length === 0 ? (
+              <p className="text-blue-600 dark:text-blue-400 text-sm text-center py-2">
+                Bugün ilaç programı yok
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {todayMedicationSchedule.medications.slice(0, 3).map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-blue-500" />
+                      <span className="font-medium">{item.medication.name}</span>
+                      <span className="text-gray-600">({item.medication.dosage})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">{item.scheduledTime}</span>
+                      {item.status === 'taken' ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : item.status === 'missed' ? (
+                        <div className="w-4 h-4 rounded-full bg-red-500" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {todayMedicationSchedule.medications.length > 3 && (
+                  <p className="text-xs text-blue-600 text-center">
+                    +{todayMedicationSchedule.medications.length - 3} daha var
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'medicationStats':
+        return (
+          <div key="medicationStats" className="theme-surface p-4 rounded-lg shadow-sm border theme-border bg-green-50 dark:bg-green-900/20">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {medicationStats.takenToday}/{medicationStats.todayCount}
+              </div>
+              <div className="text-xs text-green-700 dark:text-green-300 mb-1">Bugün Alınan</div>
+              <div className="text-sm font-medium text-green-700 dark:text-green-300">
+                %{medicationStats.todayCount > 0 ? Math.round((medicationStats.takenToday / medicationStats.todayCount) * 100) : 0} Uyum
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'weeklyMedications':
+        return (
+          <div key="weeklyMedications" className="theme-surface p-4 rounded-lg shadow-sm border theme-border bg-purple-50 dark:bg-purple-900/20">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                %{medicationStats.weeklyCompliance}
+              </div>
+              <div className="text-xs text-purple-700 dark:text-purple-300 mb-1">Bu Hafta Uyum</div>
+              <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                {medicationStats.activeMedications} Aktif İlaç
+              </div>
+            </div>
+          </div>
+        );
+
       case 'insights':
         return (
           <div key="insights" className="theme-surface p-4 rounded-lg shadow-sm border theme-border col-span-full">
             <h4 className="font-medium theme-text mb-3">Detaylı İstatistikler</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
               <div className="theme-bg-secondary p-3 rounded-lg">
                 <div className="font-medium theme-text">Ödeme Oranı</div>
                 <div className="text-green-600 dark:text-green-400 font-bold">
@@ -348,6 +437,12 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                 <div className="font-medium theme-text">Kalan Borç</div>
                 <div className="text-red-600 dark:text-red-400 font-bold">
                   {stats.unpaidAmount.toLocaleString('tr-TR')} ₺
+                </div>
+              </div>
+              <div className="theme-bg-secondary p-3 rounded-lg">
+                <div className="font-medium theme-text">İlaç Uyumu</div>
+                <div className="text-blue-600 dark:text-blue-400 font-bold">
+                  %{medicationStats.weeklyCompliance}
                 </div>
               </div>
             </div>

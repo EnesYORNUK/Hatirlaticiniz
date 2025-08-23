@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, Clock, AlertCircle, ArrowDownCircle } from 'lucide-react';
+import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, Clock, AlertCircle, ArrowDownCircle, Pill } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -304,6 +304,93 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               />
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Medication Notifications */}
+      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
+        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
+          <Pill className="w-4 h-4" />
+          İlaç Bildirimleri
+        </h2>
+        
+        <div className="space-y-4">
+          
+          {/* İlaç Bildirimleri Aktif/Pasif */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">İlaç Hatırlatmaları</div>
+              <div className="theme-text-muted text-sm">İlaç zamanları geldiğinde bildirim al</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.medicationNotificationsEnabled || false}
+                onChange={(e) => handleSettingChange('medicationNotificationsEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* İlaç Hatırlatma Süresi */}
+          {(settings.medicationNotificationsEnabled || false) && (
+            <div className="pl-4 border-l-2 border-blue-200 space-y-3">
+              <div>
+                <label className="theme-text text-sm font-medium block mb-2">
+                  Kaç dakika önceden hatırlat?
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={settings.medicationReminderMinutes || 15}
+                    onChange={(e) => handleSettingChange('medicationReminderMinutes', parseInt(e.target.value) || 15)}
+                    className="theme-input w-20 text-center"
+                  />
+                  <span className="theme-text text-sm">dakika önceden</span>
+                </div>
+                <p className="text-xs theme-text-muted mt-1">
+                  0-120 dakika arasında bir değer girebilirsiniz
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Dashboard'da İlaç Gösterimi */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">Dashboard'da İlaç Widget'ları</div>
+              <div className="theme-text-muted text-sm">Ana sayfada ilaç bilgilerini göster</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.showMedicationsInDashboard !== false}
+                onChange={(e) => handleSettingChange('showMedicationsInDashboard', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* İlaç Bildirimi Ses */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">Bildirim Sesi</div>
+              <div className="theme-text-muted text-sm">İlaç hatırlatmalarında ses çal</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.medicationSoundEnabled !== false}
+                onChange={(e) => handleSettingChange('medicationSoundEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
         </div>
       </div>
 

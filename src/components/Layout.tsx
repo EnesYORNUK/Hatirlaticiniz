@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Plus, Settings, List } from 'lucide-react';
+import { LayoutGrid, Plus, Settings, List, Pill, Calendar, PlusCircle } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,15 +11,33 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   const menuItems = [
     { 
       id: 'list', 
-      label: 'Ödemelerim', 
-      icon: List,
+      label: 'Dashboard', 
+      icon: LayoutGrid,
       description: 'Tüm çek ve faturaları görüntüle'
     },
     { 
+      id: 'daily-schedule', 
+      label: 'Günlük Program', 
+      icon: Calendar,
+      description: 'Bugünün ilaç ve ödeme programı'
+    },
+    { 
+      id: 'medications', 
+      label: 'İlaçlarım', 
+      icon: Pill,
+      description: 'İlaç takip sistemi'
+    },
+    { 
       id: 'add', 
-      label: 'Yeni Ekle', 
+      label: 'Yeni Ödeme', 
       icon: Plus,
       description: 'Çek veya fatura ekle'
+    },
+    { 
+      id: 'add-medication', 
+      label: 'Yeni İlaç', 
+      icon: PlusCircle,
+      description: 'İlaç ekle ve program oluştur'
     },
     { 
       id: 'settings', 

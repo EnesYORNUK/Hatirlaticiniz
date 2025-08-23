@@ -4,9 +4,14 @@ import CheckList from './components/CheckList';
 import CheckForm from './components/CheckForm';
 import Settings from './components/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
+import MedicationForm from './components/MedicationForm';
+import MedicationList from './components/MedicationList';
+import DailySchedule from './components/DailySchedule';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useElectronNotifications } from './hooks/useElectronNotifications';
+import { useMedications } from './hooks/useMedications';
 import { Check, Settings as SettingsType, ThemeType } from './types';
+import { Medication } from './types/medication';
 
 const defaultSettings: SettingsType = {
   reminderDays: 3,
@@ -21,14 +26,30 @@ const defaultSettings: SettingsType = {
   telegramBotToken: '', // Bot token (@BotFather'dan alınan)
   telegramChatId: '', // Kullanıcının chat ID'si
   theme: 'light' as ThemeType, // 🎨 Default theme
+  // 💊 Hap sistemi ayarları
+  medicationNotificationsEnabled: true,
+  medicationReminderMinutes: 15,
+  showMedicationsInDashboard: true,
+  medicationSoundEnabled: true,
 };
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('list');
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
+  const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   
   const [checks, setChecks] = useLocalStorage<Check[]>('checks', []);
   const [settings, setSettings] = useLocalStorage<SettingsType>('settings', defaultSettings);
+  
+  // İlaç hook'u
+  const {
+    medications,
+    getTodaySchedule,
+    addMedication,
+    updateMedication,
+    deleteMedication,
+    markMedicationTaken
+  } = useMedications();
   
   // Bildirim hook'u
   useElectronNotifications(checks, settings);
@@ -98,6 +119,56 @@ export default function App() {
     setCurrentPage('add');
   };
 
+  // İlaç işlemleri
+  const handleAddMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>) => {
+    await addMedication(medicationData);
+    setCurrentPage('medications');
+  };
+
+  const handleEditMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>) => {
+    if (!editingMedication) return;
+    await updateMedication(editingMedication.id, medicationData);
+    setEditingMedication(null);
+    setCurrentPage('medications');
+  };
+
+  const handleDeleteMedication = async (id: string) => {
+    if (window.confirm('Bu hapı silmek istediğinizden emin misiniz?')) {
+      await deleteMedication(id);
+    }
+  };
+
+  const handleToggleMedicationActive = async (id: string, isActive: boolean) => {
+    await updateMedication(id, { isActive });
+  };
+
+  const handleEditMedicationClick = (medication: Medication) => {
+    setEditingMedication(medication);
+    setCurrentPage('add-medication');
+  };
+
+  // Ödeme olarak işaretle (günlük programdan)
+  const handleMarkPaymentPaid = async (paymentId: string) => {
+    await handleTogglePaid(paymentId);
+  };
+
+  // Bugünkü ödemeleri getir
+  const getTodayPayments = () => {
+    const today = new Date().toDateString();
+    return checks.filter(check => {
+      if (check.isPaid) return false;
+      
+      let checkDate;
+      if (check.isRecurring && check.nextPaymentDate) {
+        checkDate = new Date(check.nextPaymentDate).toDateString();
+      } else {
+        checkDate = new Date(check.paymentDate).toDateString();
+      }
+      
+      return checkDate === today;
+    });
+  };
+
   const handleSaveSettings = async (newSettings: SettingsType) => {
     await setSettings(newSettings);
   };
@@ -159,6 +230,35 @@ export default function App() {
               setCurrentPage('list');
             }}
             initialData={editingCheck || undefined}
+          />
+        );
+      case 'add-medication':
+        return (
+          <MedicationForm
+            onSave={editingMedication ? handleEditMedication : handleAddMedication}
+            onCancel={() => {
+              setEditingMedication(null);
+              setCurrentPage('medications');
+            }}
+            initialData={editingMedication || undefined}
+          />
+        );
+      case 'medications':
+        return (
+          <MedicationList
+            medications={medications}
+            onEdit={handleEditMedicationClick}
+            onDelete={handleDeleteMedication}
+            onToggleActive={handleToggleMedicationActive}
+          />
+        );
+      case 'daily-schedule':
+        return (
+          <DailySchedule
+            medicationSchedule={getTodaySchedule()}
+            todayPayments={getTodayPayments()}
+            onMarkMedicationTaken={markMedicationTaken}
+            onMarkPaymentPaid={handleMarkPaymentPaid}
           />
         );
       case 'settings':
