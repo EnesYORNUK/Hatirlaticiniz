@@ -342,12 +342,23 @@ async function getChecksData() {
         const rendererData = await mainWindow.webContents.executeJavaScript(`
           (() => {
             try {
-              const checksData = localStorage.getItem('hatirlatici-checks');
+              // İlk olarak 'checks' anahtarını dene (ana uygulamanın kullandığı)
+              let checksData = localStorage.getItem('checks');
               if (checksData) {
                 const checks = JSON.parse(checksData);
-                console.log('📊 Renderer: ' + checks.length + ' check bulundu');
+                console.log('📊 Renderer (checks): ' + checks.length + ' check bulundu');
                 return checks;
               }
+              
+              // Eğer 'checks' yoksa 'hatirlatici-checks' dene
+              checksData = localStorage.getItem('hatirlatici-checks');
+              if (checksData) {
+                const checks = JSON.parse(checksData);
+                console.log('📊 Renderer (hatirlatici-checks): ' + checks.length + ' check bulundu');
+                return checks;
+              }
+              
+              console.log('⚠️ Renderer: Hiçbir checks verisi bulunamadı');
               return [];
             } catch (error) {
               console.error('❌ Renderer veri hatası:', error);
@@ -1170,13 +1181,26 @@ ipcMain.handle('get-telegram-data', async (event) => {
     const checks = await event.sender.executeJavaScript(`
       (() => {
         try {
-          const checksData = localStorage.getItem('hatirlatici-checks');
+          // İlk olarak 'checks' anahtarını dene (ana uygulamanın kullandığı)
+          let checksData = localStorage.getItem('checks');
           if (checksData) {
-            return JSON.parse(checksData);
+            const checks = JSON.parse(checksData);
+            console.log('IPC Renderer (checks): ' + checks.length + ' check bulundu');
+            return checks;
           }
+          
+          // Eğer 'checks' yoksa 'hatirlatici-checks' dene
+          checksData = localStorage.getItem('hatirlatici-checks');
+          if (checksData) {
+            const checks = JSON.parse(checksData);
+            console.log('IPC Renderer (hatirlatici-checks): ' + checks.length + ' check bulundu');
+            return checks;
+          }
+          
+          console.log('IPC Renderer: Hiçbir checks verisi bulunamadı');
           return [];
         } catch (error) {
-          console.error('Telegram data error:', error);
+          console.error('IPC Telegram data error:', error);
           return [];
         }
       })()
