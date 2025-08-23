@@ -143,13 +143,15 @@ function setupNewTelegramCommands() {
     console.log('📱 Chat ID:', msg.chat.id);
     console.log('👤 Kullanıcı:', msg.from.first_name);
     
-    // YENİ: Her komut için veriyi yeniden oku
-    console.log('🔄 /start komutu için veri yeniden okunuyor...');
-    const checks = getChecksData();
-    console.log(`✅ /start komutu için ${checks.length} check alındı`);
-    
     const chatId = msg.chat.id;
-    const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
+    
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    console.log('🔄 /start komutu için veri yeniden okunuyor...');
+    
+    getChecksData().then(checks => {
+      console.log(`✅ /start komutu için ${checks.length} check alındı`);
+      
+      const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
 
 📋 Kullanılabilir komutlar:
 /bugun - Bugün ödenecek çek/faturalar
@@ -158,20 +160,31 @@ function setupNewTelegramCommands() {
 /gecmis - Vadesi geçen ödemeler
 /istatistik - Genel özet
 
-💡 Chat ID'niz: ${chatId}
+💫 Chat ID'niz: ${chatId}
 🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu
 Bu ID'yi uygulamanın ayarlarına girin.`;
 
-    console.log('📤 /start mesajı gönderiliyor...');
-    telegramBot.sendMessage(chatId, welcomeMessage)
-      .then(() => {
-        console.log('✅ /start yanıtı gönderildi');
-        console.log('📨 Mesaj uzunluğu:', welcomeMessage.length);
-      })
-      .catch(err => {
-        console.error('❌ /start yanıt hatası:', err.message);
-        console.error('🔍 Hata detayı:', err);
-      });
+      console.log('📤 /start mesajı gönderiliyor...');
+      telegramBot.sendMessage(chatId, welcomeMessage)
+        .then(() => {
+          console.log('✅ /start yanıtı gönderildi');
+          console.log('📨 Mesaj uzunluğu:', welcomeMessage.length);
+        })
+        .catch(err => {
+          console.error('❌ /start yanıt hatası:', err.message);
+          console.error('🔍 Hata detayı:', err);
+        });
+    }).catch(error => {
+      console.error('❌ /start veri hatası:', error.message);
+      const errorMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
+
+❌ Veri yüklenirken hata oluştu.
+Lütfen daha sonra tekrar deneyin.
+
+💫 Chat ID'niz: ${chatId}`;
+      
+      telegramBot.sendMessage(chatId, errorMessage);
+    });
   });
 
   // /bugun komutu
@@ -181,9 +194,6 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
     
     // YENİ: Her komut için veriyi yeniden oku
     console.log('🔄 /bugun komutu için veri yeniden okunuyor...');
-    const checks = getChecksData();
-    console.log(`✅ /bugun komutu için ${checks.length} check alındı`);
-    
     sendTodayPayments(chatId);
   });
 
@@ -191,12 +201,6 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/yakin/, (msg) => {
     console.log('🎯 /yakin komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    
-    // YENİ: Her komut için veriyi yeniden oku
-    console.log('🔄 /yakin komutu için veri yeniden okunuyor...');
-    const checks = getChecksData();
-    console.log(`✅ /yakin komutu için ${checks.length} check alındı`);
-    
     sendUpcomingPayments(chatId);
   });
 
@@ -204,12 +208,6 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/tumu/, (msg) => {
     console.log('🎯 /tumu komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    
-    // YENİ: Her komut için veriyi yeniden oku
-    console.log('🔄 /tumu komutu için veri yeniden okunuyor...');
-    const checks = getChecksData();
-    console.log(`✅ /tumu komutu için ${checks.length} check alındı`);
-    
     sendAllPayments(chatId);
   });
 
@@ -217,12 +215,6 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/gecmis/, (msg) => {
     console.log('🎯 /gecmis komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    
-    // YENİ: Her komut için veriyi yeniden oku
-    console.log('🔄 /gecmis komutu için veri yeniden okunuyor...');
-    const checks = getChecksData();
-    console.log(`✅ /gecmis komutu için ${checks.length} check alındı`);
-    
     sendOverduePayments(chatId);
   });
 
@@ -230,12 +222,6 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
   telegramBot.onText(/\/istatistik/, (msg) => {
     console.log('🎯 /istatistik komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    
-    // YENİ: Her komut için veriyi yeniden oku
-    console.log('🔄 /istatistik komutu için veri yeniden okunuyor...');
-    const checks = getChecksData();
-    console.log(`✅ /istatistik komutu için ${checks.length} check alındı`);
-    
     sendStatistics(chatId);
   });
 
@@ -273,117 +259,125 @@ Bu ID'yi uygulamanın ayarlarına girin.`;
 
 // Yeni test mesaj fonksiyonu
 function sendTestMessage(chatId) {
-  try {
-    console.log('🧪 Yeni test mesajı gönderiliyor...');
-    
-    // Güncel veriyi al
-    const checks = getChecksData();
-    const now = new Date();
-    const today = now.toDateString();
-    
-    // Bugün ödenecek ödemeleri hesapla
-    const todayChecks = checks.filter(check => {
-      if (check.isPaid) return false;
+  getChecksData().then(checks => {
+    try {
+      console.log('🧪 Yeni test mesajı gönderiliyor...');
       
-      let checkDate;
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate).toDateString();
-        console.log(`🔄 Test - Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate}`);
-      } else {
-        checkDate = new Date(check.paymentDate).toDateString();
-        console.log(`📅 Test - Normal: ${check.signedTo} - Ödeme: ${check.paymentDate}`);
-      }
+      const now = new Date();
+      const today = now.toDateString();
       
-      return checkDate === today;
-    });
-    
-    // Gecikmiş ödemeleri hesapla
-    const overdueChecks = checks.filter(check => {
-      if (check.isPaid) return false;
-      
-      let checkDate;
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate);
-      } else {
-        checkDate = new Date(check.paymentDate);
-      }
-      
-      return checkDate < now;
-    });
-    
-    let testMessage = '🤖 YENİ Bot sistemi başlatıldı!\n\n';
-    testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
-    testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n`;
-    testMessage += `⚠️ Gecikmiş: ${overdueChecks.length} ödeme\n\n`;
-    testMessage += '📋 Kullanılabilir komutlar:\n';
-    testMessage += '• /start - Yardım menüsü\n';
-    testMessage += '• /bugun - Bugün ödenecekler\n';
-    testMessage += '• /yakin - Yakın ödemeler\n';
-    testMessage += '• /tumu - Tüm ödemeler\n';
-    testMessage += '• /gecmis - Gecikmiş ödemeler\n';
-    testMessage += '• /istatistik - İstatistikler\n\n';
-    testMessage += '🔄 Yeni sistem: Güncel veri garantisi!\n';
-    testMessage += `📅 Veri kaynağı: ${checks.length} ödeme bulundu\n`;
-    testMessage += `⏰ Bot başlatma: ${new Date().toLocaleString('tr-TR')}`;
-    
-    telegramBot.sendMessage(chatId, testMessage).then(() => {
-      console.log('✅ Yeni test mesajı gönderildi');
-      console.log('📊 Test mesajında gösterilen veri:', {
-        totalChecks: checks.length,
-        todayChecks: todayChecks.length,
-        overdueChecks: overdueChecks.length
+      // Bugün ödenecek ödemeleri hesapla
+      const todayChecks = checks.filter(check => {
+        if (check.isPaid) return false;
+        
+        let checkDate;
+        if (check.isRecurring && check.nextPaymentDate) {
+          checkDate = new Date(check.nextPaymentDate).toDateString();
+          console.log(`🔄 Test - Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate}`);
+        } else {
+          checkDate = new Date(check.paymentDate).toDateString();
+          console.log(`📅 Test - Normal: ${check.signedTo} - Ödeme: ${check.paymentDate}`);
+        }
+        
+        return checkDate === today;
       });
-    }).catch(err => {
-      console.error('❌ Yeni test mesajı gönderilemedi:', err.message);
-    });
-    
-  } catch (error) {
-    console.error('❌ Test mesajı hatası:', error.message);
-  }
+      
+      // Gecikmiş ödemeleri hesapla
+      const overdueChecks = checks.filter(check => {
+        if (check.isPaid) return false;
+        
+        let checkDate;
+        if (check.isRecurring && check.nextPaymentDate) {
+          checkDate = new Date(check.nextPaymentDate);
+        } else {
+          checkDate = new Date(check.paymentDate);
+        }
+        
+        return checkDate < now;
+      });
+      
+      let testMessage = '🤖 YENİ Bot sistemi başlatıldı!\n\n';
+      testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
+      testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n`;
+      testMessage += `⚠️ Gecikmiş: ${overdueChecks.length} ödeme\n\n`;
+      testMessage += '📋 Kullanılabilir komutlar:\n';
+      testMessage += '• /start - Yardım menüsü\n';
+      testMessage += '• /bugun - Bugün ödenecekler\n';
+      testMessage += '• /yakin - Yakın ödemeler\n';
+      testMessage += '• /tumu - Tüm ödemeler\n';
+      testMessage += '• /gecmis - Gecikmiş ödemeler\n';
+      testMessage += '• /istatistik - İstatistikler\n\n';
+      testMessage += '🔄 Yeni sistem: Güncel veri garantisi!\n';
+      testMessage += `📅 Veri kaynağı: ${checks.length} ödeme bulundu\n`;
+      testMessage += `⏰ Bot başlatma: ${new Date().toLocaleString('tr-TR')}`;
+      
+      telegramBot.sendMessage(chatId, testMessage).then(() => {
+        console.log('✅ Yeni test mesajı gönderildi');
+        console.log('📊 Test mesajında gösterilen veri:', {
+          totalChecks: checks.length,
+          todayChecks: todayChecks.length,
+          overdueChecks: overdueChecks.length
+        });
+      }).catch(err => {
+        console.error('❌ Yeni test mesajı gönderilemedi:', err.message);
+      });
+      
+    } catch (error) {
+      console.error('❌ Test mesajı hatası:', error.message);
+    }
+  }).catch(error => {
+    console.error('❌ Test mesajı veri hatası:', error.message);
+  });
 }
 
-function getChecksData() {
+async function getChecksData() {
   try {
     console.log('🔄 Telegram bot için GÜNCEL veri alınıyor...');
     
-    // YENİ YÖNTEM: Her seferinde dosyaları yeniden oku ve cache'i temizle
-    console.log('🧹 Cache temizleniyor ve dosyalar yeniden okunuyor...');
-    
-    // Node.js cache'ini temizle
-    if (require.cache) {
-      Object.keys(require.cache).forEach(key => {
-        if (key.includes('hatirlatici')) {
-          delete require.cache[key];
-          console.log('🧹 Cache temizlendi:', key);
-        }
-      });
-    }
-    
-    // YENİ: Dosya sistemini yeniden tara
-    console.log('📂 Dosya sistemi yeniden taranıyor...');
-    const appDataPath = getAppDataPath();
-    
-    // Tüm dosyaları yeniden tara
-    if (fs.existsSync(appDataPath)) {
-      const files = fs.readdirSync(appDataPath);
-      console.log('📊 Bulunan dosyalar:', files);
+    // YENİ YAKLAŞIM: Renderer process'ten güncel veriyi al
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log('📱 Renderer process\'ten veri çekiliyor...');
       
-      // Dosya zamanlarını kontrol et
-      files.forEach(file => {
-        if (file.endsWith('.json')) {
-          const filePath = path.join(appDataPath, file);
-          const stats = fs.statSync(filePath);
-          console.log(`📄 ${file}: ${stats.size} bytes, ${stats.mtime.toLocaleString('tr-TR')}`);
+      try {
+        const rendererData = await mainWindow.webContents.executeJavaScript(`
+          (() => {
+            try {
+              const checksData = localStorage.getItem('hatirlatici-checks');
+              if (checksData) {
+                const checks = JSON.parse(checksData);
+                console.log('📊 Renderer: ' + checks.length + ' check bulundu');
+                return checks;
+              }
+              return [];
+            } catch (error) {
+              console.error('❌ Renderer veri hatası:', error);
+              return [];
+            }
+          })()
+        `);
+        
+        if (rendererData && rendererData.length > 0) {
+          console.log(`✅ Renderer'dan ${rendererData.length} check alındı`);
+          return rendererData.filter(check => {
+            return check && 
+                   check.id && 
+                   check.paymentDate && 
+                   typeof check.amount === 'number' &&
+                   check.createdBy &&
+                   check.signedTo;
+          });
         }
-      });
+      } catch (rendererError) {
+        console.warn('⚠️ Renderer\'dan veri alınamadı:', rendererError.message);
+      }
     }
     
-    // Dosya sisteminden oku
+    // Fallback: Dosya sisteminden oku
+    console.log('📂 Fallback: Dosya sisteminden veri okunuyor...');
     return getChecksDataFromFiles();
     
   } catch (error) {
     console.error('❌ getChecksData kritik hata:', error.message);
-    console.error('❌ Stack trace:', error.stack);
     return [];
   }
 }
@@ -393,79 +387,53 @@ function getChecksDataFromFiles() {
   try {
     console.log('📂 Dosya sisteminden veri okunuyor...');
     
-    // YENİ YÖNTEM: Dosya sistemini yeniden tara ve en güncel dosyayı bul
     const appDataPath = getAppDataPath();
     console.log('📂 AppData klasörü:', appDataPath);
     
-    // Tüm JSON dosyalarını tara
-    const allFiles = [];
-    if (fs.existsSync(appDataPath)) {
-      const files = fs.readdirSync(appDataPath);
-      files.forEach(file => {
-        if (file.endsWith('.json')) {
-          const filePath = path.join(appDataPath, file);
-          const stats = fs.statSync(filePath);
-          allFiles.push({
-            name: file,
-            path: filePath,
-            size: stats.size,
-            modified: stats.mtime,
-            age: Date.now() - stats.mtime.getTime()
-          });
-        }
-      });
-    }
-    
-    // Dosyaları son güncelleme zamanına göre sırala (en yeni önce)
-    allFiles.sort((a, b) => a.age - b.age);
-    
-    console.log('📊 Bulunan dosyalar:');
-    allFiles.forEach(file => {
-      console.log(`📄 ${file.name}: ${file.size} bytes, ${Math.round(file.age / 1000)} saniye önce`);
-    });
-    
     let checks = [];
     let dataSource = 'unknown';
-    let lastModified = null;
     
-    // En güncel dosyadan veri okumaya çalış
-    for (const file of allFiles) {
+    // Önce checks dosyasını kontrol et
+    const checksFilePath = path.join(appDataPath, 'hatirlatici-checks.json');
+    if (fs.existsSync(checksFilePath)) {
       try {
-        console.log(`🔄 ${file.name} dosyası okunuyor...`);
-        const data = fs.readFileSync(file.path, 'utf8');
+        const data = fs.readFileSync(checksFilePath, 'utf8');
         const parsedData = JSON.parse(data);
-        
-        if (file.name === 'hatirlatici-checks.json' && Array.isArray(parsedData)) {
+        if (Array.isArray(parsedData)) {
           checks = parsedData;
-          dataSource = 'AppData (Checks)';
-          lastModified = file.modified;
-          console.log(`✅ ${file.name} dosyasından ${checks.length} check yüklendi`);
-          break;
-        } else if (file.name === 'hatirlatici-localStorage.json' && parsedData.checks && Array.isArray(parsedData.checks)) {
-          checks = parsedData.checks;
-          dataSource = 'localStorage';
-          lastModified = file.modified;
-          console.log(`✅ ${file.name} dosyasından ${checks.length} check yüklendi`);
-          break;
-        } else if (file.name.includes('localStorage') && parsedData.checks && Array.isArray(parsedData.checks)) {
-          checks = parsedData.checks;
-          dataSource = 'localStorage (Generic)';
-          lastModified = file.modified;
-          console.log(`✅ ${file.name} dosyasından ${checks.length} check yüklendi`);
-          break;
+          dataSource = 'Checks File';
+          console.log(`✅ Checks dosyasından ${checks.length} check yüklendi`);
         }
       } catch (error) {
-        console.error(`❌ ${file.name} dosyası okunamadı:`, error.message);
+        console.error('❌ Checks dosyası okunamadı:', error.message);
       }
     }
     
-    // Veri kontrolü
+    // Eğer checks bulunamazsa localStorage dosyasını dene
+    if (checks.length === 0) {
+      const localStorageFilePath = path.join(appDataPath, 'hatirlatici-localStorage.json');
+      if (fs.existsSync(localStorageFilePath)) {
+        try {
+          const data = fs.readFileSync(localStorageFilePath, 'utf8');
+          const parsedData = JSON.parse(data);
+          if (parsedData.checks && Array.isArray(parsedData.checks)) {
+            checks = parsedData.checks;
+            dataSource = 'localStorage File';
+            console.log(`✅ localStorage dosyasından ${checks.length} check yüklendi`);
+          }
+        } catch (error) {
+          console.error('❌ localStorage dosyası okunamadı:', error.message);
+        }
+      }
+    }
+    
+    // Veri doğrulama
     if (!checks || checks.length === 0) {
       console.log('❌ Hiç check verisi bulunamadı!');
       return [];
     }
     
-    // Veri doğrulama ve temizleme
+    // Veri temizleme ve doğrulama
     const validChecks = checks.filter(check => {
       const isValid = check && 
                      check.id && 
@@ -475,28 +443,20 @@ function getChecksDataFromFiles() {
                      check.signedTo;
       
       if (!isValid) {
-        console.log(`⚠️ Geçersiz check filtrelendi:`, check);
+        console.log(`⚠️ Geçersiz check filtrelendi:`, {
+          id: check?.id || 'Yok',
+          signedTo: check?.signedTo || 'Yok',
+          amount: check?.amount || 'Yok'
+        });
       }
       
       return isValid;
     });
     
-    console.log(`✅ Veri doğrulama tamamlandı:`);
+    console.log(`✅ Veri yükleme tamamlandı:`);
     console.log(`📊 Toplam check: ${checks.length}`);
     console.log(`📊 Geçerli check: ${validChecks.length}`);
     console.log(`📊 Kaynak: ${dataSource}`);
-    console.log(`📅 Son güncelleme: ${lastModified ? lastModified.toLocaleString('tr-TR') : 'Bilinmiyor'}`);
-    
-    // Her check için detaylı log
-    validChecks.forEach((check, index) => {
-      if (check.isRecurring && check.nextPaymentDate) {
-        const daysLeft = Math.ceil((new Date(check.nextPaymentDate) - new Date()) / (1000 * 60 * 60 * 24));
-        console.log(`🔄 [${index + 1}] Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Gün: ${daysLeft}`);
-      } else {
-        const daysLeft = Math.ceil((new Date(check.paymentDate) - new Date()) / (1000 * 60 * 60 * 24));
-        console.log(`📅 [${index + 1}] Normal: ${check.signedTo} - Ödeme: ${check.paymentDate} - Gün: ${daysLeft}`);
-      }
-    });
     
     return validChecks;
   } catch (error) {
@@ -624,301 +584,289 @@ ${status}`;
 }
 
 function sendTodayPayments(chatId) {
-  try {
-    console.log('📅 Bugün ödenecekler sorgulanıyor...');
-    const checks = getChecksData();
-    const today = new Date().toDateString();
-    
-    console.log(`📊 Toplam ${checks.length} ödeme bulundu, bugün kontrol ediliyor...`);
-    
-    const todayChecks = checks.filter(check => {
-      if (check.isPaid) return false;
+  getChecksData().then(checks => {
+    try {
+      console.log('📅 Bugün ödenecekler sorgulanıyor...');
+      const today = new Date().toDateString();
       
-      // Tekrarlayan ödemeler için nextPaymentDate kullan
-      let checkDate, checkDateString;
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate);
-        checkDateString = checkDate.toDateString();
-        console.log(`🔄 Tekrarlayan kontrol: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Bugün: ${checkDateString === today}`);
-      } else {
-        checkDate = new Date(check.paymentDate);
-        checkDateString = checkDate.toDateString();
-        console.log(`📅 Normal kontrol: ${check.signedTo} - Ödeme: ${check.paymentDate} - Bugün: ${checkDateString === today}`);
-      }
+      console.log(`📊 Toplam ${checks.length} ödeme bulundu, bugün kontrol ediliyor...`);
       
-      const isToday = checkDateString === today;
-      if (isToday) {
-        console.log(`✅ Bugün: ${check.signedTo} - ${check.amount} TL - Tarih: ${checkDateString}`);
-      }
-      
-      return isToday;
-    });
+      const todayChecks = checks.filter(check => {
+        if (check.isPaid) return false;
+        
+        // Tekrarlayan ödemeler için nextPaymentDate kullan
+        let checkDate, checkDateString;
+        if (check.isRecurring && check.nextPaymentDate) {
+          checkDate = new Date(check.nextPaymentDate);
+          checkDateString = checkDate.toDateString();
+          console.log(`🔄 Tekrarlayan kontrol: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Bugün: ${checkDateString === today}`);
+        } else {
+          checkDate = new Date(check.paymentDate);
+          checkDateString = checkDate.toDateString();
+          console.log(`📅 Normal kontrol: ${check.signedTo} - Ödeme: ${check.paymentDate} - Bugün: ${checkDateString === today}`);
+        }
+        
+        const isToday = checkDateString === today;
+        if (isToday) {
+          console.log(`✅ Bugün: ${check.signedTo} - ${check.amount} TL - Tarih: ${checkDateString}`);
+        }
+        
+        return isToday;
+      });
 
-    console.log('📊 Bugün ödenecek sayısı:', todayChecks.length);
+      console.log('📊 Bugün ödenecek sayısı:', todayChecks.length);
 
-    if (todayChecks.length === 0) {
-      const message = '🎉 Bugün ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
+      if (todayChecks.length === 0) {
+        const message = '🎉 Bugün ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
+        telegramBot.sendMessage(chatId, message);
+        return;
+      }
+
+      let message = `🔴 Bugün ${todayChecks.length} ödeme var:\n\n`;
+      todayChecks.forEach((check, index) => {
+        message += `${index + 1}. ${formatCheck(check)}\n\n`;
+      });
+      
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+
       telegramBot.sendMessage(chatId, message);
-      return;
+    } catch (error) {
+      console.error('❌ Bugün ödenecekler gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
     }
-
-    let message = `🔴 Bugün ${todayChecks.length} ödeme var:\n\n`;
-    todayChecks.forEach((check, index) => {
-      message += `${index + 1}. ${formatCheck(check)}\n\n`;
-    });
-    
-    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-
-    telegramBot.sendMessage(chatId, message);
-  } catch (error) {
-    console.error('❌ Bugün ödenecekler gönderilemedi:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-  }
+  }).catch(error => {
+    console.error('❌ Bugün ödenecekler veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
 }
 
 function sendUpcomingPayments(chatId) {
-  try {
-    console.log('⏰ Yakın ödemeler sorgulanıyor...');
-    const checks = getChecksData();
-    const settings = getSettingsData();
-    const now = new Date();
-    const reminderDays = settings.reminderDays || 3; // Settings'den al
-    
-    console.log(`📅 Reminder günleri: ${reminderDays}`);
-    
-    const upcomingChecks = checks.filter(check => {
-      if (check.isPaid) return false;
+  getChecksData().then(checks => {
+    try {
+      console.log('⏰ Yakın ödemeler sorgulanıyor...');
+      const settings = getSettingsData();
+      const now = new Date();
+      const reminderDays = settings.reminderDays || 3; // Settings'den al
       
-      // Tekrarlayan ödemeler için nextPaymentDate kullan
-      let checkDate;
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate);
-      } else {
-        checkDate = new Date(check.paymentDate);
+      console.log(`📅 Reminder günleri: ${reminderDays}`);
+      
+      const upcomingChecks = checks.filter(check => {
+        if (check.isPaid) return false;
+        
+        // Tekrarlayan ödemeler için nextPaymentDate kullan
+        let checkDate;
+        if (check.isRecurring && check.nextPaymentDate) {
+          checkDate = new Date(check.nextPaymentDate);
+        } else {
+          checkDate = new Date(check.paymentDate);
+        }
+        
+        const daysUntil = Math.ceil((checkDate - now) / (1000 * 60 * 60 * 24));
+        const isInRange = daysUntil >= 0 && daysUntil <= reminderDays;
+        
+        if (isInRange) {
+          console.log(`✅ ${check.signedTo}: ${daysUntil} gün kaldı`);
+        }
+        
+        return isInRange;
+      });
+
+      // Tarihe göre sırala
+      upcomingChecks.sort((a, b) => {
+        const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
+        const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
+        return dateA - dateB;
+      });
+
+      console.log('📊 Yakın ödeme sayısı:', upcomingChecks.length);
+
+      if (upcomingChecks.length === 0) {
+        const message = `🎉 Önümüzdeki ${reminderDays} günde ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+        telegramBot.sendMessage(chatId, message);
+        return;
       }
-      
-      const daysUntil = Math.ceil((checkDate - now) / (1000 * 60 * 60 * 24));
-      const isInRange = daysUntil >= 0 && daysUntil <= reminderDays;
-      
-      if (isInRange) {
-        console.log(`✅ ${check.signedTo}: ${daysUntil} gün kaldı`);
-      }
-      
-      return isInRange;
-    });
 
-    // Tarihe göre sırala
-    upcomingChecks.sort((a, b) => {
-      const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
-      const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
-      return dateA - dateB;
-    });
+      let message = `⏰ Önümüzdeki ${reminderDays} günde ${upcomingChecks.length} ödeme var:\n\n`;
+      upcomingChecks.forEach((check, index) => {
+        message += `${index + 1}. ${formatCheck(check)}\n\n`;
+      });
+      
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
 
-    console.log('📊 Yakın ödeme sayısı:', upcomingChecks.length);
-
-    if (upcomingChecks.length === 0) {
-      const message = `🎉 Önümüzdeki ${reminderDays} günde ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
       telegramBot.sendMessage(chatId, message);
-      return;
+    } catch (error) {
+      console.error('❌ Yakın ödemeler gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
     }
-
-    let message = `⏰ Önümüzdeki ${reminderDays} günde ${upcomingChecks.length} ödeme var:\n\n`;
-    upcomingChecks.forEach((check, index) => {
-      message += `${index + 1}. ${formatCheck(check)}\n\n`;
-    });
-    
-    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-
-    telegramBot.sendMessage(chatId, message);
-  } catch (error) {
-    console.error('❌ Yakın ödemeler gönderilemedi:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-  }
+  }).catch(error => {
+    console.error('❌ Yakın ödemeler veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
 }
 
 function sendAllPayments(chatId) {
-  try {
-    console.log('📋 Tüm ödemeler sorgulanıyor...');
-    
-    // Her seferinde GÜNCEL veriyi al
-    const checks = getChecksData();
-    console.log(`🔄 Güncel veri alındı: ${checks.length} ödeme`);
-    
-    if (checks.length === 0) {
-      const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-      telegramBot.sendMessage(chatId, message);
-      return;
-    }
-
-    // Sadece ödenmemiş olanları göster
-    const unpaidChecks = checks.filter(check => !check.isPaid);
-    console.log(`📊 Toplam: ${checks.length}, Ödenmemiş: ${unpaidChecks.length}`);
-    
-    if (unpaidChecks.length === 0) {
-      const message = '🎉 Tüm ödemeler tamamlandı!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-      telegramBot.sendMessage(chatId, message);
-      return;
-    }
-
-    // Her ödeme için detaylı debug ve doğrulama
-    console.log('🔍 Ödeme detayları ve doğrulama:');
-    const validUnpaidChecks = [];
-    
-    unpaidChecks.forEach((check, index) => {
-      const now = new Date();
-      let checkDate, daysLeft, isValid = true;
+  getChecksData().then(checks => {
+    try {
+      console.log('📋 Tüm ödemeler sorgulanıyor...');
+      console.log(`🔄 Güncel veri alındı: ${checks.length} ödeme`);
       
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate);
-        daysLeft = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        console.log(`${index + 1}. 🔄 Tekrarlayan: ${check.signedTo}`);
-        console.log(`   📅 nextPaymentDate: ${check.nextPaymentDate}`);
-        console.log(`   📅 paymentDate: ${check.paymentDate}`);
-        console.log(`   ⏰ Gün: ${daysLeft} (${daysLeft < 0 ? 'Gecikmiş' : 'Bekliyor'})`);
+      if (checks.length === 0) {
+        const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
+        telegramBot.sendMessage(chatId, message);
+        return;
+      }
+
+      // Sadece ödenmemiş olanları göster
+      const unpaidChecks = checks.filter(check => !check.isPaid);
+      console.log(`📊 Toplam: ${checks.length}, Ödenmemiş: ${unpaidChecks.length}`);
+      
+      if (unpaidChecks.length === 0) {
+        const message = '🎉 Tüm ödemeler tamamlandı!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
+        telegramBot.sendMessage(chatId, message);
+        return;
+      }
+
+      // Veri doğrulama
+      const validUnpaidChecks = unpaidChecks.filter(check => {
+        const isValid = check && 
+                       check.id && 
+                       check.paymentDate && 
+                       typeof check.amount === 'number' &&
+                       check.createdBy &&
+                       check.signedTo;
         
-        // Tarih doğrulama
-        if (isNaN(checkDate.getTime())) {
-          console.log(`   ❌ Geçersiz nextPaymentDate: ${check.nextPaymentDate}`);
-          isValid = false;
+        if (!isValid) {
+          console.log(`⚠️ Geçersiz check filtrelendi: ${check?.signedTo || 'Bilinmiyor'}`);
         }
-      } else {
-        checkDate = new Date(check.paymentDate);
-        daysLeft = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        console.log(`${index + 1}. 📅 Normal: ${check.signedTo}`);
-        console.log(`   📅 paymentDate: ${check.paymentDate}`);
-        console.log(`   ⏰ Gün: ${daysLeft} (${daysLeft < 0 ? 'Gecikmiş' : 'Bekliyor'})`);
         
-        // Tarih doğrulama
-        if (isNaN(checkDate.getTime())) {
-          console.log(`   ❌ Geçersiz paymentDate: ${check.paymentDate}`);
-          isValid = false;
-        }
+        return isValid;
+      });
+      
+      console.log(`✅ Geçerli ödenmemiş check sayısı: ${validUnpaidChecks.length}`);
+
+      // Tarihe göre sırala
+      validUnpaidChecks.sort((a, b) => {
+        const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
+        const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
+        return dateA - dateB;
+      });
+
+      let message = `📋 Toplam ${validUnpaidChecks.length} bekleyen ödeme var:\n\n`;
+      
+      // İlk 10 tanesini göster
+      const checksToShow = validUnpaidChecks.slice(0, 10);
+      checksToShow.forEach((check, index) => {
+        message += `${index + 1}. ${formatCheck(check)}\n\n`;
+      });
+
+      if (validUnpaidChecks.length > 10) {
+        message += `... ve ${validUnpaidChecks.length - 10} ödeme daha\n\n`;
       }
       
-      if (isValid) {
-        validUnpaidChecks.push(check);
-      } else {
-        console.log(`   ⚠️ Geçersiz check filtrelendi: ${check.signedTo}`);
-      }
-    });
-    
-    console.log(`✅ Geçerli ödenmemiş check sayısı: ${validUnpaidChecks.length}`);
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+      message += `\n🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu`;
 
-    // Tarihe göre sırala
-    validUnpaidChecks.sort((a, b) => {
-      const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
-      const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
-      return dateA - dateB;
-    });
-
-    let message = `📋 Toplam ${validUnpaidChecks.length} bekleyen ödeme var:\n\n`;
-    
-    // İlk 10 tanesini göster
-    const checksToShow = validUnpaidChecks.slice(0, 10);
-    checksToShow.forEach((check, index) => {
-      message += `${index + 1}. ${formatCheck(check)}\n\n`;
-    });
-
-    if (validUnpaidChecks.length > 10) {
-      message += `... ve ${validUnpaidChecks.length - 10} ödeme daha\n\n`;
+      telegramBot.sendMessage(chatId, message);
+    } catch (error) {
+      console.error('❌ Tüm ödemeler gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
     }
-    
-    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-    message += `\n🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu`;
-
-    telegramBot.sendMessage(chatId, message);
-  } catch (error) {
-    console.error('❌ Tüm ödemeler gönderilemedi:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-  }
+  }).catch(error => {
+    console.error('❌ Tüm ödemeler veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
 }
 
 function sendOverduePayments(chatId) {
-  try {
-    console.log('⚠️ Gecikmiş ödemeler sorgulanıyor...');
-    const checks = getChecksData();
-    const now = new Date();
-    
-    const overdueChecks = checks.filter(check => {
-      if (check.isPaid) return false;
+  getChecksData().then(checks => {
+    try {
+      console.log('⚠️ Gecikmiş ödemeler sorgulanıyor...');
+      const now = new Date();
       
-      // Tekrarlayan ödemeler için nextPaymentDate kullan
-      let checkDate;
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate);
-      } else {
-        checkDate = new Date(check.paymentDate);
+      const overdueChecks = checks.filter(check => {
+        if (check.isPaid) return false;
+        
+        // Tekrarlayan ödemeler için nextPaymentDate kullan
+        let checkDate;
+        if (check.isRecurring && check.nextPaymentDate) {
+          checkDate = new Date(check.nextPaymentDate);
+        } else {
+          checkDate = new Date(check.paymentDate);
+        }
+        
+        const isOverdue = checkDate < now;
+        if (isOverdue) {
+          const daysOverdue = Math.ceil((now - checkDate) / (1000 * 60 * 60 * 24));
+          console.log(`⚠️ Gecikmiş: ${check.signedTo} - ${daysOverdue} gün`);
+        }
+        
+        return isOverdue;
+      });
+
+      // Gecikme gününe göre sırala (en çok geciken önce)
+      overdueChecks.sort((a, b) => {
+        const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
+        const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
+        return dateA - dateB;
+      });
+
+      console.log('📊 Gecikmiş ödeme sayısı:', overdueChecks.length);
+
+      if (overdueChecks.length === 0) {
+        const message = '🎉 Gecikmiş ödeme yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
+        telegramBot.sendMessage(chatId, message);
+        return;
       }
+
+      let message = `⚠️ ${overdueChecks.length} gecikmiş ödeme var:\n\n`;
+      overdueChecks.forEach((check, index) => {
+        message += `${index + 1}. ${formatCheck(check)}\n\n`;
+      });
       
-      const isOverdue = checkDate < now;
-      if (isOverdue) {
-        const daysOverdue = Math.ceil((now - checkDate) / (1000 * 60 * 60 * 24));
-        console.log(`⚠️ Gecikmiş: ${check.signedTo} - ${daysOverdue} gün`);
-      }
-      
-      return isOverdue;
-    });
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
 
-    // Gecikme gününe göre sırala (en çok geciken önce)
-    overdueChecks.sort((a, b) => {
-      const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
-      const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
-      return dateA - dateB;
-    });
-
-    console.log('📊 Gecikmiş ödeme sayısı:', overdueChecks.length);
-
-    if (overdueChecks.length === 0) {
-      const message = '🎉 Gecikmiş ödeme yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
       telegramBot.sendMessage(chatId, message);
-      return;
+    } catch (error) {
+      console.error('❌ Gecikmiş ödemeler gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
     }
-
-    let message = `⚠️ ${overdueChecks.length} gecikmiş ödeme var:\n\n`;
-    overdueChecks.forEach((check, index) => {
-      message += `${index + 1}. ${formatCheck(check)}\n\n`;
-    });
-    
-    message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-
-    telegramBot.sendMessage(chatId, message);
-  } catch (error) {
-    console.error('❌ Gecikmiş ödemeler gönderilemedi:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-  }
+  }).catch(error => {
+    console.error('❌ Gecikmiş ödemeler veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
 }
 
 function sendStatistics(chatId) {
-  try {
-    console.log('📊 İstatistikler sorgulanıyor...');
-    const checks = getChecksData();
-    
-    if (checks.length === 0) {
-      const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-      telegramBot.sendMessage(chatId, message);
-      return;
-    }
+  getChecksData().then(checks => {
+    try {
+      console.log('📊 İstatistikler sorgulanıyor...');
+      
+      if (checks.length === 0) {
+        const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
+        telegramBot.sendMessage(chatId, message);
+        return;
+      }
 
-    const totalChecks = checks.length;
-    const paidChecks = checks.filter(c => c.isPaid);
-    const unpaidChecks = checks.filter(c => !c.isPaid);
-    const recurringChecks = checks.filter(c => c.isRecurring);
-    
-    const totalAmount = checks.reduce((sum, c) => sum + c.amount, 0);
-    const paidAmount = paidChecks.reduce((sum, c) => sum + c.amount, 0);
-    const unpaidAmount = unpaidChecks.reduce((sum, c) => sum + c.amount, 0);
-    
-    const now = new Date();
-    const overdueChecks = unpaidChecks.filter(check => {
-      const checkDate = check.isRecurring && check.nextPaymentDate 
-        ? new Date(check.nextPaymentDate)
-        : new Date(check.paymentDate);
-      return checkDate < now;
-    });
-    
-    const overdueAmount = overdueChecks.reduce((sum, c) => sum + c.amount, 0);
+      const totalChecks = checks.length;
+      const paidChecks = checks.filter(c => c.isPaid);
+      const unpaidChecks = checks.filter(c => !c.isPaid);
+      const recurringChecks = checks.filter(c => c.isRecurring);
+      
+      const totalAmount = checks.reduce((sum, c) => sum + c.amount, 0);
+      const paidAmount = paidChecks.reduce((sum, c) => sum + c.amount, 0);
+      const unpaidAmount = unpaidChecks.reduce((sum, c) => sum + c.amount, 0);
+      
+      const now = new Date();
+      const overdueChecks = unpaidChecks.filter(check => {
+        const checkDate = check.isRecurring && check.nextPaymentDate 
+          ? new Date(check.nextPaymentDate)
+          : new Date(check.paymentDate);
+        return checkDate < now;
+      });
+      
+      const overdueAmount = overdueChecks.reduce((sum, c) => sum + c.amount, 0);
 
-    const message = `📊 Ödeme İstatistikleri:
+      const message = `📊 Ödeme İstatistikleri:
 
 📋 Toplam: ${totalChecks} ödeme
 💰 Toplam Tutar: ${totalAmount.toLocaleString('tr-TR')} ₺
@@ -936,11 +884,15 @@ function sendStatistics(chatId) {
 
 📈 Ödeme Oranı: %${Math.round((paidChecks.length / totalChecks) * 100)}`;
 
-    telegramBot.sendMessage(chatId, message);
-  } catch (error) {
-    console.error('❌ İstatistikler gönderilemedi:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-  }
+      telegramBot.sendMessage(chatId, message);
+    } catch (error) {
+      console.error('❌ İstatistikler gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
+    }
+  }).catch(error => {
+    console.error('❌ İstatistikler veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
 }
 
 function sendTelegramNotification(title, message) {
