@@ -64,7 +64,15 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   });
 
   const sortedChecks = [...filteredChecks].sort((a, b) => {
-    return new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime();
+    // 📝 Tekrarlayan ödemeler için doğru tarih kullanımı
+    const getDateForSorting = (check: Check) => {
+      if (check.isRecurring && check.nextPaymentDate) {
+        return new Date(check.nextPaymentDate).getTime();
+      }
+      return new Date(check.paymentDate).getTime();
+    };
+    
+    return getDateForSorting(a) - getDateForSorting(b);
   });
 
   // Dashboard için tarih filtresi
@@ -206,22 +214,36 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   const pendingChecks = getPendingChecks();
   const overdueChecks = getOverdueChecks();
   
+  // 📈 Güvenli istatistik hesaplamaları
   const stats = {
     total: dashboardChecks.length,
     paid: dashboardChecks.filter(c => c.isPaid).length,
     unpaid: pendingChecks.length, // Gecikenler hariç bekleyen ödemeler
     overdue: overdueChecks.length, // Sadece geciken ödemeler
-    totalAmount: dashboardChecks.reduce((sum, c) => sum + c.amount, 0),
-    paidAmount: dashboardChecks.filter(c => c.isPaid).reduce((sum, c) => sum + c.amount, 0),
-    unpaidAmount: pendingChecks.reduce((sum, c) => sum + c.amount, 0), // Gecikenler hariç
-    overdueAmount: overdueChecks.reduce((sum, c) => sum + c.amount, 0), // Sadece geciken ödemeler
+    totalAmount: dashboardChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
+    paidAmount: dashboardChecks.filter(c => c.isPaid).reduce((sum, c) => sum + (c.amount || 0), 0),
+    unpaidAmount: pendingChecks.reduce((sum, c) => sum + (c.amount || 0), 0), // Gecikenler hariç
+    overdueAmount: overdueChecks.reduce((sum, c) => sum + (c.amount || 0), 0), // Sadece geciken ödemeler
     thisWeek: thisWeekChecks.length,
-    thisWeekAmount: thisWeekChecks.reduce((sum, c) => sum + c.amount, 0),
+    thisWeekAmount: thisWeekChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
     thisMonth: thisMonthChecks.length,
-    thisMonthAmount: thisMonthChecks.reduce((sum, c) => sum + c.amount, 0),
+    thisMonthAmount: thisMonthChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
     recurring: recurringChecks.length,
-    recurringAmount: recurringChecks.reduce((sum, c) => sum + c.amount, 0),
+    recurringAmount: recurringChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
   };
+  
+  // 🔍 Veri tutarlılığını kontrol et
+  const totalUnpaidAndOverdue = stats.unpaid + stats.overdue;
+  const totalUnpaidFromDashboard = dashboardChecks.filter(c => !c.isPaid).length;
+  
+  if (totalUnpaidAndOverdue !== totalUnpaidFromDashboard) {
+    console.warn('⚠️ Dashboard veri tutarsızlığı tespit edildi:', {
+      unpaid: stats.unpaid,
+      overdue: stats.overdue,
+      total: totalUnpaidAndOverdue,
+      expected: totalUnpaidFromDashboard
+    });
+  }
 
   const getPeriodText = () => {
     const now = new Date();
@@ -599,9 +621,15 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       {/* Payment List */}
       <div className="space-y-3">
         {sortedChecks.map(check => {
-          const daysUntil = getDaysUntilPayment(check.paymentDate);
+          // 📝 ÖNEMLİ: Tekrarlayan ödemeler için doğru tarih kullanımı
+          const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
           const isOverdue = !check.isPaid && daysUntil < 0;
           const isToday = daysUntil === 0;
+          
+          // Tekrarlayan ödemeler için doğru tarihi göster
+          const displayDate = (check.isRecurring && check.nextPaymentDate) 
+            ? check.nextPaymentDate 
+            : check.paymentDate;
           
           return (
             <div 
@@ -650,6 +678,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                       <span className="theme-text font-medium truncate">
                         {check.signedTo}
                       </span>
+                      {check.isRecurring && (
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                          🔄 Tekrarlayan
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                         check.isPaid 
                           ? 'bg-green-100 text-green-700' 
@@ -660,12 +693,12 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                               : 'bg-blue-100 text-blue-700'
                       }`}>
                         {check.isPaid 
-                          ? 'Ödendi' 
+                          ? '✅ Ödendi' 
                           : isOverdue 
-                            ? 'Gecikti'
+                            ? '⚠️ Gecikti'
                             : isToday
-                              ? 'Bugün'
-                              : 'Beklemede'
+                              ? '🔴 Bugün'
+                              : '🔵 Beklemede'
                         }
                       </span>
                     </div>
@@ -677,7 +710,10 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {formatDate(check.paymentDate)}
+                        {formatDate(displayDate)}
+                        {check.isRecurring && check.nextPaymentDate && (
+                          <span className="text-xs text-blue-600">(Sonraki)</span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1 text-xs">
                         ✓ {formatDate(check.createdAt)}
@@ -706,6 +742,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                     <div className="text-lg font-bold theme-text">
                       {check.amount.toLocaleString('tr-TR')} ₺
                     </div>
+                    {check.type === 'bill' && check.billType && (
+                      <div className="text-xs theme-text-muted capitalize">
+                        {check.billType === 'diger' ? check.customBillType : check.billType}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}

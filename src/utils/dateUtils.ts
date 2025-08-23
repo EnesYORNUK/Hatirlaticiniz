@@ -45,10 +45,8 @@ export function getDaysUntilPayment(paymentDate: string, nextPaymentDate?: strin
   let targetDate: Date;
   if (isRecurring && nextPaymentDate) {
     targetDate = new Date(nextPaymentDate);
-    console.log(`🔄 getDaysUntilPayment - Tekrarlayan: ${nextPaymentDate}`);
   } else {
     targetDate = new Date(paymentDate);
-    console.log(`📅 getDaysUntilPayment - Normal: ${paymentDate}`);
   }
   
   targetDate.setHours(0, 0, 0, 0);
@@ -56,7 +54,6 @@ export function getDaysUntilPayment(paymentDate: string, nextPaymentDate?: strin
   const diffTime = targetDate.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
-  console.log(`⏰ Gün hesaplama: ${diffDays} gün`);
   return diffDays;
 }
 
