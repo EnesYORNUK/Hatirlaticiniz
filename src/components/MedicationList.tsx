@@ -142,8 +142,8 @@ export default function MedicationList({ medications, onEdit, onDelete, onToggle
 
               {/* Notlar */}
               {medication.notes && (
-                <div className="text-xs theme-text-muted bg-gray-50 p-2 rounded">
-                  {medication.notes}
+                <div className="text-sm theme-text theme-bg-secondary p-2 rounded border theme-border">
+                  <strong className="theme-text-secondary">Not:</strong> {medication.notes}
                 </div>
               )}
             </div>

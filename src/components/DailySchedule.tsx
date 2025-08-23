@@ -103,13 +103,13 @@ export default function DailySchedule({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'border-green-200 bg-green-50';
+        return 'theme-border theme-bg-secondary border border-green-200';
       case 'missed':
-        return 'border-red-200 bg-red-50';
+        return 'theme-border theme-bg-secondary border border-red-200';
       case 'overdue':
-        return 'border-orange-200 bg-orange-50';
+        return 'theme-border theme-bg-secondary border border-orange-200';
       default:
-        return 'border-gray-200 bg-white';
+        return 'theme-border theme-surface';
     }
   };
 
@@ -150,17 +150,17 @@ export default function DailySchedule({
             <div className="text-2xl font-bold theme-text">{stats.total}</div>
             <div className="text-sm theme-text-muted">Toplam</div>
           </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg">
+          <div className="text-center p-3 theme-bg-secondary rounded-lg border border-green-200">
             <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-            <div className="text-sm text-green-700">Tamamlandı</div>
+            <div className="text-sm theme-text">Tamamlandı</div>
           </div>
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
+          <div className="text-center p-3 theme-bg-secondary rounded-lg border border-blue-200">
             <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
-            <div className="text-sm text-blue-700">Bekliyor</div>
+            <div className="text-sm theme-text">Bekliyor</div>
           </div>
-          <div className="text-center p-3 bg-red-50 rounded-lg">
+          <div className="text-center p-3 theme-bg-secondary rounded-lg border border-red-200">
             <div className="text-2xl font-bold text-red-600">{stats.missed}</div>
-            <div className="text-sm text-red-700">Kaçırılan</div>
+            <div className="text-sm theme-text">Kaçırılan</div>
           </div>
         </div>
       </div>
@@ -188,7 +188,7 @@ export default function DailySchedule({
                   
                   {/* Icon & Time */}
                   <div className="flex flex-col items-center">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white border-2 theme-border">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full theme-surface border-2 theme-border">
                       {activity.type === 'medication' ? (
                         <Pill className="w-5 h-5 text-blue-600" />
                       ) : (
@@ -264,7 +264,7 @@ export default function DailySchedule({
 
                     {/* Medication Action Panel */}
                     {selectedMedication === activity.id && activity.type === 'medication' && (
-                      <div className="mt-3 p-3 bg-white rounded-lg border theme-border space-y-3">
+                      <div className="mt-3 p-3 theme-surface rounded-lg border theme-border space-y-3">
                         
                         <div>
                           <label className="theme-text text-sm font-medium block mb-1">
@@ -314,12 +314,18 @@ export default function DailySchedule({
 
                     {/* Show medication log info if exists */}
                     {activity.type === 'medication' && activity.data.log && (
-                      <div className="mt-2 text-xs theme-text-muted">
-                        {activity.data.log.status === 'taken' && '✅ İçildi'}
-                        {activity.data.log.status === 'skipped' && '⏭️ Atlandı'}
-                        {activity.data.log.status === 'missed' && '❌ Kaçırıldı'}
-                        {activity.data.log.notes && ` - ${activity.data.log.notes}`}
-                        <div className="mt-1">
+                      <div className="mt-2 p-2 theme-bg-secondary rounded border theme-border">
+                        <div className="text-sm theme-text font-medium">
+                          {activity.data.log.status === 'taken' && '✅ İçildi'}
+                          {activity.data.log.status === 'skipped' && '⏭️ Atlandı'}
+                          {activity.data.log.status === 'missed' && '❌ Kaçırıldı'}
+                        </div>
+                        {activity.data.log.notes && (
+                          <div className="text-sm theme-text-muted mt-1">
+                            <strong>Not:</strong> {activity.data.log.notes}
+                          </div>
+                        )}
+                        <div className="text-xs theme-text-muted mt-1">
                           {new Date(activity.data.log.takenAt).toLocaleString('tr-TR')}
                         </div>
                       </div>

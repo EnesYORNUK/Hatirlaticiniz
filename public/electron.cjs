@@ -153,12 +153,18 @@ function setupNewTelegramCommands() {
       
       const welcomeMessage = `🤖 Hatırlatıcınım Bot'a hoş geldiniz!
 
-📋 Kullanılabilir komutlar:
+📋 Ödeme Komutları:
 /bugun - Bugün ödenecek çek/faturalar
 /yakin - 7 gün içinde ödenecekler
 /tumu - Tüm aktif ödemeler
 /gecmis - Vadesi geçen ödemeler
 /istatistik - Genel özet
+
+💊 İlaç Komutları:
+/ilaclarim - Bugün alınacak ilaçlar
+/ilac_program - Haftalık ilaç programı
+/ilac_gecmis - İlaç geçmişi
+/ilac_istatistik - İlaç uyum istatistikleri
 
 💫 Chat ID'niz: ${chatId}
 🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu
@@ -225,6 +231,35 @@ Lütfen daha sonra tekrar deneyin.
     sendStatistics(chatId);
   });
 
+  // İlaç komutları
+  // /ilaclarim komutu
+  telegramBot.onText(/\/ilaclarim/, (msg) => {
+    console.log('🎯 /ilaclarim komutu alındı:', msg.from.first_name);
+    const chatId = msg.chat.id;
+    sendTodayMedications(chatId);
+  });
+
+  // /ilac_program komutu
+  telegramBot.onText(/\/ilac_program/, (msg) => {
+    console.log('🎯 /ilac_program komutu alındı:', msg.from.first_name);
+    const chatId = msg.chat.id;
+    sendMedicationProgram(chatId);
+  });
+
+  // /ilac_gecmis komutu
+  telegramBot.onText(/\/ilac_gecmis/, (msg) => {
+    console.log('🎯 /ilac_gecmis komutu alındı:', msg.from.first_name);
+    const chatId = msg.chat.id;
+    sendMedicationHistory(chatId);
+  });
+
+  // /ilac_istatistik komutu
+  telegramBot.onText(/\/ilac_istatistik/, (msg) => {
+    console.log('🎯 /ilac_istatistik komutu alındı:', msg.from.first_name);
+    const chatId = msg.chat.id;
+    sendMedicationStatistics(chatId);
+  });
+
   // Bilinmeyen komutlar için
   telegramBot.on('message', (msg) => {
     console.log('📨 Mesaj alındı:', {
@@ -237,11 +272,13 @@ Lütfen daha sonra tekrar deneyin.
     if (msg.text && msg.text.startsWith('/')) {
       console.log('🔍 Komut tespit edildi:', msg.text);
       
-      if (!['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik'].includes(msg.text)) {
+      const validCommands = ['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik', '/ilaclarim', '/ilac_program', '/ilac_gecmis', '/ilac_istatistik'];
+      
+      if (!validCommands.includes(msg.text)) {
         console.log('❓ Bilinmeyen komut:', msg.text);
         const chatId = msg.chat.id;
         telegramBot.sendMessage(chatId, 
-          `❓ Bilinmeyen komut: ${msg.text}\n\n📋 Geçerli komutlar:\n/start /bugun /yakin /tumu /gecmis /istatistik`
+          `❓ Bilinmeyen komut: ${msg.text}\n\n📋 Ödeme Komutları:\n/start /bugun /yakin /tumu /gecmis /istatistik\n\n💊 İlaç Komutları:\n/ilaclarim /ilac_program /ilac_gecmis /ilac_istatistik`
         );
       } else {
         console.log('✅ Bilinen komut:', msg.text);
@@ -259,7 +296,7 @@ Lütfen daha sonra tekrar deneyin.
 
 // Yeni test mesaj fonksiyonu
 function sendTestMessage(chatId) {
-  getChecksData().then(checks => {
+  Promise.all([getChecksData(), getMedicationsData()]).then(([checks, medications]) => {
     try {
       console.log('🧪 Yeni test mesajı gönderiliyor...');
       
@@ -296,19 +333,31 @@ function sendTestMessage(chatId) {
         return checkDate < now;
       });
       
+      // İlaç verileri
+      const activeMedications = medications.filter(m => m.isActive);
+      
       let testMessage = '🤖 YENİ Bot sistemi başlatıldı!\n\n';
+      testMessage += '💰 Ödeme Verileri:\n';
       testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
       testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n`;
       testMessage += `⚠️ Gecikmiş: ${overdueChecks.length} ödeme\n\n`;
-      testMessage += '📋 Kullanılabilir komutlar:\n';
+      testMessage += '💊 İlaç Verileri:\n';
+      testMessage += `📊 Toplam ilaç: ${medications.length}\n`;
+      testMessage += `✅ Aktif ilaç: ${activeMedications.length}\n\n`;
+      testMessage += '📋 Ödeme Komutları:\n';
       testMessage += '• /start - Yardım menüsü\n';
       testMessage += '• /bugun - Bugün ödenecekler\n';
       testMessage += '• /yakin - Yakın ödemeler\n';
       testMessage += '• /tumu - Tüm ödemeler\n';
       testMessage += '• /gecmis - Gecikmiş ödemeler\n';
       testMessage += '• /istatistik - İstatistikler\n\n';
+      testMessage += '💊 İlaç Komutları:\n';
+      testMessage += '• /ilaclarim - Bugün alınacak ilaçlar\n';
+      testMessage += '• /ilac_program - Haftalık ilaç programı\n';
+      testMessage += '• /ilac_gecmis - İlaç geçmişi\n';
+      testMessage += '• /ilac_istatistik - İlaç uyum istatistikleri\n\n';
       testMessage += '🔄 Yeni sistem: Güncel veri garantisi!\n';
-      testMessage += `📅 Veri kaynağı: ${checks.length} ödeme bulundu\n`;
+      testMessage += `📅 Veri kaynağı: ${checks.length} ödeme + ${medications.length} ilaç\n`;
       testMessage += `⏰ Bot başlatma: ${new Date().toLocaleString('tr-TR')}`;
       
       telegramBot.sendMessage(chatId, testMessage).then(() => {
@@ -922,6 +971,396 @@ function sendTelegramNotification(title, message) {
   } catch (error) {
     console.error('Telegram bildirimi gönderilemedi:', error);
   }
+}
+
+// İlaç verileri alma fonksiyonları
+async function getMedicationsData() {
+  try {
+    console.log('🔄 Telegram bot için ilaç verileri alınıyor...');
+    
+    // Renderer process'ten güncel veriyi al
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log('📱 Renderer process\'ten ilaç verileri çekiliyor...');
+      
+      try {
+        const rendererData = await mainWindow.webContents.executeJavaScript(`
+          (() => {
+            try {
+              // İlaç verilerini localStorage'dan al
+              let medicationsData = localStorage.getItem('medications');
+              if (medicationsData) {
+                const medications = JSON.parse(medicationsData);
+                console.log('📊 Renderer medications: ' + medications.length + ' ilaç bulundu');
+                return medications;
+              }
+              
+              console.log('⚠️ Renderer: Hiçbir ilaç verisi bulunamadı');
+              return [];
+            } catch (error) {
+              console.error('❌ Renderer ilaç veri hatası:', error);
+              return [];
+            }
+          })()
+        `);
+        
+        if (rendererData && rendererData.length > 0) {
+          console.log(`✅ Renderer'dan ${rendererData.length} ilaç alındı`);
+          return rendererData.filter(medication => {
+            return medication && 
+                   medication.id && 
+                   medication.name &&
+                   medication.dosage &&
+                   medication.time &&
+                   medication.createdBy;
+          });
+        }
+      } catch (rendererError) {
+        console.warn('⚠️ Renderer\'dan ilaç verisi alınamadı:', rendererError.message);
+      }
+    }
+    
+    // Fallback: Dosya sisteminden oku
+    console.log('📂 Fallback: Dosya sisteminden ilaç verisi okunuyor...');
+    return getMedicationsDataFromFiles();
+    
+  } catch (error) {
+    console.error('❌ getMedicationsData kritik hata:', error.message);
+    return [];
+  }
+}
+
+// İlaç log verileri alma
+async function getMedicationLogsData() {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        const rendererData = await mainWindow.webContents.executeJavaScript(`
+          (() => {
+            try {
+              let logsData = localStorage.getItem('medication-logs');
+              if (logsData) {
+                const logs = JSON.parse(logsData);
+                console.log('📊 Renderer medication logs: ' + logs.length + ' log bulundu');
+                return logs;
+              }
+              return [];
+            } catch (error) {
+              console.error('❌ Renderer log veri hatası:', error);
+              return [];
+            }
+          })()
+        `);
+        
+        return rendererData || [];
+      } catch (error) {
+        console.warn('⚠️ Renderer\'dan log verisi alınamadı:', error.message);
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('❌ getMedicationLogsData hatası:', error.message);
+    return [];
+  }
+}
+
+// Dosya sisteminden ilaç verilerini okuma
+function getMedicationsDataFromFiles() {
+  try {
+    const appDataPath = getAppDataPath();
+    const medicationsFilePath = path.join(appDataPath, 'hatirlatici-medications.json');
+    
+    if (fs.existsSync(medicationsFilePath)) {
+      const data = fs.readFileSync(medicationsFilePath, 'utf8');
+      const medications = JSON.parse(data);
+      console.log(`✅ Dosyadan ${medications.length} ilaç yüklendi`);
+      return medications;
+    }
+    
+    console.log('❌ İlaç dosyası bulunamadı');
+    return [];
+  } catch (error) {
+    console.error('❌ getMedicationsDataFromFiles hatası:', error.message);
+    return [];
+  }
+}
+
+// İlaç formatı
+function formatMedication(medication, log, scheduledTime) {
+  const status = log ? log.status : 'pending';
+  
+  let statusText = '';
+  if (status === 'taken') {
+    statusText = '✅ İçildi';
+  } else if (status === 'missed') {
+    statusText = '❌ Kaçırıldı';
+  } else if (status === 'skipped') {
+    statusText = '⏭️ Atlandı';
+  } else {
+    statusText = '⏰ Bekliyor';
+  }
+  
+  const frequency = medication.frequency === 'daily' ? 'Her gün' :
+                   medication.frequency === 'weekly' ? 'Haftalık' :
+                   medication.frequency === 'monthly' ? 'Aylık' : '';
+
+  return `💊 ${medication.name}
+📋 ${medication.dosage}
+⏰ ${scheduledTime || medication.time}
+📅 ${frequency}
+👤 ${medication.createdBy}
+${statusText}`;
+}
+
+// Bugünkü ilaçları gönder
+function sendTodayMedications(chatId) {
+  getMedicationsData().then(async medications => {
+    try {
+      console.log('💊 Bugün ilaçları sorgulanıyor...');
+      
+      if (medications.length === 0) {
+        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç eklenmemiş.');
+        return;
+      }
+      
+      const logs = await getMedicationLogsData();
+      const today = new Date().toISOString().split('T')[0];
+      const dayOfWeek = new Date().getDay(); // 0=Pazar, 1=Pazartesi
+      const dayOfMonth = new Date().getDate();
+      
+      // Bugün alınacak ilaçları filtrele
+      const todayMedications = medications.filter(med => {
+        if (!med.isActive) return false;
+        
+        // Başlangıç tarihinden önce mi?
+        if (new Date(today) < new Date(med.startDate)) return false;
+        
+        // Bitiş tarihinden sonra mı?
+        if (med.endDate && new Date(today) > new Date(med.endDate)) return false;
+        
+        // Sıklığa göre kontrol
+        switch (med.frequency) {
+          case 'daily':
+            return true;
+          case 'weekly':
+            const targetDay = med.weekDay === 7 ? 0 : med.weekDay;
+            return dayOfWeek === targetDay;
+          case 'monthly':
+            return dayOfMonth === med.monthDay;
+          default:
+            return false;
+        }
+      });
+      
+      console.log(`📊 Bugün ${todayMedications.length} ilaç bulundu`);
+      
+      if (todayMedications.length === 0) {
+        telegramBot.sendMessage(chatId, '🎉 Bugün alınacak ilaç yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR'));
+        return;
+      }
+      
+      let message = `💊 Bugün ${todayMedications.length} ilaç var:\n\n`;
+      
+      todayMedications.forEach((med, index) => {
+        // Bu ilaç için bugünün logunu bul
+        const log = logs.find(log => 
+          log.medicationId === med.id && 
+          log.takenAt.startsWith(today)
+        );
+        
+        message += `${index + 1}. ${formatMedication(med, log)}\n\n`;
+      });
+      
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+      
+      telegramBot.sendMessage(chatId, message);
+    } catch (error) {
+      console.error('❌ Bugün ilaçlar gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
+    }
+  }).catch(error => {
+    console.error('❌ Bugün ilaçlar veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
+}
+
+// Haftalık ilaç programını gönder
+function sendMedicationProgram(chatId) {
+  getMedicationsData().then(medications => {
+    try {
+      console.log('📅 Haftalık ilaç programı sorgulanıyor...');
+      
+      if (medications.length === 0) {
+        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç eklenmemiş.');
+        return;
+      }
+      
+      const activeMedications = medications.filter(m => m.isActive);
+      
+      if (activeMedications.length === 0) {
+        telegramBot.sendMessage(chatId, '📭 Aktif ilaç bulunmuyor.');
+        return;
+      }
+      
+      const weekDays = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      
+      let message = `📅 Haftalık İlaç Programı:\n\n`;
+      
+      activeMedications.forEach((med, index) => {
+        let schedule = '';
+        
+        if (med.frequency === 'daily') {
+          schedule = 'Her gün ' + med.time;
+        } else if (med.frequency === 'weekly') {
+          const dayName = weekDays[med.weekDay === 7 ? 0 : med.weekDay];
+          schedule = `${dayName} günleri ${med.time}`;
+        } else if (med.frequency === 'monthly') {
+          schedule = `Her ayın ${med.monthDay}. günü ${med.time}`;
+        }
+        
+        message += `${index + 1}. 💊 ${med.name}\n`;
+        message += `   📋 ${med.dosage}\n`;
+        message += `   📅 ${schedule}\n`;
+        message += `   👤 ${med.createdBy}\n\n`;
+      });
+      
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+      
+      telegramBot.sendMessage(chatId, message);
+    } catch (error) {
+      console.error('❌ İlaç programı gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
+    }
+  }).catch(error => {
+    console.error('❌ İlaç programı veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
+}
+
+// İlaç geçmişini gönder
+function sendMedicationHistory(chatId) {
+  getMedicationLogsData().then(logs => {
+    try {
+      console.log('📋 İlaç geçmişi sorgulanıyor...');
+      
+      if (logs.length === 0) {
+        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç kaydı yok.');
+        return;
+      }
+      
+      // Son 7 günün kayıtları
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const recentLogs = logs
+        .filter(log => new Date(log.takenAt) >= sevenDaysAgo)
+        .sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt))
+        .slice(0, 10); // Son 10 kayıt
+      
+      if (recentLogs.length === 0) {
+        telegramBot.sendMessage(chatId, '📭 Son 7 günde ilaç kaydı yok.');
+        return;
+      }
+      
+      let message = `📋 Son ${recentLogs.length} İlaç Kaydı:\n\n`;
+      
+      recentLogs.forEach((log, index) => {
+        const statusText = log.status === 'taken' ? '✅ İçildi' :
+                          log.status === 'missed' ? '❌ Kaçırıldı' :
+                          log.status === 'skipped' ? '⏭️ Atlandı' : '❓ Bilinmiyor';
+        
+        const date = new Date(log.takenAt).toLocaleDateString('tr-TR');
+        const time = new Date(log.takenAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        
+        message += `${index + 1}. ${statusText}\n`;
+        message += `   📅 ${date} ${time}\n`;
+        if (log.notes) {
+          message += `   📝 ${log.notes}\n`;
+        }
+        message += `\n`;
+      });
+      
+      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+      
+      telegramBot.sendMessage(chatId, message);
+    } catch (error) {
+      console.error('❌ İlaç geçmişi gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
+    }
+  }).catch(error => {
+    console.error('❌ İlaç geçmişi veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
+}
+
+// İlaç istatistikleri gönder
+function sendMedicationStatistics(chatId) {
+  Promise.all([getMedicationsData(), getMedicationLogsData()]).then(([medications, logs]) => {
+    try {
+      console.log('📊 İlaç istatistikleri sorgulanıyor...');
+      
+      if (medications.length === 0) {
+        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç eklenmemiş.');
+        return;
+      }
+      
+      const activeMedications = medications.filter(m => m.isActive);
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Bugünkü loglar
+      const todayLogs = logs.filter(log => log.takenAt.startsWith(today));
+      const takenToday = todayLogs.filter(log => log.status === 'taken').length;
+      const missedToday = todayLogs.filter(log => log.status === 'missed').length;
+      
+      // Bu hafta
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+      const weekLogs = logs.filter(log => {
+        const logDate = new Date(log.takenAt);
+        return logDate >= weekStart;
+      });
+      const weeklyTaken = weekLogs.filter(log => log.status === 'taken').length;
+      const weeklyTotal = weekLogs.length;
+      
+      // Bu ay
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const monthLogs = logs.filter(log => {
+        const logDate = new Date(log.takenAt);
+        return logDate >= monthStart;
+      });
+      const monthlyTaken = monthLogs.filter(log => log.status === 'taken').length;
+      const monthlyTotal = monthLogs.length;
+      
+      const message = `📊 İlaç İstatistikleri:
+
+💊 Toplam İlaç: ${medications.length}
+✅ Aktif İlaç: ${activeMedications.length}
+
+📅 Bugün:
+   ✅ Alınan: ${takenToday}
+   ❌ Kaçırılan: ${missedToday}
+   📊 Toplam: ${todayLogs.length}
+
+📈 Bu Hafta:
+   ✅ Alınan: ${weeklyTaken}/${weeklyTotal}
+   📊 Uyum: %${weeklyTotal > 0 ? Math.round((weeklyTaken / weeklyTotal) * 100) : 0}
+
+📈 Bu Ay:
+   ✅ Alınan: ${monthlyTaken}/${monthlyTotal}
+   📊 Uyum: %${monthlyTotal > 0 ? Math.round((monthlyTaken / monthlyTotal) * 100) : 0}
+
+📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
+      
+      telegramBot.sendMessage(chatId, message);
+    } catch (error) {
+      console.error('❌ İlaç istatistikleri gönderilemedi:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
+    }
+  }).catch(error => {
+    console.error('❌ İlaç istatistikleri veri hatası:', error.message);
+    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
+  });
 }
 
 function createWindow() {

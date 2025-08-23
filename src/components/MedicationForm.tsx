@@ -319,10 +319,10 @@ export default function MedicationForm({ onSave, onCancel, initialData }: Medica
             </div>
 
             {/* Bilgi Kutusu */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="theme-bg-secondary border theme-border rounded-lg p-3">
               <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
-                <div className="text-sm text-blue-700">
+                <AlertCircle className="w-4 h-4 theme-primary mt-0.5" />
+                <div className="text-sm theme-text">
                   <strong>Bilgi:</strong> Hap zamanı geldiğinde size bildirim gönderilecektir.
                   {formData.frequency === 'weekly' && formData.weekDay && (
                     <span className="ml-1">

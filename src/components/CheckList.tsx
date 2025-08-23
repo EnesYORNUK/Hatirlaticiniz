@@ -345,39 +345,39 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
 
       case 'todayMedications':
         return (
-          <div key="todayMedications" className="theme-surface p-4 rounded-lg shadow-sm border theme-border bg-blue-50 dark:bg-blue-900/20 col-span-full">
+          <div key="todayMedications" className="theme-surface p-4 rounded-lg shadow-sm border theme-border col-span-full">
             <div className="flex items-center gap-2 mb-3">
-              <Pill className="w-5 h-5 text-blue-600" />
-              <h4 className="font-medium text-blue-700 dark:text-blue-300">Bugünün İlaçları</h4>
+              <Pill className="w-5 h-5 theme-primary" />
+              <h4 className="font-medium theme-text">Bugünün İlaçları</h4>
             </div>
             
             {todayMedicationSchedule.medications.length === 0 ? (
-              <p className="text-blue-600 dark:text-blue-400 text-sm text-center py-2">
+              <p className="theme-text-muted text-sm text-center py-2">
                 Bugün ilaç programı yok
               </p>
             ) : (
               <div className="space-y-2">
                 {todayMedicationSchedule.medications.slice(0, 3).map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded text-sm">
+                  <div key={index} className="flex items-center justify-between p-2 theme-bg-secondary rounded text-sm border theme-border">
                     <div className="flex items-center gap-2">
-                      <Clock className="w-3 h-3 text-blue-500" />
-                      <span className="font-medium">{item.medication.name}</span>
-                      <span className="text-gray-600">({item.medication.dosage})</span>
+                      <Clock className="w-3 h-3 theme-primary" />
+                      <span className="font-medium theme-text">{item.medication.name}</span>
+                      <span className="theme-text-muted">({item.medication.dosage})</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">{item.scheduledTime}</span>
+                      <span className="text-xs theme-text-muted">{item.scheduledTime}</span>
                       {item.status === 'taken' ? (
                         <CheckCircle className="w-4 h-4 text-green-600" />
                       ) : item.status === 'missed' ? (
                         <div className="w-4 h-4 rounded-full bg-red-500" />
                       ) : (
-                        <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                        <div className="w-4 h-4 rounded-full border-2 theme-border" />
                       )}
                     </div>
                   </div>
                 ))}
                 {todayMedicationSchedule.medications.length > 3 && (
-                  <p className="text-xs text-blue-600 text-center">
+                  <p className="text-xs theme-text-muted text-center">
                     +{todayMedicationSchedule.medications.length - 3} daha var
                   </p>
                 )}
