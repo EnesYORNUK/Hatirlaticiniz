@@ -13,17 +13,18 @@ export function useMedications() {
 
   // Belirli bir gün için hap programını oluştur
   const getDailySchedule = useCallback((date: string): DailyMedicationSchedule => {
-    const dayOfWeek = new Date(date).getDay(); // 0=Pazar, 1=Pazartesi...
-    const dayOfMonth = new Date(date).getDate();
+    const targetDate = new Date(date);
+    const dayOfWeek = targetDate.getDay(); // 0=Pazar, 1=Pazartesi...
+    const dayOfMonth = targetDate.getDate();
     
     const dailyMedications = medications.filter(med => {
       if (!med.isActive) return false;
       
       // Başlangıç tarihinden önce mi?
-      if (new Date(date) < new Date(med.startDate)) return false;
+      if (targetDate < new Date(med.startDate)) return false;
       
       // Bitiş tarihinden sonra mı?
-      if (med.endDate && new Date(date) > new Date(med.endDate)) return false;
+      if (med.endDate && targetDate > new Date(med.endDate)) return false;
       
       // Sıklığa göre kontrol
       switch (med.frequency) {
@@ -139,18 +140,18 @@ export function useMedications() {
     const today = getTodayString();
     const todaySchedule = getTodaySchedule();
     
-    // Bu hafta
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Pazartesi
+    // Bu hafta - Pazartesi başlangıç
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + 1); // Pazartesi
+    weekStart.setHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6); // Pazar
+    weekEnd.setHours(23, 59, 59, 999);
 
     // Bu ay
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    const monthEnd = new Date(monthStart);
-    monthEnd.setMonth(monthEnd.getMonth() + 1);
-    monthEnd.setDate(0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
     // Haftalık ve aylık compliance hesapla
     const weeklyLogs = medicationLogs.filter(log => {

@@ -76,12 +76,24 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     switch (dashboardPeriod) {
       case 'thisMonth':
         return checks.filter(check => {
-          const checkDate = new Date(check.paymentDate);
+          // En güncel tarihi kullan
+          let checkDate: Date;
+          if (check.isRecurring && check.nextPaymentDate) {
+            checkDate = new Date(check.nextPaymentDate);
+          } else {
+            checkDate = new Date(check.paymentDate);
+          }
           return checkDate.getMonth() === currentMonth && checkDate.getFullYear() === currentYear;
         });
       case 'thisYear':
         return checks.filter(check => {
-          const checkDate = new Date(check.paymentDate);
+          // En güncel tarihi kullan
+          let checkDate: Date;
+          if (check.isRecurring && check.nextPaymentDate) {
+            checkDate = new Date(check.nextPaymentDate);
+          } else {
+            checkDate = new Date(check.paymentDate);
+          }
           return checkDate.getFullYear() === currentYear;
         });
       default:
@@ -89,7 +101,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     }
   };
 
-  // Bu haftaki ödemeler (sadece ödenmemiş + henüz vadesi gelmemiş)
+  // Bu haftaki ödemeler (dashboard filtresine uygun)
   const getThisWeekChecks = () => {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -100,7 +112,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     endOfWeek.setDate(startOfWeek.getDate() + 6); // Pazar bitiş
     endOfWeek.setHours(23, 59, 59, 999);
     
-    return checks.filter(check => {
+    return dashboardChecks.filter(check => {
       if (check.isPaid) return false; // Sadece ödenmemiş olanlar
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
@@ -111,22 +123,18 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         checkDate = new Date(check.paymentDate);
       }
       
-      // Sadece bu hafta içinde olan ve henüz vadesi gelmemiş olanlar
-      const isInWeek = checkDate >= startOfWeek && checkDate <= endOfWeek;
-      const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const isNotOverdue = daysUntil >= 0;
-      
-      return isInWeek && isNotOverdue;
+      // Bu hafta içinde olan tüm ödemeler (geçmiş ve gelecek)
+      return checkDate >= startOfWeek && checkDate <= endOfWeek;
     });
   };
 
-  // Bu ayki ödemeler (sadece ödenmemiş + henüz vadesi gelmemiş)
+  // Bu ayki ödemeler (dashboard filtresine uygun)
   const getThisMonthChecks = () => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     
-    return checks.filter(check => {
+    return dashboardChecks.filter(check => {
       if (check.isPaid) return false; // Sadece ödenmemiş olanlar
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
@@ -137,22 +145,18 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         checkDate = new Date(check.paymentDate);
       }
       
-      // Sadece bu ay içinde olan ve henüz vadesi gelmemiş olanlar
-      const isInMonth = checkDate >= startOfMonth && checkDate <= endOfMonth;
-      const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const isNotOverdue = daysUntil >= 0;
-      
-      return isInMonth && isNotOverdue;
+      // Bu ay içinde olan tüm ödemeler (geçmiş ve gelecek)
+      return checkDate >= startOfMonth && checkDate <= endOfMonth;
     });
   };
 
   const dashboardChecks = getDashboardChecks();
   const thisWeekChecks = getThisWeekChecks();
   const thisMonthChecks = getThisMonthChecks();
-  const recurringChecks = checks.filter(c => c.isRecurring);
+  const recurringChecks = dashboardChecks.filter(c => c.isRecurring);
   
-  // En büyük ödeme (sadece ödenmemiş olanlar arasından)
-  const biggestPayment = checks
+  // En büyük ödeme (dashboard filtresine uygun, sadece ödenmemiş olanlar arasından)
+  const biggestPayment = dashboardChecks
     .filter(c => !c.isPaid)
     .reduce((max, check) => check.amount > max.amount ? check : max, 
       { amount: 0, signedTo: '-', paymentDate: '' } as Check);
@@ -160,52 +164,42 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   // Bekleyen ödemeler (gecikenler hariç - sadece henüz vadesi gelmemiş olanlar)
   const getPendingChecks = () => {
     const now = new Date();
-    return checks.filter(check => {
+    return dashboardChecks.filter(check => {
       if (check.isPaid) return false;
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
       let checkDate: Date;
       if (check.isRecurring && check.nextPaymentDate) {
         checkDate = new Date(check.nextPaymentDate);
-        console.log(`🔄 Tekrarlayan ödeme: ${check.signedTo} - Sonraki tarih: ${check.nextPaymentDate}`);
       } else {
         checkDate = new Date(check.paymentDate);
-        console.log(`📅 Normal ödeme: ${check.signedTo} - Ödeme tarihi: ${check.paymentDate}`);
       }
       
       const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const isNotOverdue = daysUntil >= 0;
-      
-      console.log(`⏰ ${check.signedTo}: ${daysUntil} gün kaldı, Geciken: ${!isNotOverdue}`);
       
       // Sadece henüz vadesi gelmemiş olanlar (gecikenler hariç)
-      return isNotOverdue;
+      return daysUntil >= 0;
     });
   };
   
   // Geciken ödemeler (vadesi geçmiş olanlar)
   const getOverdueChecks = () => {
     const now = new Date();
-    return checks.filter(check => {
+    return dashboardChecks.filter(check => {
       if (check.isPaid) return false;
       
       // Tekrarlayan ödemeler için nextPaymentDate kullan
       let checkDate: Date;
       if (check.isRecurring && check.nextPaymentDate) {
         checkDate = new Date(check.nextPaymentDate);
-        console.log(`🔄 Tekrarlayan geciken: ${check.signedTo} - Sonraki tarih: ${check.nextPaymentDate}`);
       } else {
         checkDate = new Date(check.paymentDate);
-        console.log(`📅 Normal geciken: ${check.signedTo} - Ödeme tarihi: ${check.paymentDate}`);
       }
       
       const daysUntil = Math.ceil((checkDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const isOverdue = daysUntil < 0;
-      
-      console.log(`⚠️ ${check.signedTo}: ${Math.abs(daysUntil)} gün gecikmiş, Geciken: ${isOverdue}`);
       
       // Sadece vadesi geçmiş olanlar
-      return isOverdue;
+      return daysUntil < 0;
     });
   };
   
@@ -575,10 +569,10 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         {/* Filters */}
         <div className="flex flex-wrap gap-2">
           {[
-            { id: 'all', label: 'Tümü', count: stats.total },
-            { id: 'unpaid', label: 'Bekleyen', count: stats.unpaid },
-            { id: 'paid', label: 'Ödenen', count: stats.paid },
-            { id: 'overdue', label: 'Geciken', count: stats.overdue },
+            { id: 'all', label: 'Tümü', count: filteredChecks.length },
+            { id: 'unpaid', label: 'Bekleyen', count: filteredChecks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate, c.nextPaymentDate, c.isRecurring) >= 0).length },
+            { id: 'paid', label: 'Ödenen', count: filteredChecks.filter(c => c.isPaid).length },
+            { id: 'overdue', label: 'Geciken', count: filteredChecks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate, c.nextPaymentDate, c.isRecurring) < 0).length },
           ].map(item => (
             <button
               key={item.id}
