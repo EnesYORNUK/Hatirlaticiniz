@@ -69,13 +69,13 @@ p {
 
 /* 🎨 Modern Tema Sistemi - Soft & Comfortable */
 :root {
-  /* 🌅 Light Theme - Soft & Clean */
+  /* 🌅 Light Theme - Pure & Clean */
   --color-primary: #4F46E5;
   --color-primary-dark: #3730A3;
   --color-secondary: #10B981;
   --color-accent: #F59E0B;
   --color-background: #FEFEFE;
-  --color-background-secondary: #F9FAFB;
+  --color-background-secondary: #F8FAFC;
   --color-surface: #FFFFFF;
   --color-border: #E5E7EB;
   --color-text: #1F2937;
@@ -87,95 +87,114 @@ p {
   --color-info: #3B82F6;
 }
 
-/* 🌙 Dark Theme - Soft & Warm */
+/* 🌙 Dark Theme - Deep & Elegant */
 [data-theme="dark"] {
   --color-primary: #6366F1;
   --color-primary-dark: #4F46E5;
   --color-secondary: #34D399;
   --color-accent: #FBBF24;
-  --color-background: #111827;
-  --color-background-secondary: #1F2937;
-  --color-surface: #374151;
-  --color-border: #4B5563;
-  --color-text: #F9FAFB;
-  --color-text-secondary: #D1D5DB;
-  --color-text-muted: #9CA3AF;
+  --color-background: #0F172A;
+  --color-background-secondary: #1E293B;
+  --color-surface: #334155;
+  --color-border: #475569;
+  --color-text: #F1F5F9;
+  --color-text-secondary: #CBD5E1;
+  --color-text-muted: #94A3B8;
   --color-success: #34D399;
   --color-warning: #FBBF24;
   --color-error: #F87171;
   --color-info: #60A5FA;
 }
 
-/* 🔵 Blue Theme - Soft Ocean */
-[data-theme="blue"] {
-  --color-primary: #3B82F6;
-  --color-primary-dark: #2563EB;
-  --color-secondary: #06B6D4;
-  --color-accent: #0EA5E9;
-  --color-background: #F8FAFC;
-  --color-background-secondary: #F1F5F9;
-  --color-surface: #FFFFFF;
-  --color-border: #CBD5E1;
-  --color-text: #1E293B;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748B;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-  --color-info: #3B82F6;
-}
-
-/* 🟢 Green Theme - Soft Nature */
-[data-theme="green"] {
-  --color-primary: #22C55E;
-  --color-primary-dark: #16A34A;
+/* 🌫️ Gray Theme - Balanced & Professional */
+[data-theme="gray"] {
+  --color-primary: #6B7280;
+  --color-primary-dark: #4B5563;
   --color-secondary: #10B981;
-  --color-accent: #84CC16;
-  --color-background: #F9FDF9;
-  --color-background-secondary: #F0FDF4;
-  --color-surface: #FFFFFF;
-  --color-border: #D1FAE5;
-  --color-text: #1F2937;
+  --color-accent: #F59E0B;
+  --color-background: #F3F4F6;
+  --color-background-secondary: #E5E7EB;
+  --color-surface: #F9FAFB;
+  --color-border: #D1D5DB;
+  --color-text: #111827;
   --color-text-secondary: #374151;
   --color-text-muted: #6B7280;
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-  --color-info: #3B82F6;
-}
-
-/* 🟠 Orange Theme - Soft Sunset */
-[data-theme="orange"] {
-  --color-primary: #F97316;
-  --color-primary-dark: #EA580C;
-  --color-secondary: #FB923C;
-  --color-accent: #FBBF24;
-  --color-background: #FFFBF5;
-  --color-background-secondary: #FEF3E2;
-  --color-surface: #FFFFFF;
-  --color-border: #FED7AA;
-  --color-text: #1F2937;
-  --color-text-secondary: #4B5563;
-  --color-text-muted: #6B7280;
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
   --color-info: #3B82F6;
 }
 
-/* 🟣 Purple Theme - Soft Lavender */
+/* 🔵 Blue Theme - Ocean Breeze */
+[data-theme="blue"] {
+  --color-primary: #2563EB;
+  --color-primary-dark: #1D4ED8;
+  --color-secondary: #06B6D4;
+  --color-accent: #0EA5E9;
+  --color-background: #EBF8FF;
+  --color-background-secondary: #DBEAFE;
+  --color-surface: #F0F9FF;
+  --color-border: #93C5FD;
+  --color-text: #1E3A8A;
+  --color-text-secondary: #1E40AF;
+  --color-text-muted: #3B82F6;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #2563EB;
+}
+
+/* 🟢 Green Theme - Forest Harmony */
+[data-theme="green"] {
+  --color-primary: #16A34A;
+  --color-primary-dark: #15803D;
+  --color-secondary: #10B981;
+  --color-accent: #84CC16;
+  --color-background: #F0FDF4;
+  --color-background-secondary: #DCFCE7;
+  --color-surface: #F7FEF0;
+  --color-border: #86EFAC;
+  --color-text: #14532D;
+  --color-text-secondary: #166534;
+  --color-text-muted: #22C55E;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+}
+
+/* 🟠 Orange Theme - Warm Autumn */
+[data-theme="orange"] {
+  --color-primary: #EA580C;
+  --color-primary-dark: #C2410C;
+  --color-secondary: #FB923C;
+  --color-accent: #FBBF24;
+  --color-background: #FFF7ED;
+  --color-background-secondary: #FFEDD5;
+  --color-surface: #FEF3E2;
+  --color-border: #FDBA74;
+  --color-text: #9A3412;
+  --color-text-secondary: #C2410C;
+  --color-text-muted: #EA580C;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+}
+
+/* 🟣 Purple Theme - Royal Elegance */
 [data-theme="purple"] {
-  --color-primary: #8B5CF6;
-  --color-primary-dark: #7C3AED;
+  --color-primary: #7C3AED;
+  --color-primary-dark: #6D28D9;
   --color-secondary: #A78BFA;
   --color-accent: #C4B5FD;
-  --color-background: #FDFAFF;
-  --color-background-secondary: #F9F5FF;
-  --color-surface: #FFFFFF;
-  --color-border: #E9D5FF;
-  --color-text: #1F2937;
-  --color-text-secondary: #4B5563;
-  --color-text-muted: #6B7280;
+  --color-background: #FAF5FF;
+  --color-background-secondary: #F3E8FF;
+  --color-surface: #F9F5FF;
+  --color-border: #C4B5FD;
+  --color-text: #581C87;
+  --color-text-secondary: #6B21A8;
+  --color-text-muted: #8B5CF6;
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-error: #EF4444;

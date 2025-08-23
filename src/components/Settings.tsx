@@ -23,10 +23,11 @@ declare global {
 const themeOptions: { value: ThemeType; label: string; color: string }[] = [
   { value: 'light', label: 'Açık', color: '#ffffff' },
   { value: 'dark', label: 'Koyu', color: '#0f172a' },
-  { value: 'blue', label: 'Mavi', color: '#1e40af' },
-  { value: 'green', label: 'Yeşil', color: '#15803d' },
-  { value: 'orange', label: 'Turuncu', color: '#c2410c' },
-  { value: 'purple', label: 'Mor', color: '#7c3aed' },
+  { value: 'gray', label: 'Gri', color: '#f3f4f6' },
+  { value: 'blue', label: 'Mavi', color: '#ebf8ff' },
+  { value: 'green', label: 'Yeşil', color: '#f0fdf4' },
+  { value: 'orange', label: 'Turuncu', color: '#fff7ed' },
+  { value: 'purple', label: 'Mor', color: '#faf5ff' },
 ];
 
 interface SettingsProps {
