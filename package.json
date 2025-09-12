@@ -1,0 +1,116 @@
+{
+  "name": "vite-react-typescript-starter",
+  "private": false,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "electron": "electron .",
+    "electron-dev": "concurrently \"npm run dev\" \"electron .\"",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "build-electron": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder",
+    "dist-win": "npm run build && electron-builder --win",
+    "version:patch": "npm version patch && git push origin main --tags",
+    "version:minor": "npm version minor && git push origin main --tags",
+    "version:major": "npm version major && git push origin main --tags",
+    "release": "npm run version:patch",
+    "safe:patch": "npm version patch && git push origin main --tags",
+    "safe:minor": "npm version minor && git push origin main --tags",
+    "safe:major": "npm version major && git push origin main --tags"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "electron-updater": "^6.6.2",
+    "lucide-react": "^0.525.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.1",
+    "@types/node-telegram-bot-api": "^0.64.8",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.18",
+    "concurrently": "^9.0.1",
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.9.1",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.9.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.3.0",
+    "vite": "^5.4.2",
+    "wait-on": "^8.0.1"
+  },
+  "main": "public/electron.cjs",
+  "homepage": "./",
+  "author": "Hatirlaticinim",
+  "description": "Çek takip ve hatirlatma uygulamasi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EnesYORNUK/Hatirlaticiniz.git"
+  },
+  "build": {
+    "publish": {
+      "provider": "github",
+      "owner": "EnesYORNUK",
+      "repo": "Hatirlaticiniz",
+      "private": false
+    },
+    "appId": "com.hatirlaticiniz.app",
+    "productName": "Hatirlaticinim",
+    "copyright": "Copyright © 2025 Hatirlaticinim",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "files": [
+      "dist/**/*",
+      "public/electron.cjs",
+      "public/preload.cjs",
+      "public/icon.ico",
+      "public/icon-256x256.png",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "icon": "public/icon-256x256.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico",
+      "verifyUpdateCodeSignature": false
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office",
+      "icon": "public/icon-256x256.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
+  }
+}

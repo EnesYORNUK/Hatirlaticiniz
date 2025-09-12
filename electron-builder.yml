@@ -1,0 +1,33 @@
+appId: com.hatirlaticiniz.app
+productName: Hatirlaticinim
+copyright: Copyright © 2025 Hatirlaticinim
+directories:
+  output: electron-dist
+files:
+  - dist/**/*
+  - public/electron.js
+  - public/preload.js
+  - public/icon.ico
+  - public/icon-256x256.png
+  - node_modules/**/*
+extraResources:
+  - from: public/icon.ico
+    to: icon.ico
+win:
+  target: nsis
+  icon: public/icon.ico
+  verifyUpdateCodeSignature: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: public/icon.ico
+  uninstallerIcon: public/icon.ico
+  installerHeaderIcon: public/icon.ico
+  deleteAppDataOnUninstall: true
+  runAfterFinish: true
+  displayLanguageSelector: true
+  installerLanguages:
+    - tr_TR
+    - en_US
