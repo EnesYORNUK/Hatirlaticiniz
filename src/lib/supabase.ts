@@ -226,8 +226,8 @@ export interface Database {
   }
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://asbcteplixnkuqvytqce.supabase.co'
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzYmN0ZXBsaXhua3Vxdnl0cWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1MjIxMjYsImV4cCI6MjA3MzA5ODEyNn0.ysyedceXwi5KpRGordwG0uucIHRFFBA6fHuYhs_Lq5U'
 
 // Create Supabase client - using relaxed typing for updates
 export const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -235,7 +235,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false
-  }
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'Hatirlaticiniz/2.0.2'
+    }
+  },
+  // Electron ortamında CORS sorunlarını çözmek için
+  fetch: typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : undefined
 })
 
 // Type-safe table references

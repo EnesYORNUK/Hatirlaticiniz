@@ -36,11 +36,15 @@ export const useAuth = () => {
 
         if (session?.user) {
           // Get user profile from database
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
+
+          if (profileError) {
+            console.error('Error getting profile:', profileError);
+          }
 
           const user = convertSupabaseUser(session.user, profile);
           setAuthState({
@@ -73,18 +77,32 @@ export const useAuth = () => {
       
       if (session?.user) {
         // Get user profile from database
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-        const user = convertSupabaseUser(session.user, profile);
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        });
+          if (profileError) {
+            console.error('Error getting profile:', profileError);
+          }
+
+          const user = convertSupabaseUser(session.user, profile);
+          setAuthState({
+            user,
+            isAuthenticated: true,
+            isLoading: false
+          });
+        } catch (profileError) {
+          console.error('Error getting profile:', profileError);
+          const user = convertSupabaseUser(session.user);
+          setAuthState({
+            user,
+            isAuthenticated: true,
+            isLoading: false
+          });
+        }
       } else {
         setAuthState({
           user: null,
@@ -111,6 +129,10 @@ export const useAuth = () => {
 
       if (error) {
         setAuthState(prev => ({ ...prev, isLoading: false }));
+        // Daha açıklayıcı hata mesajları
+        if (error.message.includes('failed to fetch')) {
+          return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
+        }
         return { success: false, error: error.message };
       }
 
@@ -118,6 +140,10 @@ export const useAuth = () => {
       return { success: true };
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
+      // Daha açıklayıcı hata mesajları
+      if (error?.message?.includes('failed to fetch')) {
+        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
+      }
       return { success: false, error: error.message || 'Giriş sırasında bir hata oluştu!' };
     }
   };
@@ -150,6 +176,10 @@ export const useAuth = () => {
 
       if (error) {
         setAuthState(prev => ({ ...prev, isLoading: false }));
+        // Daha açıklayıcı hata mesajları
+        if (error.message.includes('failed to fetch')) {
+          return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
+        }
         return { success: false, error: error.message };
       }
 
@@ -166,6 +196,10 @@ export const useAuth = () => {
       return { success: true };
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
+      // Daha açıklayıcı hata mesajları
+      if (error?.message?.includes('failed to fetch')) {
+        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
+      }
       return { success: false, error: error.message || 'Kayıt sırasında bir hata oluştu!' };
     }
   };
