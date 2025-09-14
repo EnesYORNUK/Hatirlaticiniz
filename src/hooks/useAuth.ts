@@ -20,9 +20,22 @@ export const useAuth = () => {
 
   // Check authentication state on mount
   useEffect(() => {
+    // Set a timeout to prevent hanging
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ Auth check timeout - setting app to loaded state');
+      setAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false
+      });
+    }, 5000); // 5 second timeout
+
     const checkAuthState = async () => {
       try {
         console.log('🔍 Checking auth state...');
+        
+        // Clear the timeout since we're proceeding
+        clearTimeout(timeoutId);
         
         // If Supabase is not initialized, skip auth check
         if (!supabase) {
@@ -37,7 +50,13 @@ export const useAuth = () => {
         
         setAuthState(prev => ({ ...prev, isLoading: true }));
         
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Add timeout to the Supabase call
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session check timeout')), 10000)
+        );
+        
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         
         if (error) {
           console.error('❌ Error getting session:', error);
@@ -53,24 +72,41 @@ export const useAuth = () => {
 
         if (session?.user) {
           console.log('👤 User session found, getting profile...');
-          // Get user profile from database
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          // Get user profile from database with timeout
+          try {
+            const profilePromise = supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+            
+            const profileTimeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+            );
+            
+            const { data: profile, error: profileError } = await Promise.race([profilePromise, profileTimeoutPromise]) as any;
 
-          if (profileError) {
-            console.error('❌ Error getting profile:', profileError);
+            if (profileError) {
+              console.error('❌ Error getting profile:', profileError);
+            }
+
+            const user = convertSupabaseUser(session.user, profile);
+            console.log('✅ User authenticated:', user);
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false
+            });
+          } catch (profileError) {
+            console.error('💥 Error getting profile (timeout or other):', profileError);
+            // Still authenticate the user even if profile fetch fails
+            const user = convertSupabaseUser(session.user);
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false
+            });
           }
-
-          const user = convertSupabaseUser(session.user, profile);
-          console.log('✅ User authenticated:', user);
-          setAuthState({
-            user,
-            isAuthenticated: true,
-            isLoading: false
-          });
         } else {
           console.log('🚫 No user session found');
           setAuthState({
@@ -81,6 +117,8 @@ export const useAuth = () => {
         }
       } catch (error) {
         console.error('💥 Error checking auth state:', error);
+        // Clear timeout on error
+        clearTimeout(timeoutId);
         setAuthState({
           user: null,
           isAuthenticated: false,
@@ -101,17 +139,25 @@ export const useAuth = () => {
           console.log('👤 Session changed, getting profile...');
           // Get user profile from database
           try {
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+            let profileData = null;
+            let profileError = null;
+            
+            // Only attempt to get profile if supabase is available
+            if (supabase) {
+              const result = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              profileData = result.data;
+              profileError = result.error;
+            }
 
             if (profileError) {
               console.error('❌ Error getting profile:', profileError);
             }
 
-            const user = convertSupabaseUser(session.user, profile);
+            const user = convertSupabaseUser(session.user, profileData);
             console.log('✅ User authenticated via state change:', user);
             setAuthState({
               user,
@@ -143,6 +189,7 @@ export const useAuth = () => {
       };
     } else {
       // If Supabase is not available, set loading to false
+      clearTimeout(timeoutId);
       setAuthState(prev => ({ ...prev, isLoading: false }));
       return () => {};
     }
@@ -159,10 +206,17 @@ export const useAuth = () => {
       console.log('🔐 Attempting login...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Add timeout to login request
+      const loginPromise = supabase.auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password,
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login request timeout')), 10000)
+      );
+      
+      const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('❌ Login error:', error);
@@ -180,6 +234,10 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('💥 Login exception:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
+      // Handle timeout specifically
+      if (error?.message === 'Login request timeout') {
+        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
+      }
       // Daha açıklayıcı hata mesajları
       if (error?.message?.includes('failed to fetch')) {
         return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
@@ -210,7 +268,8 @@ export const useAuth = () => {
         return { success: false, error: 'Şifre en az 6 karakter olmalı!' };
       }
 
-      const { data, error } = await supabase.auth.signUp({
+      // Add timeout to registration request
+      const registerPromise = supabase.auth.signUp({
         email: registerData.email,
         password: registerData.password,
         options: {
@@ -219,6 +278,12 @@ export const useAuth = () => {
           },
         },
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Registration request timeout')), 10000)
+      );
+      
+      const { data, error } = await Promise.race([registerPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('❌ Registration error:', error);
@@ -245,6 +310,10 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('💥 Registration exception:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
+      // Handle timeout specifically
+      if (error?.message === 'Registration request timeout') {
+        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
+      }
       // Daha açıklayıcı hata mesajları
       if (error?.message?.includes('failed to fetch')) {
         return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
@@ -269,7 +338,14 @@ export const useAuth = () => {
       console.log('🚪 Attempting logout...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
       
-      const { error } = await supabase.auth.signOut();
+      // Add timeout to logout request
+      const logoutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Logout request timeout')), 5000)
+      );
+      
+      const { error } = await Promise.race([logoutPromise, timeoutPromise]) as any;
+      
       if (error) {
         console.error('❌ Error signing out:', error);
       }
