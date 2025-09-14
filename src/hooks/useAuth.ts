@@ -23,6 +23,20 @@ export const useAuth = () => {
     const checkAuthState = async () => {
       try {
         console.log('🔍 Checking auth state...');
+        
+        // If Supabase is not initialized, skip auth check
+        if (!supabase) {
+          console.log('⚠️ Supabase not initialized, skipping auth check');
+          setAuthState({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false
+          });
+          return;
+        }
+        
+        setAuthState(prev => ({ ...prev, isLoading: true }));
+        
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -77,58 +91,70 @@ export const useAuth = () => {
 
     checkAuthState();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, session);
-      
-      if (session?.user) {
-        console.log('👤 Session changed, getting profile...');
-        // Get user profile from database
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+    // Only set up auth state listener if Supabase is available
+    if (supabase) {
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('🔄 Auth state changed:', event, session);
+        
+        if (session?.user) {
+          console.log('👤 Session changed, getting profile...');
+          // Get user profile from database
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-          if (profileError) {
-            console.error('❌ Error getting profile:', profileError);
+            if (profileError) {
+              console.error('❌ Error getting profile:', profileError);
+            }
+
+            const user = convertSupabaseUser(session.user, profile);
+            console.log('✅ User authenticated via state change:', user);
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false
+            });
+          } catch (profileError) {
+            console.error('💥 Error getting profile:', profileError);
+            const user = convertSupabaseUser(session.user);
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false
+            });
           }
-
-          const user = convertSupabaseUser(session.user, profile);
-          console.log('✅ User authenticated via state change:', user);
+        } else {
+          console.log('🚫 No session in state change');
           setAuthState({
-            user,
-            isAuthenticated: true,
-            isLoading: false
-          });
-        } catch (profileError) {
-          console.error('💥 Error getting profile:', profileError);
-          const user = convertSupabaseUser(session.user);
-          setAuthState({
-            user,
-            isAuthenticated: true,
+            user: null,
+            isAuthenticated: false,
             isLoading: false
           });
         }
-      } else {
-        console.log('🚫 No session in state change');
-        setAuthState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false
-        });
-      }
-    });
+      });
 
-    return () => {
-      console.log('🧹 Cleaning up auth subscription');
-      subscription.unsubscribe();
-    };
+      return () => {
+        console.log('🧹 Cleaning up auth subscription');
+        subscription.unsubscribe();
+      };
+    } else {
+      // If Supabase is not available, set loading to false
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return () => {};
+    }
   }, []);
 
   // Login function
   const login = async (loginData: LoginData): Promise<{ success: boolean; error?: string }> => {
+    // If Supabase is not available, return error
+    if (!supabase) {
+      return { success: false, error: 'Authentication service is not available' };
+    }
+    
     try {
       console.log('🔐 Attempting login...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
@@ -164,6 +190,11 @@ export const useAuth = () => {
 
   // Register function
   const register = async (registerData: RegisterData): Promise<{ success: boolean; error?: string }> => {
+    // If Supabase is not available, return error
+    if (!supabase) {
+      return { success: false, error: 'Authentication service is not available' };
+    }
+    
     try {
       console.log('📝 Attempting registration...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
@@ -224,8 +255,20 @@ export const useAuth = () => {
 
   // Logout function
   const logout = async () => {
+    // If Supabase is not available, just update state
+    if (!supabase) {
+      setAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false
+      });
+      return;
+    }
+    
     try {
       console.log('🚪 Attempting logout...');
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ Error signing out:', error);
@@ -234,6 +277,7 @@ export const useAuth = () => {
       // State will be updated by onAuthStateChange
     } catch (error) {
       console.error('💥 Error during logout:', error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
     }
   };
 

@@ -226,24 +226,33 @@ export interface Database {
   }
 }
 
+// Use environment variables with fallbacks
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://asbcteplixnkuqvytqce.supabase.co'
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzYmN0ZXBsaXhua3Vxdnl0cWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1MjIxMjYsImV4cCI6MjA3MzA5ODEyNn0.ysyedceXwi5KpRGordwG0uucIHRFFBA6fHuYhs_Lq5U'
 
-// Create Supabase client - using relaxed typing for updates
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'Hatirlaticiniz/2.0.2'
+// Create Supabase client with error handling
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+
+try {
+  supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'Hatirlaticiniz/2.0.4'
+      }
     }
-  },
-  // Electron ortamında CORS sorunlarını çözmek için
-  fetch: typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : undefined
-})
+  });
+  console.log('✅ Supabase client created successfully');
+} catch (error) {
+  console.error('❌ Failed to create Supabase client:', error);
+  supabaseInstance = null;
+}
+
+export const supabase = supabaseInstance;
 
 // Type-safe table references
 export type SupabaseTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]

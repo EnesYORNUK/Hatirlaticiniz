@@ -27,6 +27,7 @@ if (!gotTheLock) {
   // Eğer zaten bir instance çalışıyorsa, bu instance'ı kapat
   console.log('Uygulama zaten çalışıyor. Mevcut pencereyi öne getiriliyor...');
   app.quit();
+  process.exit(0);
 } else {
   // İkinci instance açılmaya çalışıldığında bu event tetiklenir
   app.on('second-instance', (event, commandLine, workingDirectory) => {
@@ -51,20 +52,19 @@ if (!gotTheLock) {
 
   // Ana uygulama mantığı buradan devam eder
   console.log('Ana instance başlatılıyor...');
-}
 
-// AppData klasör yolu
-const getAppDataPath = () => {
-  const platform = process.platform;
-  switch (platform) {
-    case 'win32':
-      return path.join(os.homedir(), 'AppData', 'Roaming', 'Hatirlaticinim');
-    case 'darwin':
-      return path.join(os.homedir(), 'Library', 'Application Support', 'Hatirlaticinim');
-    default:
-      return path.join(os.homedir(), '.config', 'Hatirlaticinim');
-  }
-};
+  // AppData klasör yolu
+  const getAppDataPath = () => {
+    const platform = process.platform;
+    switch (platform) {
+      case 'win32':
+        return path.join(os.homedir(), 'AppData', 'Roaming', 'Hatirlaticinim');
+      case 'darwin':
+        return path.join(os.homedir(), 'Library', 'Application Support', 'Hatirlaticinim');
+      default:
+        return path.join(os.homedir(), '.config', 'Hatirlaticinim');
+    }
+  };
 
 // Telegram Bot Fonksiyonları
 function initializeTelegramBot() {
@@ -278,7 +278,13 @@ Lütfen daha sonra tekrar deneyin.
         console.log('❓ Bilinmeyen komut:', msg.text);
         const chatId = msg.chat.id;
         telegramBot.sendMessage(chatId, 
-          `❓ Bilinmeyen komut: ${msg.text}\n\n📋 Ödeme Komutları:\n/start /bugun /yakin /tumu /gecmis /istatistik\n\n💊 İlaç Komutları:\n/ilaclarim /ilac_program /ilac_gecmis /ilac_istatistik`
+          `❓ Bilinmeyen komut: ${msg.text}
+
+📋 Ödeme Komutları:
+/start /bugun /yakin /tumu /gecmis /istatistik
+
+💊 İlaç Komutları:
+/ilaclarim /ilac_program /ilac_gecmis /ilac_istatistik`
         );
       } else {
         console.log('✅ Bilinen komut:', msg.text);
@@ -1833,4 +1839,6 @@ ipcMain.handle('load-app-data', async (event, key) => {
     console.error('❌ AppData load error:', error);
     return null;
   }
-});
+});} 
+ 
+ 
