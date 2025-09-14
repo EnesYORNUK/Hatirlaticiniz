@@ -22,10 +22,11 @@ export const useAuth = () => {
   useEffect(() => {
     const checkAuthState = async () => {
       try {
+        console.log('🔍 Checking auth state...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting session:', error);
+          console.error('❌ Error getting session:', error);
           setAuthState({
             user: null,
             isAuthenticated: false,
@@ -34,7 +35,10 @@ export const useAuth = () => {
           return;
         }
 
+        console.log('✅ Session check completed:', session);
+
         if (session?.user) {
+          console.log('👤 User session found, getting profile...');
           // Get user profile from database
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -43,16 +47,18 @@ export const useAuth = () => {
             .single();
 
           if (profileError) {
-            console.error('Error getting profile:', profileError);
+            console.error('❌ Error getting profile:', profileError);
           }
 
           const user = convertSupabaseUser(session.user, profile);
+          console.log('✅ User authenticated:', user);
           setAuthState({
             user,
             isAuthenticated: true,
             isLoading: false
           });
         } else {
+          console.log('🚫 No user session found');
           setAuthState({
             user: null,
             isAuthenticated: false,
@@ -60,7 +66,7 @@ export const useAuth = () => {
           });
         }
       } catch (error) {
-        console.error('Error checking auth state:', error);
+        console.error('💥 Error checking auth state:', error);
         setAuthState({
           user: null,
           isAuthenticated: false,
@@ -73,9 +79,10 @@ export const useAuth = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session);
+      console.log('🔄 Auth state changed:', event, session);
       
       if (session?.user) {
+        console.log('👤 Session changed, getting profile...');
         // Get user profile from database
         try {
           const { data: profile, error: profileError } = await supabase
@@ -85,17 +92,18 @@ export const useAuth = () => {
             .single();
 
           if (profileError) {
-            console.error('Error getting profile:', profileError);
+            console.error('❌ Error getting profile:', profileError);
           }
 
           const user = convertSupabaseUser(session.user, profile);
+          console.log('✅ User authenticated via state change:', user);
           setAuthState({
             user,
             isAuthenticated: true,
             isLoading: false
           });
         } catch (profileError) {
-          console.error('Error getting profile:', profileError);
+          console.error('💥 Error getting profile:', profileError);
           const user = convertSupabaseUser(session.user);
           setAuthState({
             user,
@@ -104,6 +112,7 @@ export const useAuth = () => {
           });
         }
       } else {
+        console.log('🚫 No session in state change');
         setAuthState({
           user: null,
           isAuthenticated: false,
@@ -113,6 +122,7 @@ export const useAuth = () => {
     });
 
     return () => {
+      console.log('🧹 Cleaning up auth subscription');
       subscription.unsubscribe();
     };
   }, []);
@@ -120,6 +130,7 @@ export const useAuth = () => {
   // Login function
   const login = async (loginData: LoginData): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('🔐 Attempting login...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -128,6 +139,7 @@ export const useAuth = () => {
       });
 
       if (error) {
+        console.error('❌ Login error:', error);
         setAuthState(prev => ({ ...prev, isLoading: false }));
         // Daha açıklayıcı hata mesajları
         if (error.message.includes('failed to fetch')) {
@@ -136,9 +148,11 @@ export const useAuth = () => {
         return { success: false, error: error.message };
       }
 
+      console.log('✅ Login successful');
       // Authentication successful - state will be updated by onAuthStateChange
       return { success: true };
     } catch (error: any) {
+      console.error('💥 Login exception:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
       // Daha açıklayıcı hata mesajları
       if (error?.message?.includes('failed to fetch')) {
@@ -151,6 +165,7 @@ export const useAuth = () => {
   // Register function
   const register = async (registerData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('📝 Attempting registration...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
       // Validate passwords match
@@ -175,6 +190,7 @@ export const useAuth = () => {
       });
 
       if (error) {
+        console.error('❌ Registration error:', error);
         setAuthState(prev => ({ ...prev, isLoading: false }));
         // Daha açıklayıcı hata mesajları
         if (error.message.includes('failed to fetch')) {
@@ -183,6 +199,7 @@ export const useAuth = () => {
         return { success: false, error: error.message };
       }
 
+      console.log('✅ Registration successful');
       // Check if email confirmation is required
       if (data.user && !data.session) {
         setAuthState(prev => ({ ...prev, isLoading: false }));
@@ -195,6 +212,7 @@ export const useAuth = () => {
       // Registration successful - state will be updated by onAuthStateChange
       return { success: true };
     } catch (error: any) {
+      console.error('💥 Registration exception:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
       // Daha açıklayıcı hata mesajları
       if (error?.message?.includes('failed to fetch')) {
@@ -207,13 +225,15 @@ export const useAuth = () => {
   // Logout function
   const logout = async () => {
     try {
+      console.log('🚪 Attempting logout...');
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Error signing out:', error);
+        console.error('❌ Error signing out:', error);
       }
+      console.log('✅ Logout successful');
       // State will be updated by onAuthStateChange
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('💥 Error during logout:', error);
     }
   };
 
