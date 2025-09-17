@@ -198,37 +198,253 @@ Lütfen daha sonra tekrar deneyin.
     console.log('🎯 /bugun komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
     
-    // YENİ: Her komut için veriyi yeniden oku
-    console.log('🔄 /bugun komutu için veri yeniden okunuyor...');
-    sendTodayPayments(chatId);
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getChecksData().then(checks => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const todayChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate.getTime() === today.getTime() && !check.isPaid;
+      });
+      
+      if (todayChecks.length === 0) {
+        telegramBot.sendMessage(chatId, '✅ Bugün ödenecek çek/fatura bulunmuyor.');
+        return;
+      }
+      
+      let message = `📅 *BUGÜN ÖDENECEK ÇEK/FATURALAR*\n\n`;
+      
+      todayChecks.forEach((check, index) => {
+        message += `${index + 1}. ${check.name} - ${formatCurrency(check.amount)}\n`;
+        if (check.notes) message += `   _${check.notes}_\n`;
+        message += '\n';
+      });
+      
+      message += `\n💰 *TOPLAM:* ${formatCurrency(todayChecks.reduce((sum, check) => sum + check.amount, 0))}`;
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /bugun veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
   });
 
   // /yakin komutu
   telegramBot.onText(/\/yakin/, (msg) => {
     console.log('🎯 /yakin komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    sendUpcomingPayments(chatId);
+    
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getChecksData().then(checks => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
+      
+      const upcomingChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate >= today && checkDate <= nextWeek && !check.isPaid;
+      });
+      
+      if (upcomingChecks.length === 0) {
+        telegramBot.sendMessage(chatId, '✅ Yaklaşan 7 gün içinde ödenecek çek/fatura bulunmuyor.');
+        return;
+      }
+      
+      // Tarihe göre grupla
+      const groupedChecks = {};
+      upcomingChecks.forEach(check => {
+        const dateStr = new Date(check.date).toLocaleDateString('tr-TR');
+        if (!groupedChecks[dateStr]) {
+          groupedChecks[dateStr] = [];
+        }
+        groupedChecks[dateStr].push(check);
+      });
+      
+      let message = `📅 *YAKLAŞAN 7 GÜN İÇİNDEKİ ÖDEMELER*\n\n`;
+      
+      Object.keys(groupedChecks).forEach(dateStr => {
+        message += `📆 *${dateStr}*\n`;
+        
+        groupedChecks[dateStr].forEach((check, index) => {
+          message += `${index + 1}. ${check.name} - ${formatCurrency(check.amount)}\n`;
+          if (check.notes) message += `   _${check.notes}_\n`;
+        });
+        
+        message += `\n`;
+      });
+      
+      message += `\n💰 *TOPLAM:* ${formatCurrency(upcomingChecks.reduce((sum, check) => sum + check.amount, 0))}`;
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /yakin veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
   });
 
   // /tumu komutu
   telegramBot.onText(/\/tumu/, (msg) => {
     console.log('🎯 /tumu komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    sendAllPayments(chatId);
+    
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getChecksData().then(checks => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const activeChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate >= today && !check.isPaid;
+      });
+      
+      if (activeChecks.length === 0) {
+        telegramBot.sendMessage(chatId, '✅ Aktif çek/fatura bulunmuyor.');
+        return;
+      }
+      
+      // Tarihe göre sırala
+      activeChecks.sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      // Tarihe göre grupla
+      const groupedChecks = {};
+      activeChecks.forEach(check => {
+        const dateStr = new Date(check.date).toLocaleDateString('tr-TR');
+        if (!groupedChecks[dateStr]) {
+          groupedChecks[dateStr] = [];
+        }
+        groupedChecks[dateStr].push(check);
+      });
+      
+      let message = `📋 *TÜM AKTİF ÖDEMELER*\n\n`;
+      
+      Object.keys(groupedChecks).forEach(dateStr => {
+        message += `📆 *${dateStr}*\n`;
+        
+        groupedChecks[dateStr].forEach((check, index) => {
+          message += `${index + 1}. ${check.name} - ${formatCurrency(check.amount)}\n`;
+          if (check.notes) message += `   _${check.notes}_\n`;
+        });
+        
+        message += `\n`;
+      });
+      
+      message += `\n💰 *TOPLAM:* ${formatCurrency(activeChecks.reduce((sum, check) => sum + check.amount, 0))}`;
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /tumu veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
   });
 
   // /gecmis komutu
   telegramBot.onText(/\/gecmis/, (msg) => {
     console.log('🎯 /gecmis komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    sendOverduePayments(chatId);
+    
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getChecksData().then(checks => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const overdueChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate < today && !check.isPaid;
+      });
+      
+      if (overdueChecks.length === 0) {
+        telegramBot.sendMessage(chatId, '✅ Vadesi geçmiş çek/fatura bulunmuyor.');
+        return;
+      }
+      
+      // Tarihe göre sırala
+      overdueChecks.sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      let message = `⚠️ *VADESİ GEÇMİŞ ÖDEMELER*\n\n`;
+      
+      overdueChecks.forEach((check, index) => {
+        const checkDate = new Date(check.date).toLocaleDateString('tr-TR');
+        message += `${index + 1}. ${check.name} - ${formatCurrency(check.amount)}\n`;
+        message += `   📆 *Vade:* ${checkDate}\n`;
+        if (check.notes) message += `   _${check.notes}_\n`;
+        message += '\n';
+      });
+      
+      message += `\n💰 *TOPLAM:* ${formatCurrency(overdueChecks.reduce((sum, check) => sum + check.amount, 0))}`;
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /gecmis veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
   });
 
   // /istatistik komutu
   telegramBot.onText(/\/istatistik/, (msg) => {
     console.log('🎯 /istatistik komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    sendStatistics(chatId);
+    
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getChecksData().then(checks => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const overdueChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate < today && !check.isPaid;
+      });
+      
+      const todayChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate.getTime() === today.getTime() && !check.isPaid;
+      });
+      
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
+      
+      const upcomingChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate > today && checkDate <= nextWeek && !check.isPaid;
+      });
+      
+      const futureChecks = checks.filter(check => {
+        const checkDate = new Date(check.date);
+        checkDate.setHours(0, 0, 0, 0);
+        return checkDate > nextWeek && !check.isPaid;
+      });
+      
+      const paidChecks = checks.filter(check => check.isPaid);
+      
+      let message = `📊 *ÖDEME İSTATİSTİKLERİ*\n\n`;
+      
+      message += `⚠️ *Vadesi Geçmiş:* ${overdueChecks.length} adet - ${formatCurrency(overdueChecks.reduce((sum, check) => sum + check.amount, 0))}\n\n`;
+      
+      message += `📅 *Bugün:* ${todayChecks.length} adet - ${formatCurrency(todayChecks.reduce((sum, check) => sum + check.amount, 0))}\n\n`;
+      
+      message += `🔜 *7 Gün İçinde:* ${upcomingChecks.length} adet - ${formatCurrency(upcomingChecks.reduce((sum, check) => sum + check.amount, 0))}\n\n`;
+      
+      message += `📆 *Gelecek:* ${futureChecks.length} adet - ${formatCurrency(futureChecks.reduce((sum, check) => sum + check.amount, 0))}\n\n`;
+      
+      message += `✅ *Ödenmiş:* ${paidChecks.length} adet - ${formatCurrency(paidChecks.reduce((sum, check) => sum + check.amount, 0))}\n\n`;
+      
+      message += `📝 *Toplam Kayıt:* ${checks.length} adet\n`;
+      message += `💰 *Toplam Tutar:* ${formatCurrency(checks.reduce((sum, check) => sum + check.amount, 0))}`;
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /istatistik veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
   });
 
   // İlaç komutları
@@ -236,1609 +452,797 @@ Lütfen daha sonra tekrar deneyin.
   telegramBot.onText(/\/ilaclarim/, (msg) => {
     console.log('🎯 /ilaclarim komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    sendTodayMedications(chatId);
+    
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getMedicationsData().then(medications => {
+      if (!medications || medications.length === 0) {
+        telegramBot.sendMessage(chatId, '❌ Kayıtlı ilaç bulunmuyor.');
+        return;
+      }
+      
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0: Pazar, 1: Pazartesi, ...
+      const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      
+      // Bugün alınması gereken ilaçları filtrele
+      const todayMeds = medications.filter(med => {
+        // İlacın bugün alınması gerekiyor mu?
+        return (
+          (med.days.sunday && dayOfWeek === 0) ||
+          (med.days.monday && dayOfWeek === 1) ||
+          (med.days.tuesday && dayOfWeek === 2) ||
+          (med.days.wednesday && dayOfWeek === 3) ||
+          (med.days.thursday && dayOfWeek === 4) ||
+          (med.days.friday && dayOfWeek === 5) ||
+          (med.days.saturday && dayOfWeek === 6)
+        );
+      });
+      
+      if (todayMeds.length === 0) {
+        telegramBot.sendMessage(chatId, `📅 Bugün (${dayNames[dayOfWeek]}) almanız gereken ilaç bulunmuyor.`);
+        return;
+      }
+      
+      // Saate göre sırala
+      todayMeds.sort((a, b) => {
+        const timeA = a.time.split(':');
+        const timeB = b.time.split(':');
+        return (parseInt(timeA[0]) * 60 + parseInt(timeA[1])) - (parseInt(timeB[0]) * 60 + parseInt(timeB[1]));
+      });
+      
+      let message = `💊 *BUGÜN ALINACAK İLAÇLAR*\n📅 ${dayNames[dayOfWeek]}, ${today.toLocaleDateString('tr-TR')}\n\n`;
+      
+      todayMeds.forEach((med, index) => {
+        message += `${index + 1}. *${med.name}* - ${med.time}\n`;
+        if (med.dosage) message += `   💊 Doz: ${med.dosage}\n`;
+        if (med.notes) message += `   📝 Not: _${med.notes}_\n`;
+        message += '\n';
+      });
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /ilaclarim veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
   });
 
   // /ilac_program komutu
   telegramBot.onText(/\/ilac_program/, (msg) => {
     console.log('🎯 /ilac_program komutu alındı:', msg.from.first_name);
     const chatId = msg.chat.id;
-    sendMedicationProgram(chatId);
-  });
-
-  // /ilac_gecmis komutu
-  telegramBot.onText(/\/ilac_gecmis/, (msg) => {
-    console.log('🎯 /ilac_gecmis komutu alındı:', msg.from.first_name);
-    const chatId = msg.chat.id;
-    sendMedicationHistory(chatId);
-  });
-
-  // /ilac_istatistik komutu
-  telegramBot.onText(/\/ilac_istatistik/, (msg) => {
-    console.log('🎯 /ilac_istatistik komutu alındı:', msg.from.first_name);
-    const chatId = msg.chat.id;
-    sendMedicationStatistics(chatId);
-  });
-
-  // Bilinmeyen komutlar için
-  telegramBot.on('message', (msg) => {
-    console.log('📨 Mesaj alındı:', {
-      chatId: msg.chat.id,
-      text: msg.text,
-      from: msg.from?.first_name || 'Bilinmeyen',
-      type: msg.text ? 'text' : 'other'
-    });
     
-    if (msg.text && msg.text.startsWith('/')) {
-      console.log('🔍 Komut tespit edildi:', msg.text);
-      
-      const validCommands = ['/start', '/bugun', '/yakin', '/tumu', '/gecmis', '/istatistik', '/ilaclarim', '/ilac_program', '/ilac_gecmis', '/ilac_istatistik'];
-      
-      if (!validCommands.includes(msg.text)) {
-        console.log('❓ Bilinmeyen komut:', msg.text);
-        const chatId = msg.chat.id;
-        telegramBot.sendMessage(chatId, 
-          `❓ Bilinmeyen komut: ${msg.text}
-
-📋 Ödeme Komutları:
-/start /bugun /yakin /tumu /gecmis /istatistik
-
-💊 İlaç Komutları:
-/ilaclarim /ilac_program /ilac_gecmis /ilac_istatistik`
-        );
-      } else {
-        console.log('✅ Bilinen komut:', msg.text);
+    // YENİ: Her komut için veriyi async olarak yeniden oku
+    getMedicationsData().then(medications => {
+      if (!medications || medications.length === 0) {
+        telegramBot.sendMessage(chatId, '❌ Kayıtlı ilaç bulunmuyor.');
+        return;
       }
-    }
-  });
-
-  // Error handler
-  telegramBot.on('error', (error) => {
-    console.error('❌ Telegram bot hatası:', error.message);
-  });
-
-  console.log('✅ YENİ komut sistemi başarıyla kuruldu!');
-}
-
-// Yeni test mesaj fonksiyonu
-function sendTestMessage(chatId) {
-  Promise.all([getChecksData(), getMedicationsData()]).then(([checks, medications]) => {
-    try {
-      console.log('🧪 Yeni test mesajı gönderiliyor...');
       
-      const now = new Date();
-      const today = now.toDateString();
+      const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      const today = new Date();
+      const currentDayIndex = today.getDay();
       
-      // Bugün ödenecek ödemeleri hesapla
-      const todayChecks = checks.filter(check => {
-        if (check.isPaid) return false;
-        
-        let checkDate;
-        if (check.isRecurring && check.nextPaymentDate) {
-          checkDate = new Date(check.nextPaymentDate).toDateString();
-          console.log(`🔄 Test - Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate}`);
-        } else {
-          checkDate = new Date(check.paymentDate).toDateString();
-          console.log(`📅 Test - Normal: ${check.signedTo} - Ödeme: ${check.paymentDate}`);
-        }
-        
-        return checkDate === today;
-      });
+      // Günleri bugünden başlayarak sırala
+      const orderedDays = [
+        { index: currentDayIndex, name: dayNames[currentDayIndex], key: 'sunday,monday,tuesday,wednesday,thursday,friday,saturday'.split(',')[currentDayIndex] }
+      ];
       
-      // Gecikmiş ödemeleri hesapla
-      const overdueChecks = checks.filter(check => {
-        if (check.isPaid) return false;
-        
-        let checkDate;
-        if (check.isRecurring && check.nextPaymentDate) {
-          checkDate = new Date(check.nextPaymentDate);
-        } else {
-          checkDate = new Date(check.paymentDate);
-        }
-        
-        return checkDate < now;
-      });
-      
-      // İlaç verileri
-      const activeMedications = medications.filter(m => m.isActive);
-      
-      let testMessage = '🤖 YENİ Bot sistemi başlatıldı!\n\n';
-      testMessage += '💰 Ödeme Verileri:\n';
-      testMessage += `📊 Güncel veri: ${checks.length} ödeme bulundu\n`;
-      testMessage += `🔴 Bugün ödenecek: ${todayChecks.length} ödeme\n`;
-      testMessage += `⚠️ Gecikmiş: ${overdueChecks.length} ödeme\n\n`;
-      testMessage += '💊 İlaç Verileri:\n';
-      testMessage += `📊 Toplam ilaç: ${medications.length}\n`;
-      testMessage += `✅ Aktif ilaç: ${activeMedications.length}\n\n`;
-      testMessage += '📋 Ödeme Komutları:\n';
-      testMessage += '• /start - Yardım menüsü\n';
-      testMessage += '• /bugun - Bugün ödenecekler\n';
-      testMessage += '• /yakin - Yakın ödemeler\n';
-      testMessage += '• /tumu - Tüm ödemeler\n';
-      testMessage += '• /gecmis - Gecikmiş ödemeler\n';
-      testMessage += '• /istatistik - İstatistikler\n\n';
-      testMessage += '💊 İlaç Komutları:\n';
-      testMessage += '• /ilaclarim - Bugün alınacak ilaçlar\n';
-      testMessage += '• /ilac_program - Haftalık ilaç programı\n';
-      testMessage += '• /ilac_gecmis - İlaç geçmişi\n';
-      testMessage += '• /ilac_istatistik - İlaç uyum istatistikleri\n\n';
-      testMessage += '🔄 Yeni sistem: Güncel veri garantisi!\n';
-      testMessage += `📅 Veri kaynağı: ${checks.length} ödeme + ${medications.length} ilaç\n`;
-      testMessage += `⏰ Bot başlatma: ${new Date().toLocaleString('tr-TR')}`;
-      
-      telegramBot.sendMessage(chatId, testMessage).then(() => {
-        console.log('✅ Yeni test mesajı gönderildi');
-        console.log('📊 Test mesajında gösterilen veri:', {
-          totalChecks: checks.length,
-          todayChecks: todayChecks.length,
-          overdueChecks: overdueChecks.length
+      for (let i = 1; i <= 6; i++) {
+        const dayIndex = (currentDayIndex + i) % 7;
+        orderedDays.push({
+          index: dayIndex,
+          name: dayNames[dayIndex],
+          key: 'sunday,monday,tuesday,wednesday,thursday,friday,saturday'.split(',')[dayIndex]
         });
-      }).catch(err => {
-        console.error('❌ Yeni test mesajı gönderilemedi:', err.message);
-      });
+      }
       
-    } catch (error) {
-      console.error('❌ Test mesajı hatası:', error.message);
-    }
-  }).catch(error => {
-    console.error('❌ Test mesajı veri hatası:', error.message);
-  });
-}
-
-async function getChecksData() {
-  try {
-    console.log('🔄 Telegram bot için GÜNCEL veri alınıyor...');
-    
-    // YENİ YAKLAŞIM: Renderer process'ten güncel veriyi al
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      console.log('📱 Renderer process\'ten veri çekiliyor...');
+      let message = `📅 *HAFTALIK İLAÇ PROGRAMI*\n\n`;
       
-      try {
-        const rendererData = await mainWindow.webContents.executeJavaScript(`
-          (() => {
-            try {
-              // İlk olarak 'checks' anahtarını dene (ana uygulamanın kullandığı)
-              let checksData = localStorage.getItem('checks');
-              if (checksData) {
-                const checks = JSON.parse(checksData);
-                console.log('📊 Renderer (checks): ' + checks.length + ' check bulundu');
-                return checks;
-              }
-              
-              // Eğer 'checks' yoksa 'hatirlatici-checks' dene
-              checksData = localStorage.getItem('hatirlatici-checks');
-              if (checksData) {
-                const checks = JSON.parse(checksData);
-                console.log('📊 Renderer (hatirlatici-checks): ' + checks.length + ' check bulundu');
-                return checks;
-              }
-              
-              console.log('⚠️ Renderer: Hiçbir checks verisi bulunamadı');
-              return [];
-            } catch (error) {
-              console.error('❌ Renderer veri hatası:', error);
-              return [];
-            }
-          })()
-        `);
+      // Her gün için ilaçları listele
+      orderedDays.forEach(day => {
+        const dayMeds = medications.filter(med => {
+          return (
+            (day.index === 0 && med.days.sunday) ||
+            (day.index === 1 && med.days.monday) ||
+            (day.index === 2 && med.days.tuesday) ||
+            (day.index === 3 && med.days.wednesday) ||
+            (day.index === 4 && med.days.thursday) ||
+            (day.index === 5 && med.days.friday) ||
+            (day.index === 6 && med.days.saturday)
+          );
+        });
         
-        if (rendererData && rendererData.length > 0) {
-          console.log(`✅ Renderer'dan ${rendererData.length} check alındı`);
-          return rendererData.filter(check => {
-            return check && 
-                   check.id && 
-                   check.paymentDate && 
-                   typeof check.amount === 'number' &&
-                   check.createdBy &&
-                   check.signedTo;
+        // Saate göre sırala
+        dayMeds.sort((a, b) => {
+          const timeA = a.time.split(':');
+          const timeB = b.time.split(':');
+          return (parseInt(timeA[0]) * 60 + parseInt(timeA[1])) - (parseInt(timeB[0]) * 60 + parseInt(timeB[1]));
+        });
+        
+        if (day.index === currentDayIndex) {
+          message += `📌 *${day.name} (Bugün)*\n`;
+        } else {
+          message += `📆 *${day.name}*\n`;
+        }
+        
+        if (dayMeds.length === 0) {
+          message += `   İlaç yok\n\n`;
+        } else {
+          dayMeds.forEach(med => {
+            message += `   • ${med.time} - ${med.name}\n`;
           });
+          message += `\n`;
         }
-      } catch (rendererError) {
-        console.warn('⚠️ Renderer\'dan veri alınamadı:', rendererError.message);
-      }
-    }
-    
-    // Fallback: Dosya sisteminden oku
-    console.log('📂 Fallback: Dosya sisteminden veri okunuyor...');
-    return getChecksDataFromFiles();
-    
-  } catch (error) {
-    console.error('❌ getChecksData kritik hata:', error.message);
-    return [];
-  }
+      });
+      
+      telegramBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    }).catch(error => {
+      console.error('❌ /ilac_program veri hatası:', error.message);
+      telegramBot.sendMessage(chatId, '❌ Veri yüklenirken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    });
+  });
+
+  console.log('✅ Telegram komutları başarıyla kuruldu');
 }
 
-// Dosya sisteminden veri okuma fonksiyonu
-function getChecksDataFromFiles() {
-  try {
-    console.log('📂 Dosya sisteminden veri okunuyor...');
-    
-    const appDataPath = getAppDataPath();
-    console.log('📂 AppData klasörü:', appDataPath);
-    
-    let checks = [];
-    let dataSource = 'unknown';
-    
-    // Önce checks dosyasını kontrol et
-    const checksFilePath = path.join(appDataPath, 'hatirlatici-checks.json');
-    if (fs.existsSync(checksFilePath)) {
-      try {
-        const data = fs.readFileSync(checksFilePath, 'utf8');
-        const parsedData = JSON.parse(data);
-        if (Array.isArray(parsedData)) {
-          checks = parsedData;
-          dataSource = 'Checks File';
-          console.log(`✅ Checks dosyasından ${checks.length} check yüklendi`);
-        }
-      } catch (error) {
-        console.error('❌ Checks dosyası okunamadı:', error.message);
-      }
-    }
-    
-    // Eğer checks bulunamazsa localStorage dosyasını dene
-    if (checks.length === 0) {
-      const localStorageFilePath = path.join(appDataPath, 'hatirlatici-localStorage.json');
-      if (fs.existsSync(localStorageFilePath)) {
-        try {
-          const data = fs.readFileSync(localStorageFilePath, 'utf8');
-          const parsedData = JSON.parse(data);
-          if (parsedData.checks && Array.isArray(parsedData.checks)) {
-            checks = parsedData.checks;
-            dataSource = 'localStorage File';
-            console.log(`✅ localStorage dosyasından ${checks.length} check yüklendi`);
-          }
-        } catch (error) {
-          console.error('❌ localStorage dosyası okunamadı:', error.message);
-        }
-      }
-    }
-    
-    // Veri doğrulama
-    if (!checks || checks.length === 0) {
-      console.log('❌ Hiç check verisi bulunamadı!');
-      return [];
-    }
-    
-    // Veri temizleme ve doğrulama
-    const validChecks = checks.filter(check => {
-      const isValid = check && 
-                     check.id && 
-                     check.paymentDate && 
-                     typeof check.amount === 'number' &&
-                     check.createdBy &&
-                     check.signedTo;
-      
-      if (!isValid) {
-        console.log(`⚠️ Geçersiz check filtrelendi:`, {
-          id: check?.id || 'Yok',
-          signedTo: check?.signedTo || 'Yok',
-          amount: check?.amount || 'Yok'
-        });
-      }
-      
-      return isValid;
-    });
-    
-    console.log(`✅ Veri yükleme tamamlandı:`);
-    console.log(`📊 Toplam check: ${checks.length}`);
-    console.log(`📊 Geçerli check: ${validChecks.length}`);
-    console.log(`📊 Kaynak: ${dataSource}`);
-    
-    return validChecks;
-  } catch (error) {
-    console.error('❌ getChecksDataFromFiles hatası:', error.message);
-    return [];
+function sendTestMessage(chatId) {
+  if (!telegramBot) {
+    console.log('❌ Bot mevcut değil, test mesajı gönderilemedi');
+    return;
   }
+  
+  console.log('📤 Test mesajı gönderiliyor...');
+  
+  const testMessage = `🤖 Hatırlatıcınım Bot bağlantısı başarılı!
+
+⏰ Bildirimler bu kanala gönderilecek.
+📅 ${new Date().toLocaleString('tr-TR')}`;
+
+  telegramBot.sendMessage(chatId, testMessage)
+    .then(() => {
+      console.log('✅ Test mesajı gönderildi');
+    })
+    .catch(err => {
+      console.error('❌ Test mesajı hatası:', err.message);
+    });
+}
+
+// Yardımcı fonksiyonlar
+function formatCurrency(amount) {
+  return new Intl.NumberFormat('tr-TR', { 
+    style: 'currency', 
+    currency: 'TRY',
+    minimumFractionDigits: 2
+  }).format(amount);
+}
+
+// Veri okuma fonksiyonları
+function getChecksData() {
+  return new Promise((resolve, reject) => {
+    try {
+      const appDataPath = getAppDataPath();
+      const checksFilePath = path.join(appDataPath, 'checks.json');
+      
+      if (!fs.existsSync(checksFilePath)) {
+        console.log('❌ Çek dosyası bulunamadı:', checksFilePath);
+        resolve([]);
+        return;
+      }
+      
+      const checksData = fs.readFileSync(checksFilePath, 'utf8');
+      const checks = JSON.parse(checksData);
+      resolve(checks);
+    } catch (error) {
+      console.error('❌ Çek verisi okuma hatası:', error);
+      reject(error);
+    }
+  });
+}
+
+function getMedicationsData() {
+  return new Promise((resolve, reject) => {
+    try {
+      const appDataPath = getAppDataPath();
+      const medsFilePath = path.join(appDataPath, 'medications.json');
+      
+      if (!fs.existsSync(medsFilePath)) {
+        console.log('❌ İlaç dosyası bulunamadı:', medsFilePath);
+        resolve([]);
+        return;
+      }
+      
+      const medsData = fs.readFileSync(medsFilePath, 'utf8');
+      const medications = JSON.parse(medsData);
+      resolve(medications);
+    } catch (error) {
+      console.error('❌ İlaç verisi okuma hatası:', error);
+      reject(error);
+    }
+  });
 }
 
 function getSettingsData() {
   try {
-    // Önce AppData'dan okumaya çalış
-    const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
-    console.log('📂 Settings dosyası aranıyor:', settingsPath);
-    
-    let settings = null;
-    
-    if (fs.existsSync(settingsPath)) {
-      // AppData'dan oku
-      const data = fs.readFileSync(settingsPath, 'utf8');
-      settings = JSON.parse(data);
-      console.log('✅ AppData\'dan settings yüklendi');
-    } else {
-      console.log('⚠️ AppData\'da settings dosyası bulunamadı');
-    }
-    
-    // Eğer AppData'dan veri yoksa, localStorage'dan okumaya çalış
-    if (!settings) {
-      console.log('🔄 localStorage\'dan settings okunmaya çalışılıyor...');
-      
-      const localStoragePath = path.join(getAppDataPath(), 'hatirlatici-localStorage.json');
-      if (fs.existsSync(localStoragePath)) {
-        try {
-          const localStorageData = fs.readFileSync(localStoragePath, 'utf8');
-          const localStorage = JSON.parse(localStorageData);
-          
-          if (localStorage.settings) {
-            settings = localStorage.settings;
-            console.log('✅ localStorage\'dan settings yüklendi');
-          }
-        } catch (error) {
-          console.error('❌ localStorage settings okunamadı:', error.message);
-        }
-      }
-    }
-    
-    // Default değerler
-    if (!settings) {
-      console.log('⚠️ Settings bulunamadı, default değerler kullanılıyor');
-      settings = {
-        reminderDays: 3,
-        notificationsEnabled: true,
-        autoUpdateEnabled: true,
-        dailyNotificationEnabled: true,
-        dailyNotificationTime: '09:00',
-        lastNotificationCheck: '',
-        telegramBotEnabled: false,
-        telegramBotToken: '',
-        telegramChatId: '',
-        theme: 'light'
-      };
-    }
-    
-    // Veri güncelliğini kontrol et
-    if (fs.existsSync(settingsPath)) {
-      const fileStats = fs.statSync(settingsPath);
-      const lastModified = fileStats.mtime;
-      console.log('📅 Settings son güncelleme:', lastModified.toLocaleString('tr-TR'));
-    }
-    
-    console.log('📅 Reminder günleri:', settings.reminderDays);
-    return settings;
-  } catch (error) {
-    console.error('❌ Settings verisi okunamadı:', error.message);
-    return {
-      reminderDays: 3,
-      notificationsEnabled: true,
-      autoUpdateEnabled: true,
-      dailyNotificationEnabled: true,
-      dailyNotificationTime: '09:00',
-      lastNotificationCheck: '',
-      telegramBotEnabled: false,
-      telegramBotToken: '',
-      telegramChatId: '',
-      theme: 'light'
-    };
-  }
-}
-
-function formatCheck(check) {
-  const type = check.type === 'bill' ? '🧾 Fatura' : '📄 Çek';
-  const typeDetails = check.type === 'bill' && check.billType 
-    ? ` (${check.billType.charAt(0).toUpperCase() + check.billType.slice(1)})`
-    : '';
-  
-  const amount = check.amount.toLocaleString('tr-TR');
-  
-  // Tekrarlayan ödemeler için nextPaymentDate kullan, normal ödemeler için paymentDate
-  let displayDate, daysLeft;
-  if (check.isRecurring && check.nextPaymentDate) {
-    displayDate = new Date(check.nextPaymentDate).toLocaleDateString('tr-TR');
-    daysLeft = Math.ceil((new Date(check.nextPaymentDate) - new Date()) / (1000 * 60 * 60 * 24));
-    console.log(`🔄 formatCheck - Tekrarlayan: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Gün: ${daysLeft}`);
-  } else {
-    displayDate = new Date(check.paymentDate).toLocaleDateString('tr-TR');
-    daysLeft = Math.ceil((new Date(check.paymentDate) - new Date()) / (1000 * 60 * 60 * 24));
-    console.log(`📅 formatCheck - Normal: ${check.signedTo} - Ödeme: ${check.paymentDate} - Gün: ${daysLeft}`);
-  }
-  
-  let status = '';
-  if (check.isPaid) {
-    status = '✅ Ödendi';
-  } else if (daysLeft < 0) {
-    status = `⚠️ ${Math.abs(daysLeft)} gün gecikmiş`;
-  } else if (daysLeft === 0) {
-    status = '🔴 Bugün ödenecek';
-  } else {
-    status = `⏰ ${daysLeft} gün kaldı`;
-  }
-
-  return `${type}${typeDetails}
-💰 ${amount} TL
-🏢 ${check.signedTo}
-📅 ${displayDate}
-${status}`;
-}
-
-function sendTodayPayments(chatId) {
-  getChecksData().then(checks => {
-    try {
-      console.log('📅 Bugün ödenecekler sorgulanıyor...');
-      const today = new Date().toDateString();
-      
-      console.log(`📊 Toplam ${checks.length} ödeme bulundu, bugün kontrol ediliyor...`);
-      
-      const todayChecks = checks.filter(check => {
-        if (check.isPaid) return false;
-        
-        // Tekrarlayan ödemeler için nextPaymentDate kullan
-        let checkDate, checkDateString;
-        if (check.isRecurring && check.nextPaymentDate) {
-          checkDate = new Date(check.nextPaymentDate);
-          checkDateString = checkDate.toDateString();
-          console.log(`🔄 Tekrarlayan kontrol: ${check.signedTo} - Sonraki: ${check.nextPaymentDate} - Bugün: ${checkDateString === today}`);
-        } else {
-          checkDate = new Date(check.paymentDate);
-          checkDateString = checkDate.toDateString();
-          console.log(`📅 Normal kontrol: ${check.signedTo} - Ödeme: ${check.paymentDate} - Bugün: ${checkDateString === today}`);
-        }
-        
-        const isToday = checkDateString === today;
-        if (isToday) {
-          console.log(`✅ Bugün: ${check.signedTo} - ${check.amount} TL - Tarih: ${checkDateString}`);
-        }
-        
-        return isToday;
-      });
-
-      console.log('📊 Bugün ödenecek sayısı:', todayChecks.length);
-
-      if (todayChecks.length === 0) {
-        const message = '🎉 Bugün ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-        telegramBot.sendMessage(chatId, message);
-        return;
-      }
-
-      let message = `🔴 Bugün ${todayChecks.length} ödeme var:\n\n`;
-      todayChecks.forEach((check, index) => {
-        message += `${index + 1}. ${formatCheck(check)}\n\n`;
-      });
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ Bugün ödenecekler gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ Bugün ödenecekler veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-function sendUpcomingPayments(chatId) {
-  getChecksData().then(checks => {
-    try {
-      console.log('⏰ Yakın ödemeler sorgulanıyor...');
-      const settings = getSettingsData();
-      const now = new Date();
-      const reminderDays = settings.reminderDays || 3; // Settings'den al
-      
-      console.log(`📅 Reminder günleri: ${reminderDays}`);
-      
-      const upcomingChecks = checks.filter(check => {
-        if (check.isPaid) return false;
-        
-        // Tekrarlayan ödemeler için nextPaymentDate kullan
-        let checkDate;
-        if (check.isRecurring && check.nextPaymentDate) {
-          checkDate = new Date(check.nextPaymentDate);
-        } else {
-          checkDate = new Date(check.paymentDate);
-        }
-        
-        const daysUntil = Math.ceil((checkDate - now) / (1000 * 60 * 60 * 24));
-        const isInRange = daysUntil >= 0 && daysUntil <= reminderDays;
-        
-        if (isInRange) {
-          console.log(`✅ ${check.signedTo}: ${daysUntil} gün kaldı`);
-        }
-        
-        return isInRange;
-      });
-
-      // Tarihe göre sırala
-      upcomingChecks.sort((a, b) => {
-        const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
-        const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
-        return dateA - dateB;
-      });
-
-      console.log('📊 Yakın ödeme sayısı:', upcomingChecks.length);
-
-      if (upcomingChecks.length === 0) {
-        const message = `🎉 Önümüzdeki ${reminderDays} günde ödenecek çek/fatura yok!\n\n📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-        telegramBot.sendMessage(chatId, message);
-        return;
-      }
-
-      let message = `⏰ Önümüzdeki ${reminderDays} günde ${upcomingChecks.length} ödeme var:\n\n`;
-      upcomingChecks.forEach((check, index) => {
-        message += `${index + 1}. ${formatCheck(check)}\n\n`;
-      });
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ Yakın ödemeler gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ Yakın ödemeler veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-function sendAllPayments(chatId) {
-  getChecksData().then(checks => {
-    try {
-      console.log('📋 Tüm ödemeler sorgulanıyor...');
-      console.log(`🔄 Güncel veri alındı: ${checks.length} ödeme`);
-      
-      if (checks.length === 0) {
-        const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-        telegramBot.sendMessage(chatId, message);
-        return;
-      }
-
-      // Sadece ödenmemiş olanları göster
-      const unpaidChecks = checks.filter(check => !check.isPaid);
-      console.log(`📊 Toplam: ${checks.length}, Ödenmemiş: ${unpaidChecks.length}`);
-      
-      if (unpaidChecks.length === 0) {
-        const message = '🎉 Tüm ödemeler tamamlandı!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-        telegramBot.sendMessage(chatId, message);
-        return;
-      }
-
-      // Veri doğrulama
-      const validUnpaidChecks = unpaidChecks.filter(check => {
-        const isValid = check && 
-                       check.id && 
-                       check.paymentDate && 
-                       typeof check.amount === 'number' &&
-                       check.createdBy &&
-                       check.signedTo;
-        
-        if (!isValid) {
-          console.log(`⚠️ Geçersiz check filtrelendi: ${check?.signedTo || 'Bilinmiyor'}`);
-        }
-        
-        return isValid;
-      });
-      
-      console.log(`✅ Geçerli ödenmemiş check sayısı: ${validUnpaidChecks.length}`);
-
-      // Tarihe göre sırala
-      validUnpaidChecks.sort((a, b) => {
-        const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
-        const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
-        return dateA - dateB;
-      });
-
-      let message = `📋 Toplam ${validUnpaidChecks.length} bekleyen ödeme var:\n\n`;
-      
-      // İlk 10 tanesini göster
-      const checksToShow = validUnpaidChecks.slice(0, 10);
-      checksToShow.forEach((check, index) => {
-        message += `${index + 1}. ${formatCheck(check)}\n\n`;
-      });
-
-      if (validUnpaidChecks.length > 10) {
-        message += `... ve ${validUnpaidChecks.length - 10} ödeme daha\n\n`;
-      }
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-      message += `\n🔄 Bot veri kaynağı: ${checks.length} ödeme bulundu`;
-
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ Tüm ödemeler gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ Tüm ödemeler veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-function sendOverduePayments(chatId) {
-  getChecksData().then(checks => {
-    try {
-      console.log('⚠️ Gecikmiş ödemeler sorgulanıyor...');
-      const now = new Date();
-      
-      const overdueChecks = checks.filter(check => {
-        if (check.isPaid) return false;
-        
-        // Tekrarlayan ödemeler için nextPaymentDate kullan
-        let checkDate;
-        if (check.isRecurring && check.nextPaymentDate) {
-          checkDate = new Date(check.nextPaymentDate);
-        } else {
-          checkDate = new Date(check.paymentDate);
-        }
-        
-        const isOverdue = checkDate < now;
-        if (isOverdue) {
-          const daysOverdue = Math.ceil((now - checkDate) / (1000 * 60 * 60 * 24));
-          console.log(`⚠️ Gecikmiş: ${check.signedTo} - ${daysOverdue} gün`);
-        }
-        
-        return isOverdue;
-      });
-
-      // Gecikme gününe göre sırala (en çok geciken önce)
-      overdueChecks.sort((a, b) => {
-        const dateA = a.isRecurring && a.nextPaymentDate ? new Date(a.nextPaymentDate) : new Date(a.paymentDate);
-        const dateB = b.isRecurring && b.nextPaymentDate ? new Date(b.nextPaymentDate) : new Date(b.paymentDate);
-        return dateA - dateB;
-      });
-
-      console.log('📊 Gecikmiş ödeme sayısı:', overdueChecks.length);
-
-      if (overdueChecks.length === 0) {
-        const message = '🎉 Gecikmiş ödeme yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-        telegramBot.sendMessage(chatId, message);
-        return;
-      }
-
-      let message = `⚠️ ${overdueChecks.length} gecikmiş ödeme var:\n\n`;
-      overdueChecks.forEach((check, index) => {
-        message += `${index + 1}. ${formatCheck(check)}\n\n`;
-      });
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ Gecikmiş ödemeler gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ Gecikmiş ödemeler veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-function sendStatistics(chatId) {
-  getChecksData().then(checks => {
-    try {
-      console.log('📊 İstatistikler sorgulanıyor...');
-      
-      if (checks.length === 0) {
-        const message = '📭 Henüz hiç ödeme eklenmemiş.\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR');
-        telegramBot.sendMessage(chatId, message);
-        return;
-      }
-
-      const totalChecks = checks.length;
-      const paidChecks = checks.filter(c => c.isPaid);
-      const unpaidChecks = checks.filter(c => !c.isPaid);
-      const recurringChecks = checks.filter(c => c.isRecurring);
-      
-      const totalAmount = checks.reduce((sum, c) => sum + c.amount, 0);
-      const paidAmount = paidChecks.reduce((sum, c) => sum + c.amount, 0);
-      const unpaidAmount = unpaidChecks.reduce((sum, c) => sum + c.amount, 0);
-      
-      const now = new Date();
-      const overdueChecks = unpaidChecks.filter(check => {
-        const checkDate = check.isRecurring && check.nextPaymentDate 
-          ? new Date(check.nextPaymentDate)
-          : new Date(check.paymentDate);
-        return checkDate < now;
-      });
-      
-      const overdueAmount = overdueChecks.reduce((sum, c) => sum + c.amount, 0);
-
-      const message = `📊 Ödeme İstatistikleri:
-
-📋 Toplam: ${totalChecks} ödeme
-💰 Toplam Tutar: ${totalAmount.toLocaleString('tr-TR')} ₺
-
-✅ Ödenen: ${paidChecks.length} ödeme
-💰 Ödenen Tutar: ${paidAmount.toLocaleString('tr-TR')} ₺
-
-⏳ Bekleyen: ${unpaidChecks.length} ödeme
-💰 Bekleyen Tutar: ${unpaidAmount.toLocaleString('tr-TR')} ₺
-
-⚠️ Gecikmiş: ${overdueChecks.length} ödeme
-💰 Gecikmiş Tutar: ${overdueAmount.toLocaleString('tr-TR')} ₺
-
-🔄 Tekrarlayan: ${recurringChecks.length} ödeme
-
-📈 Ödeme Oranı: %${Math.round((paidChecks.length / totalChecks) * 100)}`;
-
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ İstatistikler gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ İstatistikler veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-function sendTelegramNotification(title, message) {
-  if (!telegramBot) return;
-
-  try {
-    const settingsPath = path.join(getAppDataPath(), 'hatirlatici-settings.json');
-    if (!fs.existsSync(settingsPath)) return;
-
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    
-    if (settings.telegramBotEnabled && settings.telegramChatId) {
-      const fullMessage = `🔔 ${title}\n\n${message}`;
-      telegramBot.sendMessage(settings.telegramChatId, fullMessage);
-    }
-  } catch (error) {
-    console.error('Telegram bildirimi gönderilemedi:', error);
-  }
-}
-
-// İlaç verileri alma fonksiyonları
-async function getMedicationsData() {
-  try {
-    console.log('🔄 Telegram bot için ilaç verileri alınıyor...');
-    
-    // Renderer process'ten güncel veriyi al
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      console.log('📱 Renderer process\'ten ilaç verileri çekiliyor...');
-      
-      try {
-        const rendererData = await mainWindow.webContents.executeJavaScript(`
-          (() => {
-            try {
-              // İlaç verilerini localStorage'dan al
-              let medicationsData = localStorage.getItem('medications');
-              if (medicationsData) {
-                const medications = JSON.parse(medicationsData);
-                console.log('📊 Renderer medications: ' + medications.length + ' ilaç bulundu');
-                return medications;
-              }
-              
-              console.log('⚠️ Renderer: Hiçbir ilaç verisi bulunamadı');
-              return [];
-            } catch (error) {
-              console.error('❌ Renderer ilaç veri hatası:', error);
-              return [];
-            }
-          })()
-        `);
-        
-        if (rendererData && rendererData.length > 0) {
-          console.log(`✅ Renderer'dan ${rendererData.length} ilaç alındı`);
-          return rendererData.filter(medication => {
-            return medication && 
-                   medication.id && 
-                   medication.name &&
-                   medication.dosage &&
-                   medication.time &&
-                   medication.createdBy;
-          });
-        }
-      } catch (rendererError) {
-        console.warn('⚠️ Renderer\'dan ilaç verisi alınamadı:', rendererError.message);
-      }
-    }
-    
-    // Fallback: Dosya sisteminden oku
-    console.log('📂 Fallback: Dosya sisteminden ilaç verisi okunuyor...');
-    return getMedicationsDataFromFiles();
-    
-  } catch (error) {
-    console.error('❌ getMedicationsData kritik hata:', error.message);
-    return [];
-  }
-}
-
-// İlaç log verileri alma
-async function getMedicationLogsData() {
-  try {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      try {
-        const rendererData = await mainWindow.webContents.executeJavaScript(`
-          (() => {
-            try {
-              let logsData = localStorage.getItem('medication-logs');
-              if (logsData) {
-                const logs = JSON.parse(logsData);
-                console.log('📊 Renderer medication logs: ' + logs.length + ' log bulundu');
-                return logs;
-              }
-              return [];
-            } catch (error) {
-              console.error('❌ Renderer log veri hatası:', error);
-              return [];
-            }
-          })()
-        `);
-        
-        return rendererData || [];
-      } catch (error) {
-        console.warn('⚠️ Renderer\'dan log verisi alınamadı:', error.message);
-      }
-    }
-    
-    return [];
-  } catch (error) {
-    console.error('❌ getMedicationLogsData hatası:', error.message);
-    return [];
-  }
-}
-
-// Dosya sisteminden ilaç verilerini okuma
-function getMedicationsDataFromFiles() {
-  try {
     const appDataPath = getAppDataPath();
-    const medicationsFilePath = path.join(appDataPath, 'hatirlatici-medications.json');
+    const settingsFilePath = path.join(appDataPath, 'settings.json');
     
-    if (fs.existsSync(medicationsFilePath)) {
-      const data = fs.readFileSync(medicationsFilePath, 'utf8');
-      const medications = JSON.parse(data);
-      console.log(`✅ Dosyadan ${medications.length} ilaç yüklendi`);
-      return medications;
+    if (!fs.existsSync(settingsFilePath)) {
+      console.log('❌ Ayarlar dosyası bulunamadı:', settingsFilePath);
+      return { telegramBotEnabled: false, telegramBotToken: null, telegramChatId: null };
     }
     
-    console.log('❌ İlaç dosyası bulunamadı');
-    return [];
+    const settingsData = fs.readFileSync(settingsFilePath, 'utf8');
+    return JSON.parse(settingsData);
   } catch (error) {
-    console.error('❌ getMedicationsDataFromFiles hatası:', error.message);
-    return [];
+    console.error('❌ Ayarlar okuma hatası:', error);
+    return { telegramBotEnabled: false, telegramBotToken: null, telegramChatId: null };
   }
 }
 
-// İlaç formatı
-function formatMedication(medication, log, scheduledTime) {
-  const status = log ? log.status : 'pending';
+// Veri klasörünü oluştur
+const appDataPath = getAppDataPath();
+if (!fs.existsSync(appDataPath)) {
+  fs.mkdirSync(appDataPath, { recursive: true });
+  console.log('📁 Veri klasörü oluşturuldu:', appDataPath);
+}
+
+// Uygulama başlangıcı
+app.whenReady().then(() => {
+  console.log('🚀 Uygulama başlatılıyor...');
   
-  let statusText = '';
-  if (status === 'taken') {
-    statusText = '✅ İçildi';
-  } else if (status === 'missed') {
-    statusText = '❌ Kaçırıldı';
-  } else if (status === 'skipped') {
-    statusText = '⏭️ Atlandı';
-  } else {
-    statusText = '⏰ Bekliyor';
-  }
+  // Tray ikonu oluştur
+  const iconPath = process.platform === 'win32' 
+    ? path.join(__dirname, 'icon.ico') 
+    : path.join(__dirname, 'icon-256x256.png');
   
-  const frequency = medication.frequency === 'daily' ? 'Her gün' :
-                   medication.frequency === 'weekly' ? 'Haftalık' :
-                   medication.frequency === 'monthly' ? 'Aylık' : '';
-
-  return `💊 ${medication.name}
-📋 ${medication.dosage}
-⏰ ${scheduledTime || medication.time}
-📅 ${frequency}
-👤 ${medication.createdBy}
-${statusText}`;
-}
-
-// Bugünkü ilaçları gönder
-function sendTodayMedications(chatId) {
-  getMedicationsData().then(async medications => {
-    try {
-      console.log('💊 Bugün ilaçları sorgulanıyor...');
-      
-      if (medications.length === 0) {
-        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç eklenmemiş.');
-        return;
-      }
-      
-      const logs = await getMedicationLogsData();
-      const today = new Date().toISOString().split('T')[0];
-      const dayOfWeek = new Date().getDay(); // 0=Pazar, 1=Pazartesi
-      const dayOfMonth = new Date().getDate();
-      
-      // Bugün alınacak ilaçları filtrele
-      const todayMedications = medications.filter(med => {
-        if (!med.isActive) return false;
-        
-        // Başlangıç tarihinden önce mi?
-        if (new Date(today) < new Date(med.startDate)) return false;
-        
-        // Bitiş tarihinden sonra mı?
-        if (med.endDate && new Date(today) > new Date(med.endDate)) return false;
-        
-        // Sıklığa göre kontrol
-        switch (med.frequency) {
-          case 'daily':
-            return true;
-          case 'weekly':
-            const targetDay = med.weekDay === 7 ? 0 : med.weekDay;
-            return dayOfWeek === targetDay;
-          case 'monthly':
-            return dayOfMonth === med.monthDay;
-          default:
-            return false;
-        }
-      });
-      
-      console.log(`📊 Bugün ${todayMedications.length} ilaç bulundu`);
-      
-      if (todayMedications.length === 0) {
-        telegramBot.sendMessage(chatId, '🎉 Bugün alınacak ilaç yok!\n\n📅 Veriler güncel: ' + new Date().toLocaleString('tr-TR'));
-        return;
-      }
-      
-      let message = `💊 Bugün ${todayMedications.length} ilaç var:\n\n`;
-      
-      todayMedications.forEach((med, index) => {
-        // Bu ilaç için bugünün logunu bul
-        const log = logs.find(log => 
-          log.medicationId === med.id && 
-          log.takenAt.startsWith(today)
-        );
-        
-        message += `${index + 1}. ${formatMedication(med, log)}\n\n`;
-      });
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-      
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ Bugün ilaçlar gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ Bugün ilaçlar veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-// Haftalık ilaç programını gönder
-function sendMedicationProgram(chatId) {
-  getMedicationsData().then(medications => {
-    try {
-      console.log('📅 Haftalık ilaç programı sorgulanıyor...');
-      
-      if (medications.length === 0) {
-        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç eklenmemiş.');
-        return;
-      }
-      
-      const activeMedications = medications.filter(m => m.isActive);
-      
-      if (activeMedications.length === 0) {
-        telegramBot.sendMessage(chatId, '📭 Aktif ilaç bulunmuyor.');
-        return;
-      }
-      
-      const weekDays = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-      
-      let message = `📅 Haftalık İlaç Programı:\n\n`;
-      
-      activeMedications.forEach((med, index) => {
-        let schedule = '';
-        
-        if (med.frequency === 'daily') {
-          schedule = 'Her gün ' + med.time;
-        } else if (med.frequency === 'weekly') {
-          const dayName = weekDays[med.weekDay === 7 ? 0 : med.weekDay];
-          schedule = `${dayName} günleri ${med.time}`;
-        } else if (med.frequency === 'monthly') {
-          schedule = `Her ayın ${med.monthDay}. günü ${med.time}`;
-        }
-        
-        message += `${index + 1}. 💊 ${med.name}\n`;
-        message += `   📋 ${med.dosage}\n`;
-        message += `   📅 ${schedule}\n`;
-        message += `   👤 ${med.createdBy}\n\n`;
-      });
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-      
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ İlaç programı gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ İlaç programı veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-// İlaç geçmişini gönder
-function sendMedicationHistory(chatId) {
-  getMedicationLogsData().then(logs => {
-    try {
-      console.log('📋 İlaç geçmişi sorgulanıyor...');
-      
-      if (logs.length === 0) {
-        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç kaydı yok.');
-        return;
-      }
-      
-      // Son 7 günün kayıtları
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      const recentLogs = logs
-        .filter(log => new Date(log.takenAt) >= sevenDaysAgo)
-        .sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt))
-        .slice(0, 10); // Son 10 kayıt
-      
-      if (recentLogs.length === 0) {
-        telegramBot.sendMessage(chatId, '📭 Son 7 günde ilaç kaydı yok.');
-        return;
-      }
-      
-      let message = `📋 Son ${recentLogs.length} İlaç Kaydı:\n\n`;
-      
-      recentLogs.forEach((log, index) => {
-        const statusText = log.status === 'taken' ? '✅ İçildi' :
-                          log.status === 'missed' ? '❌ Kaçırıldı' :
-                          log.status === 'skipped' ? '⏭️ Atlandı' : '❓ Bilinmiyor';
-        
-        const date = new Date(log.takenAt).toLocaleDateString('tr-TR');
-        const time = new Date(log.takenAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        
-        message += `${index + 1}. ${statusText}\n`;
-        message += `   📅 ${date} ${time}\n`;
-        if (log.notes) {
-          message += `   📝 ${log.notes}\n`;
-        }
-        message += `\n`;
-      });
-      
-      message += `📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-      
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ İlaç geçmişi gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ İlaç geçmişi veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-// İlaç istatistikleri gönder
-function sendMedicationStatistics(chatId) {
-  Promise.all([getMedicationsData(), getMedicationLogsData()]).then(([medications, logs]) => {
-    try {
-      console.log('📊 İlaç istatistikleri sorgulanıyor...');
-      
-      if (medications.length === 0) {
-        telegramBot.sendMessage(chatId, '📭 Henüz hiç ilaç eklenmemiş.');
-        return;
-      }
-      
-      const activeMedications = medications.filter(m => m.isActive);
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Bugünkü loglar
-      const todayLogs = logs.filter(log => log.takenAt.startsWith(today));
-      const takenToday = todayLogs.filter(log => log.status === 'taken').length;
-      const missedToday = todayLogs.filter(log => log.status === 'missed').length;
-      
-      // Bu hafta
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-      const weekLogs = logs.filter(log => {
-        const logDate = new Date(log.takenAt);
-        return logDate >= weekStart;
-      });
-      const weeklyTaken = weekLogs.filter(log => log.status === 'taken').length;
-      const weeklyTotal = weekLogs.length;
-      
-      // Bu ay
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      const monthLogs = logs.filter(log => {
-        const logDate = new Date(log.takenAt);
-        return logDate >= monthStart;
-      });
-      const monthlyTaken = monthLogs.filter(log => log.status === 'taken').length;
-      const monthlyTotal = monthLogs.length;
-      
-      const message = `📊 İlaç İstatistikleri:
-
-💊 Toplam İlaç: ${medications.length}
-✅ Aktif İlaç: ${activeMedications.length}
-
-📅 Bugün:
-   ✅ Alınan: ${takenToday}
-   ❌ Kaçırılan: ${missedToday}
-   📊 Toplam: ${todayLogs.length}
-
-📈 Bu Hafta:
-   ✅ Alınan: ${weeklyTaken}/${weeklyTotal}
-   📊 Uyum: %${weeklyTotal > 0 ? Math.round((weeklyTaken / weeklyTotal) * 100) : 0}
-
-📈 Bu Ay:
-   ✅ Alınan: ${monthlyTaken}/${monthlyTotal}
-   📊 Uyum: %${monthlyTotal > 0 ? Math.round((monthlyTaken / monthlyTotal) * 100) : 0}
-
-📅 Veriler güncel: ${new Date().toLocaleString('tr-TR')}`;
-      
-      telegramBot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('❌ İlaç istatistikleri gönderilemedi:', error.message);
-      telegramBot.sendMessage(chatId, '❌ Veri okunamadı. Lütfen daha sonra tekrar deneyin.');
-    }
-  }).catch(error => {
-    console.error('❌ İlaç istatistikleri veri hatası:', error.message);
-    telegramBot.sendMessage(chatId, '❌ Veri alınamadı. Lütfen daha sonra tekrar deneyin.');
-  });
-}
-
-function createWindow() {
-  // Eğer ana pencere zaten varsa, onu öne getir
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.show();
-    mainWindow.focus();
-    return;
-  }
-
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs')
+  const trayIcon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(trayIcon);
+  
+  const contextMenu = Menu.buildFromTemplate([
+    { 
+      label: 'Hatırlatıcınım', 
+      enabled: false,
+      icon: process.platform === 'win32' ? nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }) : null
     },
-    icon: path.join(__dirname, 'icon.ico'),
-    show: false,
-    autoHideMenuBar: true,
-    // Pencere davranış iyileştirmeleri
-    titleBarStyle: 'default',
-    resizable: true,
-    minimizable: true,
-    maximizable: true,
-    closable: true,
-  });
-
-  const isDev = process.env.NODE_ENV === 'development';
-  
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-  }
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    mainWindow.focus(); // Pencereyi odakla
-    
-    // Windows'ta taskbar'da yanıp söndür
-    if (process.platform === 'win32') {
-      mainWindow.flashFrame(false);
-    }
-  });
-
-  mainWindow.on('close', (event) => {
-    if (!isQuitting && tray) {
-      event.preventDefault();
-      mainWindow.hide();
-      
-      // İlk sefer gizlendiğinde kullanıcıya bilgi ver
-      if (!mainWindow.isVisible()) {
-        tray.displayBalloon({
-          iconType: 'info',
-          title: 'Hatırlatıcınım',
-          content: 'Uygulama arka planda çalışmaya devam ediyor. Tamamen kapatmak için sağ tık → Çıkış.'
-        });
-      }
-      
-      if (process.platform === 'darwin') {
-        app.dock.hide();
-      }
-    }
-  });
-
-  // Pencere odaklandığında
-  mainWindow.on('focus', () => {
-    console.log('Ana pencere odaklandı');
-  });
-
-  // Telegram bot'u başlat
-  setTimeout(initializeTelegramBot, 2000);
-}
-
-function createTray() {
-  if (tray) return;
-
-  try {
-    const iconPath = path.join(__dirname, 'icon.ico');
-    let icon;
-    
-    if (fs.existsSync(iconPath)) {
-      icon = nativeImage.createFromPath(iconPath);
-      if (process.platform === 'win32') {
-        icon = icon.resize({ width: 16, height: 16 });
-      }
-    } else {
-      icon = nativeImage.createEmpty();
-    }
-
-    tray = new Tray(icon);
-    tray.setToolTip('Hatırlatıcınım - Çek ve Fatura Takip');
-
-    updateTrayMenu();
-
-    tray.on('click', () => {
-      if (mainWindow) {
-        if (mainWindow.isVisible()) {
-          // Eğer görünürse gizle
-          mainWindow.hide();
-        } else {
-          // Eğer gizliyse göster ve odakla
-          if (mainWindow.isMinimized()) {
-            mainWindow.restore();
-          }
+    { type: 'separator' },
+    { 
+      label: 'Göster', 
+      click: () => {
+        if (mainWindow) {
           mainWindow.show();
           mainWindow.focus();
-          
-          // Windows'ta taskbar'a getir
-          if (process.platform === 'win32') {
-            mainWindow.setSkipTaskbar(false);
-          }
         }
+      } 
+    },
+    { type: 'separator' },
+    { 
+      label: 'Çıkış', 
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      } 
+    }
+  ]);
+  
+  tray.setToolTip('Hatırlatıcınım');
+  tray.setContextMenu(contextMenu);
+  
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
       } else {
-        createWindow();
-      }
-    });
-
-    tray.on('double-click', () => {
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
         mainWindow.show();
         mainWindow.focus();
-      } else {
-        createWindow();
       }
-    });
-
-  } catch (error) {
-    console.error('Tray oluşturulamadı:', error);
-  }
-}
-
-function updateTrayMenu() {
-  if (!tray) return;
-
-  try {
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: 'Uygulamayı Aç',
-        click: () => {
-          if (mainWindow) {
-            if (mainWindow.isMinimized()) {
-              mainWindow.restore();
-            }
-            mainWindow.show();
-            mainWindow.focus();
-            
-            // Windows'ta taskbar'a getir
-            if (process.platform === 'win32') {
-              mainWindow.setSkipTaskbar(false);
-            }
-          } else {
-            createWindow();
-          }
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Güncellemeleri Kontrol Et',
-        click: () => {
-          autoUpdater.checkForUpdatesAndNotify();
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Çıkış',
-        click: () => {
-          isQuitting = true;
-          app.quit();
-        }
-      }
-    ]);
-
-    tray.setContextMenu(contextMenu);
-
-  } catch (error) {
-    console.error('Tray menu güncellenemedi:', error);
-  }
-}
-
-// Ana uygulama event'leri
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  
-  // Auto updater setup
-  autoUpdater.checkForUpdatesAndNotify();
-});
-
-app.on('window-all-closed', () => {
-  if (!tray) {
-    if (process.platform !== 'darwin') {
-      app.quit();
     }
+  });
+  
+  // Ana pencereyi oluştur
+  mainWindow = new BrowserWindow({
+    width: 1000,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    icon: iconPath,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  
+  // Geliştirme modunda DevTools'u aç
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
+  
+  // Pencere kapatıldığında
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // Uygulama URL'sini yükle
+  if (process.env.VITE_DEV_SERVER_URL) {
+    // Geliştirme modunda
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    // Üretim modunda
+    mainWindow.loadFile(path.join(__dirname, '../index.html'));
+  }
+  
+  // IPC olaylarını dinle
+  setupIpcHandlers();
+  
+  // Otomatik güncelleme kontrolü
+  setupAutoUpdater();
+  
+  // Telegram bot'u başlat
+  if (TelegramBot) {
+    setTimeout(() => {
+      initializeTelegramBot();
+    }, 5000); // 5 saniye sonra başlat
+  }
+  
+  // Arka plan bildirimleri
+  startBackgroundNotifications();
+});
+
+// Tüm pencereler kapatıldığında
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
   }
 });
 
+// macOS'ta dock'a tıklandığında
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
-  } else if (mainWindow) {
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
-    }
+  } else {
     mainWindow.show();
-    mainWindow.focus();
   }
 });
 
+// Uygulama kapanırken
 app.on('before-quit', () => {
   isQuitting = true;
   
+  // Arka plan bildirimlerini durdur
   if (backgroundNotificationInterval) {
     clearInterval(backgroundNotificationInterval);
   }
   
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
-
+  // Telegram bot'u durdur
   if (telegramBot) {
-    telegramBot.stopPolling();
-    telegramBot = null;
+    try {
+      telegramBot.stopPolling();
+    } catch (error) {
+      console.error('❌ Telegram bot durdurma hatası:', error.message);
+    }
   }
 });
 
-// IPC Handlers
-ipcMain.handle('show-notification', async (event, title, body) => {
-  const { Notification } = require('electron');
+// IPC olaylarını ayarla
+function setupIpcHandlers() {
+  // Veri klasörü yolunu al
+  ipcMain.handle('get-app-data-path', () => {
+    return getAppDataPath();
+  });
   
-  if (Notification.isSupported()) {
-    const notification = new Notification({
-      title,
-      body,
-      icon: path.join(__dirname, 'icon.ico')
-    });
-    notification.show();
-  }
+  // Dosya okuma
+  ipcMain.handle('read-file', async (event, filePath) => {
+    try {
+      const data = await fs.promises.readFile(filePath, 'utf8');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
   
-  // Telegram bildirimi de gönder
-  sendTelegramNotification(title, body);
-});
+  // Dosya yazma
+  ipcMain.handle('write-file', async (event, filePath, data) => {
+    try {
+      await fs.promises.writeFile(filePath, data, 'utf8');
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Dosya varlığını kontrol et
+  ipcMain.handle('check-file-exists', async (event, filePath) => {
+    try {
+      const exists = await fs.promises.access(filePath)
+        .then(() => true)
+        .catch(() => false);
+      return { success: true, exists };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Klasör oluştur
+  ipcMain.handle('create-directory', async (event, dirPath) => {
+    try {
+      await fs.promises.mkdir(dirPath, { recursive: true });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Telegram bot'u yeniden başlat
+  ipcMain.handle('restart-telegram-bot', async () => {
+    try {
+      if (TelegramBot) {
+        initializeTelegramBot();
+        return { success: true };
+      } else {
+        return { 
+          success: false, 
+          error: 'Telegram Bot API yüklü değil. Uygulamayı yeniden başlatın veya node-telegram-bot-api paketini yükleyin.' 
+        };
+      }
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Telegram test mesajı gönder
+  ipcMain.handle('send-telegram-test', async (event, chatId) => {
+    try {
+      if (!telegramBot) {
+        return { 
+          success: false, 
+          error: 'Telegram bot başlatılmadı. Önce ayarlardan bot\'u etkinleştirin ve token girin.' 
+        };
+      }
+      
+      sendTestMessage(chatId);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+}
 
-// Telegram bot için güncel veri al
-ipcMain.handle('get-telegram-data', async (event) => {
-  try {
-    console.log('🔄 IPC: Telegram bot için güncel veri isteniyor...');
+// Otomatik güncelleme
+function setupAutoUpdater() {
+  // Güncellemeler için olay dinleyicileri
+  autoUpdater.on('checking-for-update', () => {
+    console.log('🔍 Güncellemeler kontrol ediliyor...');
+  });
+  
+  autoUpdater.on('update-available', (info) => {
+    console.log('🆕 Güncelleme mevcut:', info.version);
     
-    // Renderer process'ten güncel veriyi al
-    const checks = await event.sender.executeJavaScript(`
-      (() => {
-        try {
-          // İlk olarak 'checks' anahtarını dene (ana uygulamanın kullandığı)
-          let checksData = localStorage.getItem('checks');
-          if (checksData) {
-            const checks = JSON.parse(checksData);
-            console.log('IPC Renderer (checks): ' + checks.length + ' check bulundu');
-            return checks;
-          }
-          
-          // Eğer 'checks' yoksa 'hatirlatici-checks' dene
-          checksData = localStorage.getItem('hatirlatici-checks');
-          if (checksData) {
-            const checks = JSON.parse(checksData);
-            console.log('IPC Renderer (hatirlatici-checks): ' + checks.length + ' check bulundu');
-            return checks;
-          }
-          
-          console.log('IPC Renderer: Hiçbir checks verisi bulunamadı');
-          return [];
-        } catch (error) {
-          console.error('IPC Telegram data error:', error);
-          return [];
+    // Kullanıcıya bildir
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  });
+  
+  autoUpdater.on('update-not-available', () => {
+    console.log('✅ Uygulama güncel');
+  });
+  
+  autoUpdater.on('error', (err) => {
+    console.error('❌ Güncelleme hatası:', err);
+  });
+  
+  autoUpdater.on('download-progress', (progressObj) => {
+    const logMessage = `⏬ İndiriliyor: ${Math.round(progressObj.percent)}%`;
+    console.log(logMessage);
+    
+    // İlerlemeyi kullanıcıya bildir
+    if (mainWindow) {
+      mainWindow.webContents.send('update-progress', progressObj);
+    }
+  });
+  
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('✅ Güncelleme indirildi:', info.version);
+    
+    // Kullanıcıya bildir ve yeniden başlatma seçeneği sun
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info);
+      
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Güncelleme Hazır',
+        message: `Hatırlatıcınım'ın yeni sürümü (${info.version}) indirildi. Şimdi yüklemek için uygulamayı yeniden başlatın.`,
+        buttons: ['Şimdi Yeniden Başlat', 'Daha Sonra']
+      }).then(result => {
+        if (result.response === 0) {
+          isQuitting = true;
+          autoUpdater.quitAndInstall();
         }
-      })()
-    `);
-    
-    console.log(`✅ IPC: Renderer'dan ${checks.length} check alındı`);
-    
-    // Veri doğrulama
-    const validChecks = checks.filter(check => {
-      return check && 
-             check.id && 
-             check.paymentDate && 
-             typeof check.amount === 'number' &&
-             check.createdBy &&
-             check.signedTo;
+      });
+    }
+  });
+  
+  // Güncelleme kontrolünü başlat
+  setTimeout(() => {
+    console.log('🔄 Otomatik güncelleme kontrolü başlatılıyor...');
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('❌ Güncelleme kontrolü hatası:', err);
     });
     
-    console.log(`✅ IPC: ${validChecks.length} geçerli check bulundu`);
+    // Her 6 saatte bir kontrol et
+    setInterval(() => {
+      console.log('🔄 Periyodik güncelleme kontrolü yapılıyor...');
+      autoUpdater.checkForUpdates().catch(err => {
+        console.error('❌ Periyodik güncelleme kontrolü hatası:', err);
+      });
+    }, 6 * 60 * 60 * 1000);
+  }, 10000); // 10 saniye sonra başlat
+}
+
+// Arka plan bildirimleri
+function startBackgroundNotifications() {
+  console.log('🔔 Arka plan bildirimleri başlatılıyor...');
+  
+  // Her 15 dakikada bir kontrol et
+  backgroundNotificationInterval = setInterval(() => {
+    checkForDueChecks();
+    checkForMedications();
+  }, 15 * 60 * 1000);
+  
+  // İlk kontrolü hemen yap
+  setTimeout(() => {
+    checkForDueChecks();
+    checkForMedications();
+  }, 5000);
+}
+
+// Vadesi yaklaşan çekleri kontrol et
+function checkForDueChecks() {
+  console.log('🔍 Vadesi yaklaşan çekler kontrol ediliyor...');
+  
+  getChecksData().then(checks => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    return {
-      success: true,
-      checks: validChecks,
-      timestamp: new Date().toISOString(),
-      source: 'Renderer Process'
-    };
-  } catch (error) {
-    console.error('❌ IPC: Telegram data hatası:', error.message);
-    return {
-      success: false,
-      error: error.message,
-      checks: [],
-      timestamp: new Date().toISOString(),
-      source: 'Error'
-    };
-  }
-});
-
-ipcMain.handle('app-version', () => {
-  return app.getVersion();
-});
-
-// Güncelleme IPC handlers
-ipcMain.handle('check-for-updates', async () => {
-  try {
-    console.log('🔍 IPC: check-for-updates başlatıldı');
-    await autoUpdater.checkForUpdates();
-    console.log('✅ IPC: check-for-updates çağrıldı, event\'ler dinleniyor...');
-    return { success: true, message: 'Update check started' };
-  } catch (error) {
-    console.error('❌ IPC: check-for-updates hatası:', error);
-    return { success: false, message: error.message };
-  }
-});
-
-ipcMain.handle('download-update', async () => {
-  try {
-    console.log('📥 IPC: download-update başlatıldı');
-    await autoUpdater.downloadUpdate();
-    return { success: true, message: 'Download started' };
-  } catch (error) {
-    console.error('❌ IPC: download-update hatası:', error);
-    return { success: false, message: error.message };
-  }
-});
-
-ipcMain.handle('install-update', () => {
-  try {
-    console.log('🔄 IPC: install-update başlatıldı');
-    autoUpdater.quitAndInstall();
-    return { success: true, message: 'Installing update...' };
-  } catch (error) {
-    console.error('❌ IPC: install-update hatası:', error);
-    return { success: false, message: error.message };
-  }
-});
-
-// AutoUpdater Event Listeners
-autoUpdater.on('checking-for-update', () => {
-  console.log('🔍 AutoUpdater: Güncellemeler kontrol ediliyor...');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'checking-for-update');
-  }
-});
-
-autoUpdater.on('update-available', (info) => {
-  console.log('📥 AutoUpdater: Güncelleme mevcut:', info.version);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'update-available', info);
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  console.log('✅ AutoUpdater: Güncelleme yok, programınız güncel');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'update-not-available', info);
-  }
-});
-
-autoUpdater.on('error', (err) => {
-  console.error('❌ AutoUpdater hatası:', err);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'error', { message: err.message });
-  }
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  const percent = Math.round(progressObj.percent);
-  console.log(`📥 AutoUpdater: İndiriliyor... %${percent}`);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'download-progress', { percent });
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('✅ AutoUpdater: Güncelleme indirildi, yeniden başlatmaya hazır');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', 'update-downloaded', info);
-  }
-});
-
-// AppData dosya işlemleri
-ipcMain.handle('save-app-data', async (event, key, data) => {
-  try {
-    console.log(`💾 AppData kaydetme: ${key}`);
-    const appDataPath = getAppDataPath();
+    // Bugün vadesi gelen çekler
+    const todayChecks = checks.filter(check => {
+      if (check.isPaid) return false;
+      
+      const checkDate = new Date(check.date);
+      const checkDateOnly = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+      
+      return checkDateOnly.getTime() === today.getTime();
+    });
     
-    if (!fs.existsSync(appDataPath)) {
-      fs.mkdirSync(appDataPath, { recursive: true });
-      console.log('📁 AppData klasörü oluşturuldu:', appDataPath);
+    if (todayChecks.length > 0) {
+      console.log(`⚠️ Bugün vadesi gelen ${todayChecks.length} çek bulundu`);
+      
+      // Bildirim gönder
+      if (mainWindow) {
+        mainWindow.webContents.send('check-notification', {
+          title: 'Bugün Ödenecek Çekler',
+          body: `${todayChecks.length} adet çek/fatura bugün ödenecek.`,
+          checks: todayChecks
+        });
+      }
+      
+      // Sistem bildirimi
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'Bugün Ödenecek Çekler',
+          body: `${todayChecks.length} adet çek/fatura bugün ödenecek.`,
+          icon: path.join(__dirname, 'icon.ico')
+        });
+        
+        notification.show();
+        
+        notification.on('click', () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('navigate-to-checks');
+          }
+        });
+      }
+      
+      // Telegram bildirimi
+      sendTelegramCheckNotification(todayChecks, 'today');
     }
     
-    // Dosya adlarını düzelt
-    let fileName = key;
-    if (key === 'checks') fileName = 'hatirlatici-checks';
-    if (key === 'settings') fileName = 'hatirlatici-settings';
+    // Yarın vadesi gelecek çekler
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
     
-    const filePath = path.join(appDataPath, `${fileName}.json`);
-    console.log('📄 Dosya yolu:', filePath);
+    const tomorrowChecks = checks.filter(check => {
+      if (check.isPaid) return false;
+      
+      const checkDate = new Date(check.date);
+      const checkDateOnly = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+      
+      return checkDateOnly.getTime() === tomorrow.getTime();
+    });
     
-    // Veriyi kaydet
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    console.log(`✅ ${key} verisi kaydedildi:`, filePath);
-    
-    // Dosya boyutunu kontrol et
-    const fileStats = fs.statSync(filePath);
-    console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
-    console.log(`📅 Son güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
-    
-    // Settings değiştiğinde Telegram bot'u yeniden başlat
-    if (key === 'settings') {
-      console.log('🔄 Settings değişti, Telegram bot yeniden başlatılıyor...');
-      setTimeout(initializeTelegramBot, 1000);
+    if (tomorrowChecks.length > 0) {
+      console.log(`⚠️ Yarın vadesi gelecek ${tomorrowChecks.length} çek bulundu`);
+      
+      // Bildirim gönder (sadece sabah 9'da)
+      if (now.getHours() === 9 && now.getMinutes() < 15) {
+        if (mainWindow) {
+          mainWindow.webContents.send('check-notification', {
+            title: 'Yarın Ödenecek Çekler',
+            body: `${tomorrowChecks.length} adet çek/fatura yarın ödenecek.`,
+            checks: tomorrowChecks
+          });
+        }
+        
+        // Sistem bildirimi
+        if (Notification.isSupported()) {
+          const notification = new Notification({
+            title: 'Yarın Ödenecek Çekler',
+            body: `${tomorrowChecks.length} adet çek/fatura yarın ödenecek.`,
+            icon: path.join(__dirname, 'icon.ico')
+          });
+          
+          notification.show();
+          
+          notification.on('click', () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+              mainWindow.webContents.send('navigate-to-checks');
+            }
+          });
+        }
+        
+        // Telegram bildirimi (sadece sabah)
+        sendTelegramCheckNotification(tomorrowChecks, 'tomorrow');
+      }
     }
-    
-    return true;
-  } catch (error) {
-    console.error('❌ AppData save error:', error);
-    return false;
-  }
-});
+  }).catch(error => {
+    console.error('❌ Çek kontrolü hatası:', error.message);
+  });
+}
 
-ipcMain.handle('load-app-data', async (event, key) => {
-  try {
-    console.log(`📂 AppData yükleme: ${key}`);
-    const appDataPath = getAppDataPath();
-    
-    // Dosya adlarını düzelt
-    let fileName = key;
-    if (key === 'checks') fileName = 'hatirlatici-checks';
-    if (key === 'settings') fileName = 'hatirlatici-settings';
-    
-    const filePath = path.join(appDataPath, `${fileName}.json`);
-    console.log('📄 Dosya yolu:', filePath);
-    
-    if (!fs.existsSync(filePath)) {
-      console.log('⚠️ Dosya bulunamadı:', filePath);
-      return null;
+// İlaçları kontrol et
+function checkForMedications() {
+  console.log('🔍 Alınması gereken ilaçlar kontrol ediliyor...');
+  
+  getMedicationsData().then(medications => {
+    if (!medications || medications.length === 0) {
+      return;
     }
     
-    const data = fs.readFileSync(filePath, 'utf8');
-    const parsedData = JSON.parse(data);
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const dayOfWeek = now.getDay(); // 0: Pazar, 1: Pazartesi, ...
     
-    // Dosya bilgilerini logla
-    const fileStats = fs.statSync(filePath);
-    console.log(`✅ ${key} verisi yüklendi:`, filePath);
-    console.log(`📊 Dosya boyutu: ${fileStats.size} bytes`);
-    console.log(`📅 Son güncelleme: ${fileStats.mtime.toLocaleString('tr-TR')}`);
+    // Şu anda alınması gereken ilaçları filtrele
+    const currentMeds = medications.filter(med => {
+      // İlacın bugün alınması gerekiyor mu?
+      const isDueToday = (
+        (med.days.sunday && dayOfWeek === 0) ||
+        (med.days.monday && dayOfWeek === 1) ||
+        (med.days.tuesday && dayOfWeek === 2) ||
+        (med.days.wednesday && dayOfWeek === 3) ||
+        (med.days.thursday && dayOfWeek === 4) ||
+        (med.days.friday && dayOfWeek === 5) ||
+        (med.days.saturday && dayOfWeek === 6)
+      );
+      
+      if (!isDueToday) return false;
+      
+      // İlacın saati şu anki saatle uyuşuyor mu?
+      const [medHour, medMinute] = med.time.split(':').map(Number);
+      
+      // Son 15 dakika içinde mi?
+      const medTimeInMinutes = medHour * 60 + medMinute;
+      const nowTimeInMinutes = currentHour * 60 + currentMinute;
+      const timeDiffInMinutes = nowTimeInMinutes - medTimeInMinutes;
+      
+      return timeDiffInMinutes >= 0 && timeDiffInMinutes <= 15;
+    });
     
-    return parsedData;
-  } catch (error) {
-    console.error('❌ AppData load error:', error);
-    return null;
+    if (currentMeds.length > 0) {
+      console.log(`⚠️ Şu anda alınması gereken ${currentMeds.length} ilaç bulundu`);
+      
+      // Bildirim gönder
+      if (mainWindow) {
+        mainWindow.webContents.send('medication-notification', {
+          title: 'İlaç Hatırlatması',
+          body: `${currentMeds.length} adet ilacınızı almanın zamanı geldi.`,
+          medications: currentMeds
+        });
+      }
+      
+      // Sistem bildirimi
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'İlaç Hatırlatması',
+          body: `${currentMeds.length} adet ilacınızı almanın zamanı geldi.`,
+          icon: path.join(__dirname, 'icon.ico')
+        });
+        
+        notification.show();
+        
+        notification.on('click', () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('navigate-to-medications');
+          }
+        });
+      }
+      
+      // Telegram bildirimi
+      sendTelegramMedicationNotification(currentMeds);
+    }
+  }).catch(error => {
+    console.error('❌ İlaç kontrolü hatası:', error.message);
+  });
+}
+
+// Telegram çek bildirimi gönder
+function sendTelegramCheckNotification(checks, type) {
+  if (!telegramBot) return;
+  
+  const settings = getSettingsData();
+  if (!settings.telegramBotEnabled || !settings.telegramChatId) return;
+  
+  let title = '';
+  if (type === 'today') {
+    title = '📅 *BUGÜN ÖDENECEK ÇEK/FATURALAR*';
+  } else if (type === 'tomorrow') {
+    title = '📆 *YARIN ÖDENECEK ÇEK/FATURALAR*';
   }
-});} 
- 
- 
+  
+  let message = `${title}\n\n`;
+  
+  checks.forEach((check, index) => {
+    message += `${index + 1}. ${check.name} - ${formatCurrency(check.amount)}\n`;
+    if (check.notes) message += `   _${check.notes}_\n`;
+    message += '\n';
+  });
+  
+  message += `\n💰 *TOPLAM:* ${formatCurrency(checks.reduce((sum, check) => sum + check.amount, 0))}`;
+  
+  telegramBot.sendMessage(settings.telegramChatId, message, { parse_mode: 'Markdown' })
+    .then(() => {
+      console.log('✅ Telegram çek bildirimi gönderildi');
+    })
+    .catch(err => {
+      console.error('❌ Telegram çek bildirimi hatası:', err.message);
+    });
+}
+
+// Telegram ilaç bildirimi gönder
+function sendTelegramMedicationNotification(medications) {
+  if (!telegramBot) return;
+  
+  const settings = getSettingsData();
+  if (!settings.telegramBotEnabled || !settings.telegramChatId) return;
+  
+  let message = `💊 *İLAÇ HATIRLATMASI*\n\n`;
+  
+  medications.forEach((med, index) => {
+    message += `${index + 1}. *${med.name}* - ${med.time}\n`;
+    if (med.dosage) message += `   💊 Doz: ${med.dosage}\n`;
+    if (med.notes) message += `   📝 Not: _${med.notes}_\n`;
+    message += '\n';
+  });
+  
+  telegramBot.sendMessage(settings.telegramChatId, message, { parse_mode: 'Markdown' })
+    .then(() => {
+      console.log('✅ Telegram ilaç bildirimi gönderildi');
+    })
+    .catch(err => {
+      console.error('❌ Telegram ilaç bildirimi hatası:', err.message);
+    });
+}
+}

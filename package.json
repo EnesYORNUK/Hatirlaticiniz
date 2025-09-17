@@ -42,6 +42,7 @@
     "concurrently": "^9.0.1",
     "electron": "^37.2.3",
     "electron-builder": "^26.0.12",
+    "electron-packager": "^17.1.2",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
@@ -94,7 +95,9 @@
       "icon": "public/icon-256x256.png"
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        "zip"
+      ],
       "icon": "public/icon.ico",
       "verifyUpdateCodeSignature": false
     },
@@ -102,18 +105,6 @@
       "target": "AppImage",
       "category": "Office",
       "icon": "public/icon-256x256.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "installerIcon": "public/icon.ico",
-      "uninstallerIcon": "public/icon.ico",
-      "installerHeaderIcon": "public/icon.ico",
-      "deleteAppDataOnUninstall": true,
-      "runAfterFinish": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   }
 }

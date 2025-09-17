@@ -37,6 +37,14 @@ export const useAuth = () => {
         // Clear the timeout since we're proceeding
         clearTimeout(timeoutId);
         
+        // Zorla giriş ekranını göstermek için isAuthenticated'ı false yapıyoruz
+        setAuthState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false
+        });
+        return;
+        
         // If Supabase is not initialized, skip auth check
         if (!supabase) {
           console.log('⚠️ Supabase not initialized, skipping auth check');
