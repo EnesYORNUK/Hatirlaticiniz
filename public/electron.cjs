@@ -774,7 +774,7 @@ app.whenReady().then(() => {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
     // Üretim modunda
-    mainWindow.loadFile(path.join(__dirname, '../index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
   
   // IPC olaylarını dinle
