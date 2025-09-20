@@ -20,15 +20,15 @@ let telegramBot = null;
 let isQuitting = false;
 let backgroundNotificationInterval = null;
 
-// Single Instance Lock - Sadece tek uygulama instance'ı çalışsın
-const gotTheLock = app.requestSingleInstanceLock();
+// Single Instance Lock - Geçici olarak devre dışı
+// const gotTheLock = app.requestSingleInstanceLock();
 
-if (!gotTheLock) {
-  // Eğer zaten bir instance çalışıyorsa, bu instance'ı kapat
-  console.log('Uygulama zaten çalışıyor. Mevcut pencereyi öne getiriliyor...');
-  app.quit();
-  process.exit(0);
-} else {
+// if (!gotTheLock) {
+//   // Eğer zaten bir instance çalışıyorsa, bu instance'ı kapat
+//   console.log('Uygulama zaten çalışıyor. Mevcut pencereyi öne getiriliyor...');
+//   app.quit();
+//   process.exit(0);
+// } else {
   // İkinci instance açılmaya çalışıldığında bu event tetiklenir
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     console.log('İkinci instance tespit edildi. Ana pencereyi öne getiriliyor...');
@@ -739,66 +739,7 @@ app.whenReady().then(() => {
   });
   
   // Ana pencereyi oluştur
-  mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
-    icon: iconPath,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-  
-  // Geliştirme modunda DevTools'u aç
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
-  
-  // Pencere kapatıldığında
-  mainWindow.on('close', (event) => {
-    if (!isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // Uygulama URL'sini yükle
-  if (process.env.VITE_DEV_SERVER_URL) {
-    // Geliştirme modunda
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    // Üretim modunda - doğru yol
-    const indexPath = path.join(__dirname, '..', 'index.html');
-    console.log('📁 Index dosyası yolu:', indexPath);
-    console.log('📁 Dosya var mı?', fs.existsSync(indexPath));
-    
-    if (fs.existsSync(indexPath)) {
-      mainWindow.loadFile(indexPath);
-    } else {
-      // Alternatif yolları dene
-      const altPath1 = path.join(process.resourcesPath, 'app', 'index.html');
-      const altPath2 = path.join(__dirname, 'index.html');
-      
-      console.log('🔍 Alternatif yol 1:', altPath1, 'Var mı?', fs.existsSync(altPath1));
-      console.log('🔍 Alternatif yol 2:', altPath2, 'Var mı?', fs.existsSync(altPath2));
-      
-      if (fs.existsSync(altPath1)) {
-        mainWindow.loadFile(altPath1);
-      } else if (fs.existsSync(altPath2)) {
-        mainWindow.loadFile(altPath2);
-      } else {
-        console.error('❌ Index.html dosyası bulunamadı!');
-        // Fallback olarak basit bir HTML yükle
-        mainWindow.loadURL('data:text/html,<h1>Uygulama yükleniyor...</h1><p>Lütfen bekleyin.</p>');
-      }
-    }
-  }
+  createWindow();
   
   // IPC olaylarını dinle
   setupIpcHandlers();
@@ -1268,4 +1209,97 @@ function sendTelegramMedicationNotification(medications) {
       console.error('❌ Telegram ilaç bildirimi hatası:', err.message);
     });
 }
+
+function createWindow() {
+  // Eğer ana pencere zaten varsa, onu öne getir
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs')
+    },
+    icon: path.join(__dirname, 'icon.ico'),
+    show: false,
+    autoHideMenuBar: true,
+    // Pencere davranış iyileştirmeleri
+    titleBarStyle: 'default',
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    closable: true,
+  });
+
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    // Doğru yol: public klasöründen dist klasörüne
+    const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+    console.log('📁 Index dosyası yolu:', indexPath);
+    console.log('📁 Dosya var mı?', fs.existsSync(indexPath));
+    
+    if (fs.existsSync(indexPath)) {
+      mainWindow.loadFile(indexPath);
+    } else {
+      console.error('❌ Index.html dosyası bulunamadı!');
+      // Fallback olarak basit bir HTML yükle
+      mainWindow.loadURL('data:text/html,<h1>Uygulama yükleniyor...</h1><p>Lütfen bekleyin.</p>');
+    }
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus(); // Pencereyi odakla
+    
+    // Windows'ta taskbar'da yanıp söndür
+    if (process.platform === 'win32') {
+      mainWindow.flashFrame(false);
+    }
+  });
+
+  mainWindow.on('close', (event) => {
+    if (!isQuitting && tray) {
+      event.preventDefault();
+      mainWindow.hide();
+      
+      // İlk kez minimize edildiğinde bilgi göster
+      if (!mainWindow.hasShownTrayNotification) {
+        tray.displayBalloon({
+          iconType: 'info',
+          title: 'Hatırlatıcınız',
+          content: 'Uygulama sistem tepsisinde çalışmaya devam ediyor.'
+        });
+        mainWindow.hasShownTrayNotification = true;
+      }
+    }
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  // Pencere yüklendiğinde
+  mainWindow.webContents.once('did-finish-load', () => {
+    console.log('✅ Ana pencere yüklendi');
+    
+    // Auto-updater'ı başlat
+    if (!isDev) {
+      autoUpdater.checkForUpdatesAndNotify();
+    }
+  });
+
+  // Hata durumunda
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('❌ Pencere yükleme hatası:', errorCode, errorDescription);
+  });
 }
