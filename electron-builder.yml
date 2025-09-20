@@ -5,8 +5,9 @@ directories:
   output: electron-dist
 files:
   - dist/**/*
-  - public/electron.js
-  - public/preload.js
+  - index.html
+  - public/electron.cjs
+  - public/preload.cjs
   - public/icon.ico
   - public/icon-256x256.png
   - node_modules/**/*

@@ -773,8 +773,31 @@ app.whenReady().then(() => {
     // Geliştirme modunda
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    // Üretim modunda
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // Üretim modunda - doğru yol
+    const indexPath = path.join(__dirname, '..', 'index.html');
+    console.log('📁 Index dosyası yolu:', indexPath);
+    console.log('📁 Dosya var mı?', fs.existsSync(indexPath));
+    
+    if (fs.existsSync(indexPath)) {
+      mainWindow.loadFile(indexPath);
+    } else {
+      // Alternatif yolları dene
+      const altPath1 = path.join(process.resourcesPath, 'app', 'index.html');
+      const altPath2 = path.join(__dirname, 'index.html');
+      
+      console.log('🔍 Alternatif yol 1:', altPath1, 'Var mı?', fs.existsSync(altPath1));
+      console.log('🔍 Alternatif yol 2:', altPath2, 'Var mı?', fs.existsSync(altPath2));
+      
+      if (fs.existsSync(altPath1)) {
+        mainWindow.loadFile(altPath1);
+      } else if (fs.existsSync(altPath2)) {
+        mainWindow.loadFile(altPath2);
+      } else {
+        console.error('❌ Index.html dosyası bulunamadı!');
+        // Fallback olarak basit bir HTML yükle
+        mainWindow.loadURL('data:text/html,<h1>Uygulama yükleniyor...</h1><p>Lütfen bekleyin.</p>');
+      }
+    }
   }
   
   // IPC olaylarını dinle
