@@ -230,7 +230,7 @@ export interface Database {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://asbcteplixnkuqvytqce.supabase.co'
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzYmN0ZXBsaXhua3Vxdnl0cWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1MjIxMjYsImV4cCI6MjA3MzA5ODEyNn0.ysyedceXwi5KpRGordwG0uucIHRFFBA6fHuYhs_Lq5U'
 
-// Create Supabase client with error handling
+// Create Supabase client with error handling and MCP support
 let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
 try {
@@ -242,8 +242,17 @@ try {
     },
     global: {
       headers: {
-        'X-Client-Info': 'Hatirlaticiniz/2.0.4'
+        'X-Client-Info': 'Hatirlaticiniz/2.0.8'
       }
+    },
+    // MCP optimization settings
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    db: {
+      schema: 'public'
     }
   });
   console.log('✅ Supabase client created successfully');
