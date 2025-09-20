@@ -96,11 +96,14 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "zip"
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
       ],
       "icon": "public/icon.ico",
-      "verifyUpdateCodeSignature": false
+      "verifyUpdateCodeSignature": false,
+      "artifactName": "${productName}-${version}-Setup.${ext}"
     },
     "linux": {
       "target": "AppImage",

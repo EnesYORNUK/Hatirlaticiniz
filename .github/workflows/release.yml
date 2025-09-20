@@ -36,12 +36,25 @@ jobs:
       - name: Build Windows exe
         run: npx electron-builder --win
 
+      - name: List build output
+        run: |
+          echo "Listing electron-dist directory:"
+          if (Test-Path "dist") { 
+            Get-ChildItem -Path "dist" -Recurse | Select-Object FullName, Length
+          } else { 
+            echo "dist directory does not exist"
+          }
+          echo "Current directory contents:"
+          Get-ChildItem -Path "." | Select-Object Name, Mode
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.bump_version.outputs.new_version }}
           name: Release v${{ steps.bump_version.outputs.new_version }}
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            dist/**/*.exe
           generate_release_notes: true
           draft: false
           prerelease: false
