@@ -37,14 +37,6 @@ export const useAuth = () => {
         // Clear the timeout since we're proceeding
         clearTimeout(timeoutId);
         
-        // Zorla giriş ekranını göstermek için isAuthenticated'ı false yapıyoruz
-        setAuthState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false
-        });
-        return;
-        
         // If Supabase is not initialized, skip auth check
         if (!supabase) {
           console.log('⚠️ Supabase not initialized, skipping auth check');
@@ -207,30 +199,30 @@ export const useAuth = () => {
   const login = async (loginData: LoginData): Promise<{ success: boolean; error?: string }> => {
     // If Supabase is not available, return error
     if (!supabase) {
-      return { success: false, error: 'Authentication service is not available' };
+      return { success: false, error: 'Kimlik doğrulama servisi kullanılamıyor' };
     }
     
     try {
       console.log('🔐 Attempting login...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
-      // Add timeout to login request
-      const loginPromise = supabase.auth.signInWithPassword({
-        email: loginData.email,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginData.email.trim(),
         password: loginData.password,
       });
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Login request timeout')), 10000)
-      );
-      
-      const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('❌ Login error:', error);
         setAuthState(prev => ({ ...prev, isLoading: false }));
+        
         // Daha açıklayıcı hata mesajları
-        if (error.message.includes('failed to fetch')) {
+        if (error.message.includes('Invalid login credentials')) {
+          return { success: false, error: 'E-posta veya şifre hatalı!' };
+        }
+        if (error.message.includes('Email not confirmed')) {
+          return { success: false, error: 'Lütfen e-posta adresinizi doğrulayın!' };
+        }
+        if (error.message.includes('fetch')) {
           return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
         }
         return { success: false, error: error.message };
@@ -242,12 +234,8 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('💥 Login exception:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
-      // Handle timeout specifically
-      if (error?.message === 'Login request timeout') {
-        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
-      }
-      // Daha açıklayıcı hata mesajları
-      if (error?.message?.includes('failed to fetch')) {
+      
+      if (error?.message?.includes('fetch') || error?.name === 'TypeError') {
         return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
       }
       return { success: false, error: error.message || 'Giriş sırasında bir hata oluştu!' };
@@ -258,7 +246,7 @@ export const useAuth = () => {
   const register = async (registerData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     // If Supabase is not available, return error
     if (!supabase) {
-      return { success: false, error: 'Authentication service is not available' };
+      return { success: false, error: 'Kimlik doğrulama servisi kullanılamıyor' };
     }
     
     try {
@@ -276,28 +264,25 @@ export const useAuth = () => {
         return { success: false, error: 'Şifre en az 6 karakter olmalı!' };
       }
 
-      // Add timeout to registration request
-      const registerPromise = supabase.auth.signUp({
-        email: registerData.email,
+      const { data, error } = await supabase.auth.signUp({
+        email: registerData.email.trim(),
         password: registerData.password,
         options: {
           data: {
-            full_name: registerData.fullName,
+            full_name: registerData.fullName.trim(),
           },
         },
       });
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Registration request timeout')), 10000)
-      );
-      
-      const { data, error } = await Promise.race([registerPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('❌ Registration error:', error);
         setAuthState(prev => ({ ...prev, isLoading: false }));
+        
         // Daha açıklayıcı hata mesajları
-        if (error.message.includes('failed to fetch')) {
+        if (error.message.includes('User already registered')) {
+          return { success: false, error: 'Bu e-posta adresi zaten kayıtlı!' };
+        }
+        if (error.message.includes('fetch')) {
           return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
         }
         return { success: false, error: error.message };
@@ -308,8 +293,8 @@ export const useAuth = () => {
       if (data.user && !data.session) {
         setAuthState(prev => ({ ...prev, isLoading: false }));
         return { 
-          success: false, 
-          error: 'Lütfen e-posta adresinizi kontrol edin ve doğrulama linkine tıklayın.' 
+          success: true, 
+          error: 'Kayıt başarılı! Giriş yapabilirsiniz.' 
         };
       }
 
