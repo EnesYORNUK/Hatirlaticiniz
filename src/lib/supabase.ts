@@ -249,7 +249,7 @@ try {
     },
     global: {
       headers: {
-        'x-client-info': 'hatirlaticiniz@2.0.9'
+        'x-client-info': 'hatirlaticiniz@2.1.0'
       }
     }
   });
