@@ -231,8 +231,16 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Validate environment variables
+console.log('🔍 Supabase env check:', { 
+  hasUrl: !!supabaseUrl, 
+  hasKey: !!supabaseKey,
+  url: supabaseUrl?.substring(0, 30) + '...' 
+});
+
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ Missing Supabase environment variables');
+  console.error('URL:', supabaseUrl);
+  console.error('Key:', supabaseKey ? 'Present' : 'Missing');
   throw new Error('Supabase URL and Anon Key are required');
 }
 
