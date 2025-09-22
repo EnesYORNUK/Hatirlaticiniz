@@ -3,7 +3,7 @@ import { Eye, EyeOff, LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
 import { LoginData } from '../types';
 
 interface LoginProps {
-  onLogin: (data: LoginData) => void;
+  onLogin: (data: LoginData) => Promise<void> | void;
   onSwitchToRegister: () => void;
   isLoading: boolean;
   error?: string;
@@ -16,15 +16,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
     password: 'demo123' // Demo için pre-fill
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Partial<LoginData>>({});
-
-  const handleChange = (field: keyof LoginData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear validation error when user starts typing
-    if (validationErrors[field]) {
-      setValidationErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
 
   const validateForm = (): boolean => {
     const errors: Partial<LoginData> = {};
@@ -41,11 +32,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
       errors.password = 'Şifre en az 6 karakter olmalı';
     }
 
-    setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
       onLogin(formData);
@@ -74,7 +64,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
               </span>
             </div>
           )}
-          <form onSubmit={(e) => { e.preventDefault(); if (isAuthAvailable) onLogin(formData); }} className="space-y-6">
+          <form onSubmit={handleFormSubmit} className="space-y-6">
             {/* Genel hata mesajı */}
             {error && (
               <div className="flex items-center gap-3 text-red-600 bg-red-50 p-4 rounded-xl border border-red-200">

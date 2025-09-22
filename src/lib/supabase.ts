@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import { Check, Settings, NotificationHistory } from '../types'
-import { Medication, MedicationLog } from '../types/medication'
+// Unused imports removed
+import { createClient } from '@supabase/supabase-js';
 
 // MCP-optimized Supabase client configuration
 
@@ -10,25 +9,32 @@ export interface Database {
     Tables: {
       profiles: {
         Row: {
-          id: string
-          email: string
-          full_name: string
-          created_at: string
-          updated_at: string
-        }
+          id: string;
+          updated_at?: string;
+          username?: string;
+          full_name?: string;
+          avatar_url?: string;
+          website?: string;
+          email?: string;
+        };
         Insert: {
-          id: string
-          email: string
-          full_name: string
-          created_at?: string
-          updated_at?: string
-        }
+          id: string;
+          updated_at?: string;
+          username?: string;
+          full_name?: string;
+          avatar_url?: string;
+          website?: string;
+          email?: string;
+        };
         Update: {
-          email?: string
-          full_name?: string
-          updated_at?: string
-        }
-      }
+          updated_at?: string;
+          username?: string;
+          full_name?: string;
+          avatar_url?: string;
+          website?: string;
+          email?: string;
+        };
+      };
       checks: {
         Row: {
           id: string
@@ -163,7 +169,7 @@ export interface Database {
           notes?: string
         }
       }
-      user_settings: {
+      app_user_settings: {
         Row: {
           id: string
           user_id: string
@@ -223,60 +229,43 @@ export interface Database {
         }
       }
     }
+    Functions: {
+      delete_user_data: {
+        Args: { user_id: string }
+        Returns: void
+      }
+    }
   }
 }
 
-// Supabase configuration
+// Environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Validate environment variables
+// Debug logging
 console.log('🔍 Supabase env check:', { 
   hasUrl: !!supabaseUrl, 
-  hasKey: !!supabaseKey,
+  hasKey: !!supabaseAnonKey,
   url: supabaseUrl?.substring(0, 30) + '...' 
 });
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Missing Supabase environment variables');
-  console.error('URL:', supabaseUrl);
-  console.error('Key:', supabaseKey ? 'Present' : 'Missing');
-  // Production'da beyaz ekranı önlemek için fatal hata fırlatma
-  // yerine Supabase'i devre dışı bırakıyoruz. Uygulama offline
-  // modda temel işlevlerle açılabilir.
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('⚠️ Supabase environment variables not found. Running in offline mode.');
+  console.warn('Please check your .env file for VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
 }
 
-// Create Supabase client with optimized settings
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
-
-try {
-  if (supabaseUrl && supabaseKey) {
-    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+// Create Supabase client
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce'
-      },
-      global: {
-        headers: {
-          'x-client-info': 'hatirlaticiniz@2.1.0'
-        }
+        detectSessionInUrl: false
       }
-    });
-    console.log('✅ Supabase client initialized successfully');
-  } else {
-    supabaseInstance = null;
-    console.warn('⚠️ Supabase client not initialized due to missing env. App will run in offline mode.');
-  }
-} catch (error) {
-  console.error('❌ Failed to initialize Supabase client:', error);
-  supabaseInstance = null;
-}
+    })
+  : null;
 
-export const supabase = supabaseInstance;
-
-// Type-safe table references
+// Type exports for better type safety
 export type SupabaseTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]
 export type SupabaseRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 export type SupabaseInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']

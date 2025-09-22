@@ -1,32 +1,31 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Check, Settings, NotificationHistory } from '../types';
-import { isToday, isDateInRange, getDaysUntilPayment } from '../utils/dateUtils';
+import { getDaysUntilPayment } from '../utils/dateUtils';
 import { useSupabaseMedications } from './useSupabaseMedications';
 
 export function useElectronNotifications(checks: Check[], settings: Settings) {
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
-  const lastCheckRef = useRef<string>('');
   
   // İlaç hook'u - use Supabase version
   const { getTodaySchedule, medications } = useSupabaseMedications();
 
   // Bildirim geçmişini localStorage'dan yükle/kaydet
-  const getNotificationHistory = (): NotificationHistory[] => {
+  const getNotificationHistory = useCallback((): NotificationHistory[] => {
     try {
       const history = localStorage.getItem('hatirlatici-notification-history');
       return history ? JSON.parse(history) : [];
     } catch {
       return [];
     }
-  };
+  }, []);
 
-  const saveNotificationHistory = (history: NotificationHistory[]) => {
+  const saveNotificationHistory = useCallback((history: NotificationHistory[]) => {
     try {
       localStorage.setItem('hatirlatici-notification-history', JSON.stringify(history));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Bildirim geçmişi kaydedilemedi:', error);
     }
-  };
+  }, []);
 
   // Bildirim gönderme fonksiyonu (Telegram entegrasyonu electron.cjs'te yapıldı)
   const showNotification = useCallback(async (title: string, body: string) => {
@@ -41,62 +40,28 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
           requireInteraction: true,
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Bildirim gönderilemedi:', error);
     }
   }, [isElectron]);
 
   // Web notification izni iste
   const requestPermission = useCallback(async () => {
-    if (!isElectron && 'Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
+    if ('Notification' in window && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
     }
-  }, [isElectron]);
+    return false;
+  }, []);
 
-  // Belirli bir check veya medication için bildirim gönderilmiş mi kontrol et
-  const hasNotificationBeenSent = (
-    checkId: string, 
-    notificationType: 'reminder' | 'due-today' | 'daily' | 'medication',
-    paymentDate: string,
-    medicationId?: string
-  ): boolean => {
-    const history = getNotificationHistory();
-    
-    if (notificationType === 'daily') {
-      // Günlük bildirimler için sadece bugün gönderilmiş mi bak
-      const today = new Date().toDateString();
-      return history.some(h => 
-        h.checkId === checkId && 
-        h.notificationType === 'daily' &&
-        new Date(h.sentAt).toDateString() === today
-      );
-    } else {
-      // Reminder ve due-today için ödeme tarihine göre kontrol et
-      return history.some(h => 
-        h.checkId === checkId && 
-        h.notificationType === notificationType &&
-        h.paymentDate === paymentDate
-      );
-    }
-  };
-
-  // Bildirim gönder ve geçmişe kaydet (hem ödeme hem ilaç için)
-  const sendNotificationWithHistory = (
+  // Bildirim gönder ve geçmişe kaydet
+  const sendNotificationWithHistory = useCallback((
     check: Check | null,
-    notificationType: 'reminder' | 'due-today' | 'daily' | 'medication',
+    notificationType: 'daily' | 'reminder' | 'due-today' | 'medication',
     title: string,
     body: string,
     medicationId?: string
   ) => {
-    // Zaten gönderilmiş mi kontrol et
-    const id = check ? check.id : medicationId || 'unknown';
-    const paymentDate = check ? check.paymentDate : new Date().toISOString().split('T')[0];
-    
-    if (hasNotificationBeenSent(id, notificationType, paymentDate, medicationId)) {
-      return;
-    }
-
-    // Bildirimi gönder (Telegram entegrasyonu electron.cjs'te otomatik)
     showNotification(title, body);
 
     // Geçmişe kaydet
@@ -106,7 +71,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
       notificationType,
       sentAt: new Date().toISOString(),
       paymentDate: check ? check.paymentDate : new Date().toISOString().split('T')[0],
-      medicationId: medicationId,
+      medicationId: medicationId || undefined,
     };
     
     history.push(newEntry);
@@ -120,7 +85,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
     );
     
     saveNotificationHistory(cleanHistory);
-  };
+  }, [getNotificationHistory, saveNotificationHistory, showNotification]);
 
   // Günlük bildirim saati geldi mi kontrol et
   const isDailyNotificationTime = (): boolean => {
@@ -148,232 +113,157 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
   };
 
   // Hatırlatma ve ödeme günü bildirimlerini kontrol et
-  const checkReminderNotifications = useCallback(() => {
+  const checkNotifications = useCallback(() => {
     if (!settings.notificationsEnabled) return;
-
+    
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
     checks.forEach(check => {
-      if (check.isPaid) return;
-
-      const type = check.type === 'bill' ? 'Fatura' : 'Çek';
-      const company = check.signedTo;
-      const amount = check.amount.toLocaleString('tr-TR');
-
-      // Hatırlatma bildirimi (X gün önceden)
-      const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
-      if (daysUntil > 0 && daysUntil <= settings.reminderDays) {
-        const daysLeft = daysUntil;
-        
+      if (check.isPaid) return; // Ödenmiş çekleri atla
+      
+      const daysUntil = getDaysUntilPayment(check.paymentDate);
+      
+      // Hatırlatma bildirimi (X gün önce)
+      if (daysUntil === settings.reminderDays && daysUntil > 0) {
         sendNotificationWithHistory(
           check,
           'reminder',
-          `💰 ${type} Ödeme Hatırlatması`,
-          `${company} - ${amount} TL tutarındaki ${type.toLowerCase()}in ödeme tarihi ${daysLeft} gün sonra`
+          '⏰ Ödeme Hatırlatması',
+          `${check.signedTo} için ${check.amount}₺ tutarındaki ${check.type === 'check' ? 'çek' : 'fatura'} ${daysUntil} gün sonra ödenecek.`
         );
       }
-
-      // Ödeme günü bildirimi
-      const checkDateToCheck = check.isRecurring && check.nextPaymentDate ? check.nextPaymentDate : check.paymentDate;
-      if (isToday(checkDateToCheck)) {
+      
+      // Bugün ödenecek bildirimi
+      if (check.paymentDate === todayStr) {
         sendNotificationWithHistory(
           check,
           'due-today',
-          `🔴 ${type} Ödeme Günü!`,
-          `${company} - ${amount} TL tutarındaki ${type.toLowerCase()}in ödeme günü bugün!`
+          '🚨 Bugün Ödenecek!',
+          `${check.signedTo} için ${check.amount}₺ tutarındaki ${check.type === 'check' ? 'çek' : 'fatura'} bugün ödenecek.`
         );
       }
     });
-  }, [checks, settings, showNotification]);
+  }, [checks, settings.notificationsEnabled, settings.reminderDays, sendNotificationWithHistory]);
 
-  // İlaç bildirimlerini kontrol et
-  const checkMedicationNotifications = useCallback(() => {
+  // İlaç hatırlatmalarını kontrol et
+  const checkMedicationReminders = useCallback(() => {
     if (!settings.medicationNotificationsEnabled) return;
-
-    const todaySchedule = getTodaySchedule();
+    
     const now = new Date();
-    const reminderMinutes = settings.medicationReminderMinutes || 15;
-
-    todaySchedule.medications.forEach(item => {
-      if (item.status !== 'pending') return; // Sadece bekleyen ilaçlar
-
-      // Planlanan saat
-      const scheduledDateTime = new Date(`${todaySchedule.date}T${item.scheduledTime}`);
+    const reminderMinutes = settings.medicationReminderMinutes || 30;
+    const todaySchedule = getTodaySchedule();
+    
+    todaySchedule.forEach(item => {
+      // Zaten alınmış ilaçları hatırlatma
+      if (item.status === 'taken') return;
       
-      // Hatırlatma zamanı (X dakika önceden)
-      const reminderTime = new Date(scheduledDateTime.getTime() - reminderMinutes * 60 * 1000);
+      // Planlanan zamanı hesapla
+      const [hours, minutes] = item.scheduledTime.split(':').map(Number);
+      const scheduledDateTime = new Date(now);
+      scheduledDateTime.setHours(hours, minutes, 0, 0);
       
-      // Şimdi hatırlatma zamanı mı?
-      const timeDiff = Math.abs(now.getTime() - reminderTime.getTime());
-      const isReminderTime = timeDiff <= 2 * 60 * 1000; // 2 dakika tolerans
-
-      if (isReminderTime) {
+      // Şu anki zaman ile planlanan zaman arasındaki fark (dakika)
+      const diffMs = scheduledDateTime.getTime() - now.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      
+      // Hatırlatma zamanı geldi mi?
+      if (diffMinutes > 0 && diffMinutes <= reminderMinutes) {
+        const medication = medications.find(m => m.id === item.medication.id);
+        if (!medication) return;
+        
+        const timeStr = item.scheduledTime.substring(0, 5); // HH:MM formatı
+        
         sendNotificationWithHistory(
           null,
           'medication',
           `💊 İlaç Hatırlatması`,
-          `${item.medication.name} (${item.medication.dosage}) - ${reminderMinutes} dakika sonra alınacak`,
-          item.medication.id
+          `${medication.name} ilacını ${timeStr}'de almanız gerekiyor.`,
+          medication.id
         );
       }
-
-      // Tam zamanı mı?
-      const isExactTime = Math.abs(now.getTime() - scheduledDateTime.getTime()) <= 2 * 60 * 1000;
       
-      if (isExactTime) {
+      // İlaç alma zamanı geçti mi? (15 dakika tolerans)
+      if (diffMinutes < 0 && diffMinutes > -15) {
+        const medication = medications.find(m => m.id === item.medication.id);
+        if (!medication) return;
+        
+        const timeStr = item.scheduledTime.substring(0, 5); // HH:MM formatı
+        
         sendNotificationWithHistory(
           null,
           'medication',
-          `⏰ İlaç Zamanı!`,
-          `${item.medication.name} (${item.medication.dosage}) - Şimdi alınacak!`,
-          item.medication.id
+          `⏰ İlaç Zamanı Geçiyor`,
+          `${medication.name} ilacını ${timeStr}'de almanız gerekiyordu.`,
+          medication.id
         );
       }
+    });
+  }, [settings.medicationNotificationsEnabled, settings.medicationReminderMinutes, getTodaySchedule, medications, sendNotificationWithHistory]);
 
-      // Gecikmiş ilaçlar (30 dakika sonrası)
-      const isLate = now.getTime() > scheduledDateTime.getTime() + 30 * 60 * 1000;
+  // Günlük özet bildirimi
+  const sendDailySummary = useCallback(() => {
+    if (!isDailyNotificationTime() || wasDailyCheckDoneToday()) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const todayChecks = checks.filter(check => 
+      check.paymentDate === today && !check.isPaid
+    );
+    
+    const todayMedications = getTodaySchedule().filter(item => item.status !== 'taken');
+    
+    if (todayChecks.length > 0 || todayMedications.length > 0) {
+      let message = '📋 Günlük Özet:\n';
       
-      if (isLate) {
-        const minutesLate = Math.floor((now.getTime() - scheduledDateTime.getTime()) / (60 * 1000));
-        sendNotificationWithHistory(
-          null,
-          'medication',
-          `⚠️ İlaç Gecikmesi`,
-          `${item.medication.name} - ${minutesLate} dakika gecikti`,
-          item.medication.id
-        );
+      if (todayChecks.length > 0) {
+        message += `💰 ${todayChecks.length} ödeme bugün yapılacak\n`;
       }
-    });
-  }, [settings, getTodaySchedule, sendNotificationWithHistory]);
-
-  // Günlük bildirim kontrolü
-  const checkDailyNotifications = useCallback(() => {
-    if (!settings.dailyNotificationEnabled || !settings.dailyNotificationTime) return;
-
-    const now = new Date();
-    const today = now.toDateString();
-    
-    // Bugün zaten kontrol edildi mi?
-    if (settings.lastNotificationCheck === today) return;
-
-    // Ayarlanan saat geldi mi?
-    const [hour, minute] = settings.dailyNotificationTime.split(':').map(Number);
-    const targetTime = new Date();
-    targetTime.setHours(hour, minute, 0, 0);
-    
-    // 5 dakika tolerans
-    const timeDiff = Math.abs(now.getTime() - targetTime.getTime());
-    if (timeDiff > 5 * 60 * 1000) return;
-
-    // Günlük özet bildirimi gönder
-    const unpaidChecks = checks.filter(c => !c.isPaid);
-    const overdueChecks = unpaidChecks.filter(c => getDaysUntilPayment(c.paymentDate) < 0);
-    const todayChecks = unpaidChecks.filter(c => {
-      const checkDate = new Date(c.paymentDate);
-      return checkDate.toDateString() === today;
-    });
-
-    let title = '📅 Günlük Ödeme Hatırlatıcısı';
-    let body = '';
-
-    if (overdueChecks.length > 0) {
-      body += `⚠️ ${overdueChecks.length} gecikmiş ödeme var!\n`;
-    }
-    
-    if (todayChecks.length > 0) {
-      body += `🔴 Bugün ${todayChecks.length} ödeme var\n`;
-    }
-    
-    if (unpaidChecks.length > 0) {
-      body += `📋 Toplam ${unpaidChecks.length} bekleyen ödeme\n`;
-      body += `💰 Toplam: ${unpaidChecks.reduce((sum, c) => sum + c.amount, 0).toLocaleString('tr-TR')} ₺`;
-    } else {
-      body = '🎉 Tüm ödemeler tamamlandı!';
-    }
-
-    showNotification(title, body);
-    
-    // Son kontrol tarihini güncelle
-    if (window.electronAPI?.saveAppData) {
-      window.electronAPI.saveAppData('settings', {
-        ...settings,
-        lastNotificationCheck: today
-      });
-    }
-  }, [checks, settings, showNotification]);
-
-  // Bilgisayar açıldığında bildirim kontrolü
-  const checkStartupNotifications = useCallback(() => {
-    if (!settings.notificationsEnabled) return;
-
-    // Uygulama açıldıktan 2 saniye sonra kontrol et
-    setTimeout(() => {
-      const unpaidChecks = checks.filter(c => !c.isPaid);
-      const overdueChecks = unpaidChecks.filter(c => getDaysUntilPayment(c.paymentDate) < 0);
-      const todayChecks = unpaidChecks.filter(c => {
-        const checkDate = new Date(c.paymentDate);
-        return checkDate.toDateString() === new Date().toDateString();
-      });
-
-      if (overdueChecks.length > 0) {
-        showNotification(
-          '⚠️ Gecikmiş Ödemeler Var!',
-          `${overdueChecks.length} ödeme vadesi geçmiş. Hemen kontrol edin!`
-        );
-      } else if (todayChecks.length > 0) {
-        showNotification(
-          '🔴 Bugün Ödenecek Ödemeler Var!',
-          `${todayChecks.length} ödeme bugün vadesi doluyor.`
-        );
-      } else if (unpaidChecks.length > 0) {
-        showNotification(
-          '📋 Bekleyen Ödemeler',
-          `${unpaidChecks.length} ödeme bekliyor. Toplam: ${unpaidChecks.reduce((sum, c) => sum + c.amount, 0).toLocaleString('tr-TR')} ₺`
-        );
+      
+      if (todayMedications.length > 0) {
+        message += `💊 ${todayMedications.length} ilaç alınacak`;
       }
-    }, 2000);
-  }, [checks, settings, showNotification]);
+      
+      sendNotificationWithHistory(
+        null,
+        'daily',
+        '📋 Günlük Özet',
+        message
+      );
+    }
+  }, [checks, getTodaySchedule, sendNotificationWithHistory]);
 
-  // İzin isteme effect'i
+  // Ana kontrol fonksiyonu
+  const runNotificationChecks = useCallback(() => {
+    try {
+      checkNotifications();
+      checkMedicationReminders();
+      sendDailySummary();
+    } catch (error: unknown) {
+      console.error('Bildirim kontrolü sırasında hata:', error);
+    }
+  }, [checkNotifications, checkMedicationReminders, sendDailySummary]);
+
+  // Periyodik kontroller
+  useEffect(() => {
+    // İlk kontrol
+    runNotificationChecks();
+    
+    // Her dakika kontrol et
+    const interval = setInterval(runNotificationChecks, 60000);
+    
+    return () => clearInterval(interval);
+  }, [runNotificationChecks]);
+
+  // Web notification izni iste (sadece web'de)
   useEffect(() => {
     if (!isElectron) {
       requestPermission();
     }
-  }, [requestPermission, isElectron]);
+  }, [isElectron, requestPermission]);
 
-  // Ana bildirim kontrol effect'i
-  useEffect(() => {
-    // Sadece checks veya önemli settings değiştiğinde çalış
-    const currentChecksum = JSON.stringify({
-      checksCount: checks.length,
-      notificationsEnabled: settings.notificationsEnabled,
-      reminderDays: settings.reminderDays,
-      dailyEnabled: settings.dailyNotificationEnabled,
-      dailyTime: settings.dailyNotificationTime,
-      telegramEnabled: settings.telegramBotEnabled, // Telegram ayarı da checksum'a dahil
-    });
-
-    // Gereksiz re-run'ları engelle
-    if (lastCheckRef.current === currentChecksum) {
-      return;
-    }
-    lastCheckRef.current = currentChecksum;
-
-    // İlk kontrolleri yap
-    checkReminderNotifications();
-    checkDailyNotifications();
-    checkMedicationNotifications();
-    checkStartupNotifications(); // Başlangıçta da çalıştır
-
-    // Periyodik kontroller için interval'lar
-    const reminderInterval = setInterval(checkReminderNotifications, 60 * 60 * 1000); // Her saat
-    const dailyInterval = setInterval(checkDailyNotifications, 5 * 60 * 1000); // Her 5 dakika
-    const medicationInterval = setInterval(checkMedicationNotifications, 2 * 60 * 1000); // Her 2 dakika (ilaç için daha hassas)
-
-    return () => {
-      clearInterval(reminderInterval);
-      clearInterval(dailyInterval);
-      clearInterval(medicationInterval);
-    };
-  }, [checkReminderNotifications, checkDailyNotifications, checkMedicationNotifications, checkStartupNotifications]);
-
-  return { requestPermission, showNotification, isElectron };
+  return {
+    showNotification,
+    requestPermission,
+    runNotificationChecks
+  };
 }

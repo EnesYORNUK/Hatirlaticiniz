@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, AuthState, LoginData, RegisterData } from '../types';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Convert Supabase user to our User type
-const convertSupabaseUser = (supabaseUser: SupabaseUser, profile?: any): User => ({
+const convertSupabaseUser = (supabaseUser: SupabaseUser, profile?: Record<string, unknown>): User => ({
   id: supabaseUser.id,
   email: supabaseUser.email || '',
-  fullName: profile?.full_name || supabaseUser.user_metadata?.full_name || 'Unknown User',
+  fullName: profile?.full_name as string || supabaseUser.user_metadata?.full_name as string || 'Unknown User',
   createdAt: supabaseUser.created_at
 });
 
@@ -20,22 +20,9 @@ export const useAuth = () => {
 
   // Check authentication state on mount
   useEffect(() => {
-    // Set a timeout to prevent hanging
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ Auth check timeout - setting app to loaded state');
-      setAuthState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false
-      });
-    }, 5000); // 5 second timeout
-
     const checkAuthState = async () => {
       try {
         console.log('🔍 Checking auth state...');
-        
-        // Clear the timeout since we're proceeding
-        clearTimeout(timeoutId);
         
         // If Supabase is not initialized, skip auth check
         if (!supabase) {
@@ -48,15 +35,8 @@ export const useAuth = () => {
           return;
         }
         
-        setAuthState(prev => ({ ...prev, isLoading: true }));
-        
-        // Add timeout to the Supabase call
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session check timeout')), 10000)
-        );
-        
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        // Get session
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('❌ Error getting session:', error);
@@ -68,38 +48,32 @@ export const useAuth = () => {
           return;
         }
 
-        console.log('✅ Session check completed:', session);
+        console.log('✅ Session check completed:', session?.user?.id || 'No session');
 
         if (session?.user) {
           console.log('👤 User session found, getting profile...');
-          // Get user profile from database with timeout
+          // Get user profile from database
           try {
-            const profilePromise = supabase
+            const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
-            
-            const profileTimeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-            );
-            
-            const { data: profile, error: profileError } = await Promise.race([profilePromise, profileTimeoutPromise]) as any;
 
-            if (profileError) {
+            if (profileError && profileError.code !== 'PGRST116') {
               console.error('❌ Error getting profile:', profileError);
             }
 
-            const user = convertSupabaseUser(session.user, profile);
+            const user = convertSupabaseUser(session.user, profile || undefined);
             console.log('✅ User authenticated:', user);
             setAuthState({
               user,
               isAuthenticated: true,
               isLoading: false
             });
-          } catch (profileError) {
-            console.error('💥 Error getting profile (timeout or other):', profileError);
-            // Still authenticate the user even if profile fetch fails
+          } catch (profileError: unknown) {
+            console.error('❌ Error in profile fetch:', profileError);
+            // Still authenticate with just the session user
             const user = convertSupabaseUser(session.user);
             setAuthState({
               user,
@@ -108,17 +82,15 @@ export const useAuth = () => {
             });
           }
         } else {
-          console.log('🚫 No user session found');
+          console.log('👤 No user session found');
           setAuthState({
             user: null,
             isAuthenticated: false,
             isLoading: false
           });
         }
-      } catch (error) {
-        console.error('💥 Error checking auth state:', error);
-        // Clear timeout on error
-        clearTimeout(timeoutId);
+      } catch (error: unknown) {
+        console.error('❌ Auth check error:', error);
         setAuthState({
           user: null,
           isAuthenticated: false,
@@ -127,228 +99,168 @@ export const useAuth = () => {
       }
     };
 
-    checkAuthState();
+    // Set a backup timeout to ensure loading never hangs
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ Auth check timeout - forcing loaded state');
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    }, 3000); // 3 second backup timeout
 
-    // Only set up auth state listener if Supabase is available
+    checkAuthState().finally(() => {
+      clearTimeout(timeoutId);
+    });
+
+    // Set up auth state change listener
     if (supabase) {
-      // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('🔄 Auth state changed:', event, session);
-        
-        if (session?.user) {
-          console.log('👤 Session changed, getting profile...');
-          // Get user profile from database
-          try {
-            let profileData = null;
-            let profileError = null;
-            
-            // Only attempt to get profile if supabase is available
-            if (supabase) {
-              const result = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-              profileData = result.data;
-              profileError = result.error;
-            }
-
-            if (profileError) {
-              console.error('❌ Error getting profile:', profileError);
-            }
-
-            const user = convertSupabaseUser(session.user, profileData);
-            console.log('✅ User authenticated via state change:', user);
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('🔄 Auth state changed:', event, session?.user?.id);
+          
+          if (event === 'SIGNED_OUT') {
+            console.log('👋 User signed out');
             setAuthState({
-              user,
-              isAuthenticated: true,
+              user: null,
+              isAuthenticated: false,
               isLoading: false
             });
-          } catch (profileError) {
-            console.error('💥 Error getting profile:', profileError);
-            const user = convertSupabaseUser(session.user);
-            setAuthState({
-              user,
-              isAuthenticated: true,
-              isLoading: false
-            });
+            return;
           }
-        } else {
-          console.log('🚫 No session in state change');
-          setAuthState({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false
-          });
+          
+          if (session?.user) {
+            try {
+              if (supabase) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', session.user.id)
+                  .single();
+                
+                const user = convertSupabaseUser(session.user, profile || undefined);
+                console.log('✅ User authenticated via state change:', user);
+                setAuthState({
+                  user,
+                  isAuthenticated: true,
+                  isLoading: false
+                });
+              } else {
+                // Fallback when supabase is not available
+                const user = convertSupabaseUser(session.user);
+                setAuthState({
+                  user,
+                  isAuthenticated: true,
+                  isLoading: false
+                });
+              }
+            } catch (error: unknown) {
+              console.error('❌ Error getting profile on auth change:', error);
+              // Still authenticate with just the session user
+              const user = convertSupabaseUser(session.user);
+              setAuthState({
+                user,
+                isAuthenticated: true,
+                isLoading: false
+              });
+            }
+          }
         }
-      });
+      );
 
       return () => {
-        console.log('🧹 Cleaning up auth subscription');
-        subscription.unsubscribe();
+        subscription?.unsubscribe();
+        clearTimeout(timeoutId);
       };
     } else {
-      // If Supabase is not available, set loading to false
-      clearTimeout(timeoutId);
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-      return () => {};
-    }
-  }, []);
-
-  // Login function
-  const login = async (loginData: LoginData): Promise<{ success: boolean; error?: string }> => {
-    // If Supabase is not available, return error
-    if (!supabase) {
-      return { success: false, error: 'Kimlik doğrulama servisi kullanılamıyor' };
-    }
-    
-    try {
-      console.log('🔐 Attempting login...');
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginData.email.trim(),
-        password: loginData.password,
-      });
-
-      if (error) {
-        console.error('❌ Login error:', error);
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-        
-        // Daha açıklayıcı hata mesajları
-        if (error.message.includes('Invalid login credentials')) {
-          return { success: false, error: 'E-posta veya şifre hatalı!' };
-        }
-        if (error.message.includes('Email not confirmed')) {
-          return { success: false, error: 'Lütfen e-posta adresinizi doğrulayın!' };
-        }
-        if (error.message.includes('fetch')) {
-          return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
-        }
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Login successful');
-      // Authentication successful - state will be updated by onAuthStateChange
-      return { success: true };
-    } catch (error: any) {
-      console.error('💥 Login exception:', error);
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-      
-      if (error?.message?.includes('fetch') || error?.name === 'TypeError') {
-        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
-      }
-      return { success: false, error: error.message || 'Giriş sırasında bir hata oluştu!' };
-    }
-  };
-
-  // Register function
-  const register = async (registerData: RegisterData): Promise<{ success: boolean; error?: string }> => {
-    // If Supabase is not available, return error
-    if (!supabase) {
-      return { success: false, error: 'Kimlik doğrulama servisi kullanılamıyor' };
-    }
-    
-    try {
-      console.log('📝 Attempting registration...');
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-
-      // Validate passwords match
-      if (registerData.password !== registerData.confirmPassword) {
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-        return { success: false, error: 'Şifreler eşleşmiyor!' };
-      }
-
-      if (registerData.password.length < 6) {
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-        return { success: false, error: 'Şifre en az 6 karakter olmalı!' };
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email: registerData.email.trim(),
-        password: registerData.password,
-        options: {
-          data: {
-            full_name: registerData.fullName.trim(),
-          },
-        },
-      });
-
-      if (error) {
-        console.error('❌ Registration error:', error);
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-        
-        // Daha açıklayıcı hata mesajları
-        if (error.message.includes('User already registered')) {
-          return { success: false, error: 'Bu e-posta adresi zaten kayıtlı!' };
-        }
-        if (error.message.includes('fetch')) {
-          return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
-        }
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Registration successful');
-      // Check if email confirmation is required
-      if (data.user && !data.session) {
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-        return { 
-          success: true, 
-          error: 'Kayıt başarılı! Giriş yapabilirsiniz.' 
-        };
-      }
-
-      // Registration successful - state will be updated by onAuthStateChange
-      return { success: true };
-    } catch (error: any) {
-      console.error('💥 Registration exception:', error);
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-      // Handle timeout specifically
-      if (error?.message === 'Registration request timeout') {
-        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
-      }
-      // Daha açıklayıcı hata mesajları
-      if (error?.message?.includes('failed to fetch')) {
-        return { success: false, error: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.' };
-      }
-      return { success: false, error: error.message || 'Kayıt sırasında bir hata oluştu!' };
-    }
-  };
-
-  // Logout function
-  const logout = async () => {
-    // If Supabase is not available, just update state
-    if (!supabase) {
+      // If no supabase, immediately set to not loading
       setAuthState({
         user: null,
         isAuthenticated: false,
         isLoading: false
       });
-      return;
+      clearTimeout(timeoutId);
     }
-    
+  }, []);
+
+  // Login with email and password
+  const login = useCallback(async ({ email, password }: LoginData) => {
     try {
-      console.log('🚪 Attempting logout...');
-      setAuthState(prev => ({ ...prev, isLoading: true }));
+      if (!supabase) throw new Error('Supabase not initialized');
       
-      // Add timeout to logout request
-      const logoutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Logout request timeout')), 5000)
-      );
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      const { error } = await Promise.race([logoutPromise, timeoutPromise]) as any;
+      if (error) throw error;
       
-      if (error) {
-        console.error('❌ Error signing out:', error);
-      }
-      console.log('✅ Logout successful');
-      // State will be updated by onAuthStateChange
-    } catch (error) {
-      console.error('💥 Error during logout:', error);
-      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: true, data };
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
     }
-  };
+  }, []);
+
+  // Register with email and password
+  const register = useCallback(async ({ email, password, fullName }: RegisterData) => {
+    try {
+      if (!supabase) throw new Error('Supabase not initialized');
+      
+      // Create the user
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Create profile record
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            full_name: fullName,
+            email
+          } as any);
+        
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+      }
+      
+      return { success: true, data };
+    } catch (error: unknown) {
+      console.error('Registration error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }, []);
+
+  // Logout
+  const logout = useCallback(async () => {
+    try {
+      if (!supabase) throw new Error('Supabase not initialized');
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error: unknown) {
+      console.error('Logout error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }, []);
 
   return {
     ...authState,

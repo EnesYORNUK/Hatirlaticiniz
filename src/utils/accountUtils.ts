@@ -11,7 +11,7 @@ export const deleteUserAccount = async (userId: string): Promise<{ success: bool
     // This will be more efficient and handle foreign key constraints properly
     const { error } = await supabase.rpc('delete_user_data', {
       user_id: userId
-    });
+    } as any);
 
     if (error) {
       throw new Error(`Failed to delete user data: ${error.message}`);
@@ -23,8 +23,11 @@ export const deleteUserAccount = async (userId: string): Promise<{ success: bool
     console.log('✅ User account and data successfully deleted');
     return { success: true };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error deleting user account:', error);
-    return { success: false, error: error.message };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 };

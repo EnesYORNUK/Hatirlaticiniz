@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Medication, MedicationLog, DailyMedicationSchedule, MedicationStats } from '../types/medication';
-import { supabase } from '../lib/supabase';
+import { Medication, MedicationLog } from '../types/medication';
+import { supabase, SupabaseUpdate } from '../lib/supabase';
 import { useAuth } from './useAuth';
+
+// Define MedicationScheduleItem type
+interface MedicationScheduleItem {
+  medication: Medication;
+  scheduledTime: string;
+  log?: MedicationLog;
+  status: string;
+}
 
 export function useSupabaseMedications() {
   const { user, isAuthenticated } = useAuth();
@@ -11,24 +19,24 @@ export function useSupabaseMedications() {
   const [error, setError] = useState<string | null>(null);
 
   // Convert Supabase row to Medication type
-  const convertRowToMedication = (row: any): Medication => ({
-    id: row.id,
-    name: row.name,
-    dosage: row.dosage,
-    frequency: row.frequency,
-    time: row.time,
-    weekDay: row.week_day,
-    monthDay: row.month_day,
-    isActive: row.is_active,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    notes: row.notes,
-    createdAt: row.created_at,
-    createdBy: row.created_by
-  });
+  const convertRowToMedication = useCallback((row: Record<string, unknown>): Medication => ({
+    id: row.id as string,
+    name: row.name as string,
+    dosage: row.dosage as string,
+    frequency: row.frequency as "daily" | "weekly" | "monthly",
+    time: row.time as string,
+    weekDay: row.week_day as number | undefined,
+    monthDay: row.month_day as number | undefined,
+    isActive: row.is_active as boolean,
+    startDate: row.start_date as string,
+    endDate: row.end_date as string | undefined,
+    notes: row.notes as string | undefined,
+    createdAt: row.created_at as string,
+    createdBy: row.created_by as string
+  }), []);
 
   // Convert Medication to Supabase insert format
-  const convertMedicationToInsert = (medication: Omit<Medication, 'id' | 'createdAt'>): any => ({
+  const convertMedicationToInsert = useCallback((medication: Omit<Medication, 'id' | 'createdAt'>): Record<string, unknown> => ({
     user_id: user?.id,
     name: medication.name,
     dosage: medication.dosage,
@@ -41,31 +49,31 @@ export function useSupabaseMedications() {
     end_date: medication.endDate,
     notes: medication.notes,
     created_by: medication.createdBy
-  });
+  }), [user]);
 
   // Convert Supabase row to MedicationLog type
-  const convertRowToMedicationLog = (row: any): MedicationLog => ({
-    id: row.id,
-    medicationId: row.medication_id,
-    takenAt: row.taken_at,
-    scheduledTime: row.scheduled_time,
-    status: row.status,
-    notes: row.notes,
-    createdAt: row.created_at
-  });
+  const convertRowToMedicationLog = useCallback((row: Record<string, unknown>): MedicationLog => ({
+    id: row.id as string,
+    medicationId: row.medication_id as string,
+    takenAt: row.taken_at as string,
+    scheduledTime: row.scheduled_time as string,
+    status: row.status as "taken" | "missed" | "skipped",
+    notes: row.notes as string | undefined,
+    createdAt: row.created_at as string
+  }), []);
 
   // Convert MedicationLog to Supabase insert format
-  const convertMedicationLogToInsert = (log: Omit<MedicationLog, 'id' | 'createdAt'>): any => ({
+  const convertMedicationLogToInsert = useCallback((log: Omit<MedicationLog, 'id' | 'createdAt'>): Record<string, unknown> => ({
     user_id: user?.id,
     medication_id: log.medicationId,
     taken_at: log.takenAt,
     scheduled_time: log.scheduledTime,
     status: log.status,
     notes: log.notes
-  });
+  }), [user]);
 
   // Load medications from Supabase
-  const loadMedications = async () => {
+  const loadMedications = useCallback(async () => {
     if (!user || !isAuthenticated) {
       setMedications([]);
       return;
@@ -95,16 +103,16 @@ export function useSupabaseMedications() {
       const convertedMedications = data?.map(convertRowToMedication) || [];
       setMedications(convertedMedications);
       console.log(`✅ ${convertedMedications.length} ilaç Supabase'den yüklendi`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ İlaçlar yüklenemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, isAuthenticated, convertRowToMedication]);
 
   // Load medication logs from Supabase
-  const loadMedicationLogs = async () => {
+  const loadMedicationLogs = useCallback(async () => {
     if (!user || !isAuthenticated) {
       setMedicationLogs([]);
       return;
@@ -130,11 +138,11 @@ export function useSupabaseMedications() {
       const convertedLogs = data?.map(convertRowToMedicationLog) || [];
       setMedicationLogs(convertedLogs);
       console.log(`✅ ${convertedLogs.length} ilaç logu yüklendi`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ İlaç logları yüklenemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
     }
-  };
+  }, [user, isAuthenticated, convertRowToMedicationLog]);
 
   // Load data when user changes
   useEffect(() => {
@@ -145,68 +153,52 @@ export function useSupabaseMedications() {
       setMedications([]);
       setMedicationLogs([]);
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, loadMedications, loadMedicationLogs]);
 
-  // Bugünün tarihini al
-  const getTodayString = () => {
-    return new Date().toISOString().split('T')[0];
-  };
-
-  // Belirli bir gün için hap programını oluştur
-  const getDailySchedule = useCallback((date: string): DailyMedicationSchedule => {
-    const targetDate = new Date(date);
-    const dayOfWeek = targetDate.getDay(); // 0=Pazar, 1=Pazartesi...
-    const dayOfMonth = targetDate.getDate();
+  // Get today's medication schedule
+  const getDailySchedule = useCallback((date: Date = new Date()): MedicationScheduleItem[] => {
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dayOfMonth = date.getDate();
     
-    const dailyMedications = medications.filter(med => {
-      if (!med.isActive) return false;
-      
-      // Başlangıç tarihinden önce mi?
-      if (targetDate < new Date(med.startDate)) return false;
-      
-      // Bitiş tarihinden sonra mı?
-      if (med.endDate && targetDate > new Date(med.endDate)) return false;
-      
-      // Sıklığa göre kontrol
-      switch (med.frequency) {
-        case 'daily':
+    return medications
+      .filter(medication => {
+        if (!medication.isActive) return false;
+        
+        // Check if medication should be taken today based on frequency
+        if (medication.frequency === 'daily') {
           return true;
-        case 'weekly':
-          return med.weekDay === dayOfWeek;
-        case 'monthly':
-          return med.monthDay === dayOfMonth;
-        default:
-          return false;
-      }
-    });
-
-    const medicationsWithStatus = dailyMedications.map(medication => {
-      const log = medicationLogs.find(log => 
-        log.medicationId === medication.id &&
-        log.takenAt.split('T')[0] === date
-      );
-
-      return {
-        medication,
-        scheduledTime: medication.time,
-        log,
-        status: log ? log.status : 'pending' as const
-      };
-    });
-
-    return {
-      date,
-      medications: medicationsWithStatus
-    };
+        } else if (medication.frequency === 'weekly' && medication.weekDay !== undefined) {
+          return dayOfWeek === medication.weekDay;
+        } else if (medication.frequency === 'monthly' && medication.monthDay !== undefined) {
+          return dayOfMonth === medication.monthDay;
+        }
+        
+        return false;
+      })
+      .map(medication => {
+        // Find existing log for today
+        const todayStr = date.toISOString().split('T')[0];
+        const log = medicationLogs.find(l => 
+          l.medicationId === medication.id && 
+          l.scheduledTime.startsWith(todayStr)
+        );
+        
+        return {
+          medication,
+          scheduledTime: medication.time,
+          log,
+          status: log?.status || 'pending'
+        };
+      });
   }, [medications, medicationLogs]);
 
   // Bugünkü programı getir
-  const getTodaySchedule = () => {
-    return getDailySchedule(getTodayString());
-  };
+  const getTodaySchedule = useCallback(() => {
+    return getDailySchedule(new Date());
+  }, [getDailySchedule]);
 
   // Add new medication
-  const addMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>): Promise<boolean> => {
+  const addMedication = useCallback(async (medicationData: Omit<Medication, 'id' | 'createdAt'>): Promise<boolean> => {
     if (!user) return false;
 
     // Supabase guard
@@ -222,7 +214,7 @@ export function useSupabaseMedications() {
       const insertData = convertMedicationToInsert(medicationData);
       const { data, error } = await supabase
         .from('medications')
-        .insert(insertData)
+        .insert(insertData as any)
         .select()
         .single();
 
@@ -234,17 +226,17 @@ export function useSupabaseMedications() {
       setMedications(prev => [newMedication, ...prev]);
       console.log('✅ Yeni ilaç eklendi:', newMedication.id);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ İlaç eklenemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return false;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, convertMedicationToInsert, convertRowToMedication]);
 
   // Update medication
-  const updateMedication = async (id: string, updates: Partial<Medication>): Promise<boolean> => {
+  const updateMedication = useCallback(async (id: string, updates: Partial<Medication>): Promise<boolean> => {
     if (!user) return false;
 
     // Supabase guard
@@ -257,7 +249,7 @@ export function useSupabaseMedications() {
     setError(null);
 
     try {
-      const updateData: any = {};
+      const updateData: SupabaseUpdate<'medications'> = {};
       
       if (updates.name !== undefined) updateData.name = updates.name;
       if (updates.dosage !== undefined) updateData.dosage = updates.dosage;
@@ -271,7 +263,6 @@ export function useSupabaseMedications() {
       if (updates.notes !== undefined) updateData.notes = updates.notes;
       if (updates.createdBy !== undefined) updateData.created_by = updates.createdBy;
 
-      // @ts-ignore - Supabase typing issue
       const { data, error } = await supabase
         .from('medications')
         .update(updateData)
@@ -288,17 +279,17 @@ export function useSupabaseMedications() {
       setMedications(prev => prev.map(med => med.id === id ? updatedMedication : med));
       console.log('✅ İlaç güncellendi:', id);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ İlaç güncellenemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return false;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, convertRowToMedication]);
 
   // Delete medication
-  const deleteMedication = async (id: string): Promise<boolean> => {
+  const deleteMedication = useCallback(async (id: string): Promise<boolean> => {
     if (!user) return false;
 
     // Supabase guard
@@ -333,17 +324,17 @@ export function useSupabaseMedications() {
       setMedicationLogs(prev => prev.filter(log => log.medicationId !== id));
       console.log('✅ İlaç silindi:', id);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ İlaç silinemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return false;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   // Mark medication as taken
-  const markMedicationTaken = async (medicationId: string, status: 'taken' | 'missed' | 'skipped', notes?: string): Promise<boolean> => {
+  const markMedicationTaken = useCallback(async (medicationId: string, status: 'taken' | 'missed' | 'skipped', notes?: string): Promise<boolean> => {
     if (!user) return false;
 
     // Supabase guard
@@ -367,7 +358,7 @@ export function useSupabaseMedications() {
 
       const { data, error } = await supabase
         .from('medication_logs')
-        .insert(logData)
+        .insert(logData as any)
         .select()
         .single();
 
@@ -379,15 +370,15 @@ export function useSupabaseMedications() {
       setMedicationLogs(prev => [newLog, ...prev]);
       console.log('✅ İlaç durumu kaydedildi:', medicationId, status);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ İlaç durumu kaydedilemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return false;
     }
-  };
+  }, [user, medications, convertMedicationLogToInsert, convertRowToMedicationLog]);
 
   // Migration function to import localStorage data
-  const migrateFromLocalStorage = async (): Promise<boolean> => {
+  const migrateFromLocalStorage = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -404,7 +395,7 @@ export function useSupabaseMedications() {
 
         for (const medication of parsedMedications) {
           const insertData = convertMedicationToInsert(medication);
-          await supabase.from('medications').insert(insertData);
+          await supabase!.from('medications').insert(insertData as any);
           medicationCount++;
         }
       }
@@ -415,7 +406,7 @@ export function useSupabaseMedications() {
 
         for (const log of parsedLogs) {
           const insertData = convertMedicationLogToInsert(log);
-          await supabase.from('medication_logs').insert(insertData);
+          await supabase!.from('medication_logs').insert(insertData as any);
           logCount++;
         }
       }
@@ -435,12 +426,12 @@ export function useSupabaseMedications() {
       await loadMedications();
       await loadMedicationLogs();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Medication migration hatası:', err);
-      setError(`Medication migration hatası: ${err.message}`);
+      setError(`Medication migration hatası: ${(err as Error).message}`);
       return false;
     }
-  };
+  }, [user, convertMedicationToInsert, convertMedicationLogToInsert, loadMedications, loadMedicationLogs]);
 
   return {
     medications,

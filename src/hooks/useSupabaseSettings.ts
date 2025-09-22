@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Settings as SettingsType } from '../types';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { Settings as SettingsType, ThemeType } from '../types';
+import { supabase, SupabaseUpdate } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
 const defaultSettings: SettingsType = {
@@ -27,25 +27,25 @@ export function useSupabaseSettings() {
   const [error, setError] = useState<string | null>(null);
 
   // Convert Supabase row to Settings type
-  const convertRowToSettings = (row: any): SettingsType => ({
-    reminderDays: row.reminder_days,
-    notificationsEnabled: row.notifications_enabled,
-    autoUpdateEnabled: row.auto_update_enabled,
-    dailyNotificationEnabled: row.daily_notification_enabled,
-    dailyNotificationTime: row.daily_notification_time,
-    lastNotificationCheck: row.last_notification_check,
-    telegramBotEnabled: row.telegram_bot_enabled,
-    telegramBotToken: row.telegram_bot_token,
-    telegramChatId: row.telegram_chat_id,
-    theme: row.theme,
-    medicationNotificationsEnabled: row.medication_notifications_enabled,
-    medicationReminderMinutes: row.medication_reminder_minutes,
-    showMedicationsInDashboard: row.show_medications_in_dashboard,
-    medicationSoundEnabled: row.medication_sound_enabled,
-  });
+  const convertRowToSettings = useCallback((row: Record<string, unknown>): SettingsType => ({
+    reminderDays: row.reminder_days as number,
+    notificationsEnabled: row.notifications_enabled as boolean,
+    autoUpdateEnabled: row.auto_update_enabled as boolean,
+    dailyNotificationEnabled: row.daily_notification_enabled as boolean,
+    dailyNotificationTime: row.daily_notification_time as string,
+    lastNotificationCheck: row.last_notification_check as string,
+    telegramBotEnabled: row.telegram_bot_enabled as boolean,
+    telegramBotToken: row.telegram_bot_token as string,
+    telegramChatId: row.telegram_chat_id as string,
+    theme: row.theme as ThemeType,
+    medicationNotificationsEnabled: row.medication_notifications_enabled as boolean,
+    medicationReminderMinutes: row.medication_reminder_minutes as number,
+    showMedicationsInDashboard: row.show_medications_in_dashboard as boolean,
+    medicationSoundEnabled: row.medication_sound_enabled as boolean,
+  }), []);
 
   // Convert Settings to Supabase update format
-  const convertSettingsToUpdate = (settings: SettingsType): any => ({
+  const convertSettingsToUpdate = useCallback((settings: SettingsType): SupabaseUpdate<'app_user_settings'> => ({
     reminder_days: settings.reminderDays,
     notifications_enabled: settings.notificationsEnabled,
     auto_update_enabled: settings.autoUpdateEnabled,
@@ -60,12 +60,42 @@ export function useSupabaseSettings() {
     medication_reminder_minutes: settings.medicationReminderMinutes,
     show_medications_in_dashboard: settings.showMedicationsInDashboard,
     medication_sound_enabled: settings.medicationSoundEnabled,
-  });
+  }), []);
+
+  // Create default settings in Supabase
+  const createDefaultSettings = useCallback(async () => {
+    if (!user || !supabase) return;
+
+    try {
+      const settingsData = {
+        user_id: user.id,
+        ...convertSettingsToUpdate(defaultSettings)
+      };
+
+      const { error } = await supabase
+        .from('app_user_settings')
+        .insert(settingsData as any);
+
+      if (error) throw error;
+
+      setSettings(defaultSettings);
+      console.log('✅ Varsayılan ayarlar oluşturuldu');
+    } catch (err: unknown) {
+      console.error('❌ Varsayılan ayarlar oluşturulamadı:', (err as Error).message);
+      setError((err as Error).message);
+    }
+  }, [user, convertSettingsToUpdate]);
 
   // Load settings from Supabase
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     if (!user || !isAuthenticated) {
-      setSettings(defaultSettings);
+      return;
+    }
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      setIsLoading(false);
       return;
     }
 
@@ -77,58 +107,27 @@ export function useSupabaseSettings() {
         .from('app_user_settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No settings found, create default
-          console.log('📝 Kullanıcı için varsayılan ayarlar oluşturuluyor...');
-          await createDefaultSettings();
-          return;
-        }
         throw error;
       }
 
-      const convertedSettings = convertRowToSettings(data);
-      setSettings(convertedSettings);
-      console.log('✅ Ayarlar Supabase\'den yüklendi');
-    } catch (err: any) {
-      console.error('❌ Ayarlar yüklenemedi:', err);
-      setError(err.message);
-      setSettings(defaultSettings); // Fallback to defaults
+      if (data) {
+        const convertedSettings = convertRowToSettings(data);
+        setSettings(convertedSettings);
+        console.log('✅ Ayarlar Supabase\'den yüklendi');
+      } else {
+        // No settings found, create default
+        await createDefaultSettings();
+      }
+    } catch (err: unknown) {
+      console.error('❌ Ayarlar yüklenemedi:', (err as Error).message);
+      setError((err as Error).message);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Create default settings for new user
-  const createDefaultSettings = async () => {
-    if (!user) return;
-
-    try {
-      const insertData = {
-        user_id: user.id,
-        ...convertSettingsToUpdate(defaultSettings)
-      };
-
-      const { data, error } = await supabase
-        .from('app_user_settings')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const newSettings = convertRowToSettings(data);
-      setSettings(newSettings);
-      console.log('✅ Varsayılan ayarlar oluşturuldu');
-    } catch (err: any) {
-      console.error('❌ Varsayılan ayarlar oluşturulamadı:', err);
-      setError(err.message);
-    }
-  };
+  }, [user, isAuthenticated, createDefaultSettings, convertRowToSettings]);
 
   // Load settings when user changes
   useEffect(() => {
@@ -137,22 +136,27 @@ export function useSupabaseSettings() {
     } else {
       setSettings(defaultSettings);
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, loadSettings]);
 
   // Update settings
   const updateSettings = async (newSettings: SettingsType): Promise<boolean> => {
     if (!user) return false;
 
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const updateData: any = convertSettingsToUpdate(newSettings);
+      const updateData: SupabaseUpdate<'app_user_settings'> = convertSettingsToUpdate(newSettings);
 
-      // @ts-ignore - Supabase typing issue
       const { data, error } = await supabase
         .from('app_user_settings')
-        .update(updateData)
+        .update(updateData as never)
         .eq('user_id', user.id)
         .select()
         .single();
@@ -165,9 +169,9 @@ export function useSupabaseSettings() {
       setSettings(updatedSettings);
       console.log('✅ Ayarlar güncellendi');
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Ayarlar güncellenemedi:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return false;
     } finally {
       setIsLoading(false);
@@ -193,9 +197,9 @@ export function useSupabaseSettings() {
       }
       
       return success;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Settings migration hatası:', err);
-      setError(`Settings migration hatası: ${err.message}`);
+      setError(`Settings migration hatası: ${(err as Error).message}`);
       return false;
     }
   };
@@ -205,7 +209,6 @@ export function useSupabaseSettings() {
     isLoading,
     error,
     updateSettings,
-    migrateFromLocalStorage,
-    refreshSettings: loadSettings
+    migrateFromLocalStorage
   };
 }

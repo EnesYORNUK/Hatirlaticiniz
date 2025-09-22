@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, UserPlus, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { RegisterData } from '../types';
 
 interface RegisterProps {
-  onRegister: (data: RegisterData) => void;
+  onRegister: (data: RegisterData) => Promise<void> | void;
   onSwitchToLogin: () => void;
   isLoading: boolean;
   error?: string;
@@ -71,19 +71,6 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
     }
   };
 
-  // Şifre güçlülük kontrolü
-  const getPasswordStrength = (password: string) => {
-    if (password.length === 0) return { strength: 0, text: '', color: '' };
-    if (password.length < 6) return { strength: 1, text: 'Zayıf', color: 'text-red-500' };
-    if (password.length < 8) return { strength: 2, text: 'Orta', color: 'text-yellow-500' };
-    if (password.length >= 8 && /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      return { strength: 3, text: 'Güçlü', color: 'text-green-500' };
-    }
-    return { strength: 2, text: 'Orta', color: 'text-yellow-500' };
-  };
-
-  const passwordStrength = getPasswordStrength(formData.password);
-
   return (
     <div className="min-h-screen flex items-center justify-center theme-bg px-4 py-8">
       <div className="w-full max-w-md">
@@ -106,7 +93,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
               </span>
             </div>
           )}
-          <form onSubmit={(e) => { e.preventDefault(); if (isAuthAvailable) handleSubmit(e); }} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Genel hata mesajı */}
             {error && (
               <div className="flex items-center gap-3 text-red-600 bg-red-50 p-4 rounded-xl border border-red-200">
@@ -126,13 +113,16 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                 <input
                   type="text"
                   value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  onChange={(e) => handleChange('fullName', e.target.value)}
                   placeholder="Ad Soyad"
                   disabled={isLoading || !isAuthAvailable}
                   className="flex-1 theme-input"
                   required
                 />
               </div>
+              {validationErrors.fullName && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.fullName}</p>
+              )}
             </div>
             {/* E-posta alanı */}
             <div className="space-y-2">
@@ -146,15 +136,15 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="ornek@eposta.com"
                   disabled={isLoading || !isAuthAvailable}
                   className="flex-1 theme-input"
                   required
                 />
               </div>
-              {!formData.email.includes('@') && formData.email.length > 0 && (
-                <p className="text-red-500 text-xs mt-1">Lütfen geçerli bir e-posta adresi girin</p>
+              {validationErrors.email && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>
               )}
             </div>
             {/* Şifre alanı */}
@@ -170,7 +160,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => handleChange('password', e.target.value)}
                     placeholder="••••••••"
                     disabled={isLoading || !isAuthAvailable}
                     className="w-full theme-input pr-10"
@@ -186,6 +176,9 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   </button>
                 </div>
               </div>
+              {validationErrors.password && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>
+              )}
             </div>
             {/* Şifre tekrarı alanı */}
             <div className="space-y-2">
@@ -200,7 +193,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    onChange={(e) => handleChange('confirmPassword', e.target.value)}
                     placeholder="••••••••"
                     disabled={isLoading || !isAuthAvailable}
                     className="w-full theme-input pr-10"
@@ -216,16 +209,8 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   </button>
                 </div>
               </div>
-              {formData.password === formData.confirmPassword ? (
-                <div className="flex items-center gap-2 mt-2">
-                  <CheckCircle className="w-3 h-3 text-green-500" />
-                  <span className="text-green-500 text-xs">Şifreler eşleşiyor</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 mt-2">
-                  <AlertCircle className="w-3 h-3 text-red-500" />
-                  <span className="text-red-500 text-xs">Şifreler eşleşmiyor</span>
-                </div>
+              {validationErrors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.confirmPassword}</p>
               )}
             </div>
             {/* Kayıt ol butonu */}
@@ -249,33 +234,31 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
           </form>
         </div>
 
-          {/* Giriş yap linki */}
-          <div className="mt-8 text-center">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t theme-border"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="theme-surface px-4 theme-text-muted">veya</span>
-              </div>
+        {/* Giriş yap linki */}
+        <div className="mt-8 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t theme-border"></div>
             </div>
-            <div className="mt-6">
-              <button
-                onClick={onSwitchToLogin}
-                disabled={isLoading}
-                className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors disabled:opacity-50"
-              >
-                Zaten hesabınız var mı? <span className="underline">Giriş yapın</span>
-              </button>
+            <div className="relative flex justify-center text-sm">
+              <span className="theme-surface px-4 theme-text-muted">veya</span>
             </div>
+          </div>
+          <div className="mt-6">
+            <button
+              onClick={onSwitchToLogin}
+              disabled={isLoading}
+              className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors disabled:opacity-50"
+            >
+              Zaten hesabınız var mı? <span className="underline">Giriş yapın</span>
+            </button>
           </div>
         </div>
 
         {/* Alt bilgi */}
         <div className="text-center mt-6">
           <p className="theme-text-muted text-xs">
-            Kayıt olarak <span className="text-blue-600">Kullanım Şartları</span> ve{' '}
-            <span className="text-blue-600">Gizlilik Politikası</span>'nı kabul etmiş olursunuz.
+            Kayıt olarak <span className="text-blue-600">Kullanım Şartları</span> ve <span className="text-blue-600">Gizlilik Politikası</span>nı kabul etmiş olursunuz.
           </p>
         </div>
       </div>

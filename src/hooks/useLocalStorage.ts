@@ -5,7 +5,7 @@ const BACKUP_PREFIX = 'backup_';
 const MAX_BACKUPS = 5;
 
 // localStorage veri korunma sistemi
-const createBackup = (key: string, data: any) => {
+const createBackup = (key: string, data: Record<string, any> | any[]) => {
   try {
     const timestamp = new Date().toISOString();
     const backupKey = `${BACKUP_PREFIX}${key}_${timestamp}`;
@@ -28,7 +28,7 @@ const createBackup = (key: string, data: any) => {
         localStorage.removeItem(oldKey);
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.warn('Backup oluşturulamadı:', error);
   }
 };
@@ -50,7 +50,7 @@ const restoreFromBackup = (key: string) => {
         return backup.data;
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Backup geri yüklenemedi:', error);
   }
   return null;
@@ -68,7 +68,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         console.log(`🆕 ${key} için initial value kullanılıyor`);
         return initialValue;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ localStorage key "${key}" okunamadı:`, error);
       
       // Backup'tan geri yükle
@@ -87,7 +87,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       
       // Önce yedek oluştur
-      createBackup(key, storedValue);
+      createBackup(key, storedValue as Record<string, any> | any[]);
       
       // State'i güncelle
       setStoredValue(valueToStore);
@@ -101,13 +101,13 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         try {
           await window.electronAPI.saveAppData(key, valueToStore);
           console.log(`☁️ ${key} AppData'ya kaydedildi`);
-        } catch (electronError) {
+        } catch (electronError: unknown) {
           console.warn('AppData kaydetme hatası:', electronError);
           // AppData hatası critical değil, localStorage yeterli
         }
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ localStorage key "${key}" kaydedilemedi:`, error);
       
       // Hata durumunda değeri revert et
@@ -126,12 +126,13 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
           oldBackups.forEach(oldKey => localStorage.removeItem(oldKey));
           
           // Tekrar dene
+          const valueToStore = value instanceof Function ? value(storedValue) : value;
           window.localStorage.setItem(key, JSON.stringify(valueToStore));
           setStoredValue(valueToStore);
           console.log(`✅ ${key} temizlik sonrası kaydedildi`);
-        } catch (retryError) {
+        } catch (retryError: unknown) {
           console.error('Retry failed:', retryError);
-          throw new Error(`Veri kaydedilemedi: ${error.message}`);
+          throw new Error(`Veri kaydedilemedi: ${(error as DOMException).message}`);
         }
       } else {
         throw error;
@@ -163,7 +164,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         window.localStorage.setItem(key, JSON.stringify(backupData));
         console.log(`🔄 ${key} başarıyla geri yüklendi`);
         return true;
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Recovery save failed:', error);
       }
     }

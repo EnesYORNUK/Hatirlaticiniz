@@ -8,13 +8,10 @@ import ErrorBoundary from './components/ErrorBoundary';
 import MedicationForm from './components/MedicationForm';
 import MedicationList from './components/MedicationList';
 import DailySchedule from './components/DailySchedule';
-// @ts-ignore
 import Login from './components/Login';
-// @ts-ignore
 import Register from './components/Register';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useElectronNotifications } from './hooks/useElectronNotifications';
-import { useMedications } from './hooks/useMedications';
 import { useAuth } from './hooks/useAuth';
 import { useSupabaseChecks } from './hooks/useSupabaseChecks';
 import { useSupabaseSettings } from './hooks/useSupabaseSettings';
@@ -73,7 +70,7 @@ export default function App() {
   
   const {
     medications,
-    getTodaySchedule,
+    getDailySchedule,
     addMedication,
     updateMedication,
     deleteMedication,
@@ -268,9 +265,25 @@ export default function App() {
     }
   };
 
-  const handleEditButtonClick = (check: Check) => {
+  const handleEditCheckClick = (check: Check) => {
     setEditingCheck(check);
     setCurrentPage('add');
+  };
+
+  // Helper function to convert getTodaySchedule to DailyMedicationSchedule format
+  const getTodayMedicationSchedule = () => {
+    const todaySchedule = getDailySchedule();
+    const today = new Date().toISOString().split('T')[0];
+    
+    return {
+      date: today,
+      medications: todaySchedule.map((item: any) => ({
+        medication: item.medication,
+        scheduledTime: item.scheduledTime,
+        log: item.log,
+        status: item.status as 'pending' | 'taken' | 'missed' | 'skipped'
+      }))
+    };
   };
 
   // İlaç işlemleri - already using Supabase through useSupabaseMedications
@@ -362,35 +375,22 @@ export default function App() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
         
-        if (data.checks && Array.isArray(data.checks)) {
-          if (isAuthenticated && user) {
-            // When using Supabase, we need to handle import differently
-            console.log('Supabase import not yet implemented in this version');
-            alert('Supabase içe aktarma şu anda desteklenmiyor. Lütfen localStorage modunda içe aktarmayı deneyin.');
-          } else {
-            setFallbackChecks(data.checks);
-          }
+        if (data.checks) {
+          setFallbackChecks(data.checks);
         }
-        
-        if (data.settings && typeof data.settings === 'object') {
-          const mergedSettings = { ...defaultSettings, ...data.settings };
-          if (isAuthenticated && user) {
-            await updateSupabaseSettings(mergedSettings);
-          } else {
-            setFallbackSettings(mergedSettings);
-          }
+        if (data.settings) {
+          setFallbackSettings(data.settings);
         }
         
         alert('Veriler başarıyla içe aktarıldı!');
-      } catch (error) {
+      } catch {
         alert('Dosya formatı hatalı!');
       }
     };
-    
     reader.readAsText(file);
   };
 
@@ -430,7 +430,7 @@ export default function App() {
       case 'daily-schedule':
         return (
           <DailySchedule
-            medicationSchedule={getTodaySchedule()}
+            medicationSchedule={getTodayMedicationSchedule()}
             todayPayments={getTodayPayments()}
             onMarkMedicationTaken={markMedicationTaken}
             onMarkPaymentPaid={handleMarkPaymentPaid}
@@ -457,9 +457,9 @@ export default function App() {
         return (
           <CheckList
             checks={activeChecks}
-            onEdit={handleEditButtonClick}
+            onEdit={handleEditCheckClick}
             onDelete={handleDeleteCheck}
-            onTogglePaid={handleTogglePaid}
+            onTogglePaid={handleMarkPaymentPaid}
           />
         );
     }
