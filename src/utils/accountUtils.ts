@@ -2,6 +2,11 @@ import { supabase } from '../lib/supabase';
 
 export const deleteUserAccount = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Guard: Supabase offline/null ise işlemi iptal et
+    if (!supabase) {
+      return { success: false, error: 'Veri servisi kullanılamıyor' };
+    }
+
     // Use a single SQL command to delete all user data
     // This will be more efficient and handle foreign key constraints properly
     const { error } = await supabase.rpc('delete_user_data', {

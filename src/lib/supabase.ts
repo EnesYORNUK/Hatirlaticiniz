@@ -241,27 +241,34 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('❌ Missing Supabase environment variables');
   console.error('URL:', supabaseUrl);
   console.error('Key:', supabaseKey ? 'Present' : 'Missing');
-  throw new Error('Supabase URL and Anon Key are required');
+  // Production'da beyaz ekranı önlemek için fatal hata fırlatma
+  // yerine Supabase'i devre dışı bırakıyoruz. Uygulama offline
+  // modda temel işlevlerle açılabilir.
 }
 
 // Create Supabase client with optimized settings
 let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
 try {
-  supabaseInstance = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce'
-    },
-    global: {
-      headers: {
-        'x-client-info': 'hatirlaticiniz@2.1.0'
+  if (supabaseUrl && supabaseKey) {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'
+      },
+      global: {
+        headers: {
+          'x-client-info': 'hatirlaticiniz@2.1.0'
+        }
       }
-    }
-  });
-  console.log('✅ Supabase client initialized successfully');
+    });
+    console.log('✅ Supabase client initialized successfully');
+  } else {
+    supabaseInstance = null;
+    console.warn('⚠️ Supabase client not initialized due to missing env. App will run in offline mode.');
+  }
 } catch (error) {
   console.error('❌ Failed to initialize Supabase client:', error);
   supabaseInstance = null;

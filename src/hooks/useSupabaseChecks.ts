@@ -53,6 +53,13 @@ export function useSupabaseChecks() {
       return;
     }
 
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -91,6 +98,12 @@ export function useSupabaseChecks() {
   const addCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>): Promise<boolean> => {
     if (!user) return false;
 
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -122,6 +135,12 @@ export function useSupabaseChecks() {
   // Update check
   const updateCheck = async (id: string, updates: Partial<Check>): Promise<boolean> => {
     if (!user) return false;
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -172,6 +191,12 @@ export function useSupabaseChecks() {
   // Delete check
   const deleteCheck = async (id: string): Promise<boolean> => {
     if (!user) return false;
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
 
     setIsLoading(true);
     setError(null);

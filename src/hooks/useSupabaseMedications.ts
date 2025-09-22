@@ -71,6 +71,13 @@ export function useSupabaseMedications() {
       return;
     }
 
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -100,6 +107,12 @@ export function useSupabaseMedications() {
   const loadMedicationLogs = async () => {
     if (!user || !isAuthenticated) {
       setMedicationLogs([]);
+      return;
+    }
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
       return;
     }
 
@@ -196,6 +209,12 @@ export function useSupabaseMedications() {
   const addMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>): Promise<boolean> => {
     if (!user) return false;
 
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -227,6 +246,12 @@ export function useSupabaseMedications() {
   // Update medication
   const updateMedication = async (id: string, updates: Partial<Medication>): Promise<boolean> => {
     if (!user) return false;
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -276,6 +301,12 @@ export function useSupabaseMedications() {
   const deleteMedication = async (id: string): Promise<boolean> => {
     if (!user) return false;
 
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -314,6 +345,12 @@ export function useSupabaseMedications() {
   // Mark medication as taken
   const markMedicationTaken = async (medicationId: string, status: 'taken' | 'missed' | 'skipped', notes?: string): Promise<boolean> => {
     if (!user) return false;
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
 
     try {
       const now = new Date();
