@@ -18,6 +18,7 @@ win:
   target: nsis
   icon: public/icon.ico
   verifyUpdateCodeSignature: false
+  sign: false
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

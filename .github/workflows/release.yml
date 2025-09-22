@@ -44,10 +44,10 @@ jobs:
       - name: List build output
         run: |
           echo "Listing electron-dist directory:"
-          if (Test-Path "dist") { 
-            Get-ChildItem -Path "dist" -Recurse | Select-Object FullName, Length
+          if (Test-Path "electron-dist") { 
+            Get-ChildItem -Path "electron-dist" -Recurse | Select-Object FullName, Length
           } else { 
-            echo "dist directory does not exist"
+            echo "electron-dist directory does not exist"
           }
           echo "Current directory contents:"
           Get-ChildItem -Path "." | Select-Object Name, Mode
@@ -67,8 +67,7 @@ jobs:
           tag_name: v${{ steps.bump_version.outputs.new_version }}
           name: Release v${{ steps.bump_version.outputs.new_version }}
           files: |
-            dist/*.exe
-            dist/**/*.exe
+            electron-dist/*.exe
           generate_release_notes: true
           draft: false
           prerelease: false
