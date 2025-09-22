@@ -73,7 +73,7 @@
     "productName": "Hatirlaticinim",
     "copyright": "Copyright © 2025 Hatirlaticinim",
     "directories": {
-      "output": "dist"
+      "output": "electron-dist"
     },
     "files": [
       "dist/**/*",

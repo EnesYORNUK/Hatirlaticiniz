@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main   # sadece main branch push'larında çalışır
+  workflow_dispatch:
 
 jobs:
   release:
@@ -24,10 +25,15 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Clear electron-builder cache
+        shell: pwsh
+        run: Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder\Cache" -ErrorAction SilentlyContinue
 
       - name: Bump version
         id: bump_version
+        shell: pwsh
         run: |
           $oldVersion = (Get-Content package.json | ConvertFrom-Json).version
           npm version patch --no-git-tag-version
@@ -39,9 +45,13 @@ jobs:
         run: npm run build
 
       - name: Build Windows exe
-        run: npx electron-builder --win
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USE_HARD_LINKS: false
 
       - name: List build output
+        shell: pwsh
         run: |
           echo "Listing electron-dist directory:"
           if (Test-Path "electron-dist") { 
@@ -53,6 +63,7 @@ jobs:
           Get-ChildItem -Path "." | Select-Object Name, Mode
 
       - name: Create Git Tag
+        if: ${{ hashFiles('electron-dist/*.exe') != '' }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -60,6 +71,7 @@ jobs:
           git push origin v${{ steps.bump_version.outputs.new_version }}
 
       - name: Create GitHub Release
+        if: ${{ hashFiles('electron-dist/*.exe') != '' }}
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,5 +83,3 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

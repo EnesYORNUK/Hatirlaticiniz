@@ -22,22 +22,32 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Clear electron-builder cache
+      shell: pwsh
+      run: Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder\Cache" -ErrorAction SilentlyContinue
+
     - name: Build application
       run: npm run build
 
-    - name: Build Electron app
-      run: npm run dist-win
+    - name: Build Electron app (Windows)
+      run: npx electron-builder --win --publish never
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        USE_HARD_LINKS: false
 
     - name: List build output
       run: |
         echo "Listing electron-dist directory:"
-        dir electron-dist
-        echo "Listing all .exe files:"
-        dir electron-dist\*.exe
+        if (Test-Path "electron-dist") {
+          Get-ChildItem -Path "electron-dist" -Recurse | Select-Object FullName, Length
+          echo "Listing all .exe files:"
+          Get-ChildItem -Path "electron-dist" -Filter *.exe | Select-Object FullName, Length
+        } else {
+          echo "electron-dist directory does not exist"
+        }
 
     - name: Upload artifacts
+      if: ${{ hashFiles('electron-dist/*.exe') != '' }}
       uses: actions/upload-artifact@v4
       with:
         name: windows-artifacts
