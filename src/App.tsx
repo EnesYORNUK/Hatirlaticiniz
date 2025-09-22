@@ -24,6 +24,7 @@ import MigrationPrompt from './components/MigrationPrompt';
 import { deleteUserAccount } from './utils/accountUtils';
 import { Check, Settings as SettingsType, ThemeType, LoginData, RegisterData } from './types';
 import { Medication } from './types/medication';
+import { supabase } from './lib/supabase';
 
 const defaultSettings: SettingsType = {
   reminderDays: 3,
@@ -50,6 +51,7 @@ export default function App() {
   const { user, isAuthenticated, isLoading: authLoading, login, register, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string>('');
+  const isAuthAvailable = !!supabase;
   
   const [currentPage, setCurrentPage] = useState('list');
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
@@ -483,6 +485,7 @@ export default function App() {
                   onSwitchToRegister={() => switchAuthView('register')}
                   isLoading={authLoading}
                   error={authError}
+                  isAuthAvailable={isAuthAvailable}
                 />
               ) : (
                 <Register
@@ -490,6 +493,7 @@ export default function App() {
                   onSwitchToLogin={() => switchAuthView('login')}
                   isLoading={authLoading}
                   error={authError}
+                  isAuthAvailable={isAuthAvailable}
                 />
               )}
             </div>

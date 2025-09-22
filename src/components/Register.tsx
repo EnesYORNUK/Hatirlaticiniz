@@ -7,9 +7,10 @@ interface RegisterProps {
   onSwitchToLogin: () => void;
   isLoading: boolean;
   error?: string;
+  isAuthAvailable?: boolean;
 }
 
-const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoading, error }) => {
+const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoading, error, isAuthAvailable = true }) => {
   const [formData, setFormData] = useState<RegisterData>({
     email: '',
     password: '',
@@ -96,8 +97,16 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
         </div>
 
         {/* Kayıt formu */}
-        <div className="theme-surface rounded-2xl shadow-xl border theme-border p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="theme-surface rounded-2xl shadow-XL border theme-border p-8">
+          {isAuthAvailable ? null : (
+            <div className="flex items-center gap-3 text-amber-700 bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">
+                Kimlik doğrulama servisi yapılandırılmamış. Lütfen uygulamayı güncelleyip tekrar deneyin.
+              </span>
+            </div>
+          )}
+          <form onSubmit={(e) => { e.preventDefault(); if (isAuthAvailable) handleSubmit(e); }} className="space-y-6">
             {/* Genel hata mesajı */}
             {error && (
               <div className="flex items-center gap-3 text-red-600 bg-red-50 p-4 rounded-xl border border-red-200">
@@ -105,7 +114,6 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                 <span className="text-sm font-medium">{error}</span>
               </div>
             )}
-
             {/* Ad Soyad alanı */}
             <div className="space-y-2">
               <label className="theme-text text-sm font-semibold block">
@@ -118,22 +126,14 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                 <input
                   type="text"
                   value={formData.fullName}
-                  onChange={(e) => handleChange('fullName', e.target.value)}
-                  className={`theme-input w-full px-4 py-3 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    validationErrors.fullName ? 'border-red-500 bg-red-50' : ''
-                  }`}
-                  placeholder="Adınız ve soyadınız"
-                  disabled={isLoading}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  placeholder="Ad Soyad"
+                  disabled={isLoading || !isAuthAvailable}
+                  className="flex-1 theme-input"
+                  required
                 />
               </div>
-              {validationErrors.fullName && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {validationErrors.fullName}
-                </p>
-              )}
             </div>
-
             {/* E-posta alanı */}
             <div className="space-y-2">
               <label className="theme-text text-sm font-semibold block">
@@ -146,22 +146,17 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  className={`theme-input w-full px-4 py-3 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    validationErrors.email ? 'border-red-500 bg-red-50' : ''
-                  }`}
-                  placeholder="ornek@email.com"
-                  disabled={isLoading}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="ornek@eposta.com"
+                  disabled={isLoading || !isAuthAvailable}
+                  className="flex-1 theme-input"
+                  required
                 />
               </div>
-              {validationErrors.email && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {validationErrors.email}
-                </p>
+              {!formData.email.includes('@') && formData.email.length > 0 && (
+                <p className="text-red-500 text-xs mt-1">Lütfen geçerli bir e-posta adresi girin</p>
               )}
             </div>
-
             {/* Şifre alanı */}
             <div className="space-y-2">
               <label className="theme-text text-sm font-semibold block">
@@ -175,59 +170,23 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
-                    onChange={(e) => handleChange('password', e.target.value)}
-                    className={`theme-input w-full px-4 pr-12 py-3 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      validationErrors.password ? 'border-red-500 bg-red-50' : ''
-                    }`}
-                    placeholder="Güçlü bir şifre oluşturun"
-                    disabled={isLoading}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="••••••••"
+                    disabled={isLoading || !isAuthAvailable}
+                    className="w-full theme-input pr-10"
+                    required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading}
+                    disabled={isLoading || !isAuthAvailable}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
-              
-              {/* Şifre güçlülük göstergesi */}
-              {formData.password && (
-                <div className="mt-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex gap-1 flex-1">
-                      {[1, 2, 3].map((level) => (
-                        <div
-                          key={level}
-                          className={`h-1 flex-1 rounded-full transition-colors ${
-                            level <= passwordStrength.strength
-                              ? passwordStrength.strength === 1
-                                ? 'bg-red-500'
-                                : passwordStrength.strength === 2
-                                ? 'bg-yellow-500'
-                                : 'bg-green-500'
-                              : 'bg-gray-200'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className={`text-xs font-medium ${passwordStrength.color}`}>
-                      {passwordStrength.text}
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              {validationErrors.password && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {validationErrors.password}
-                </p>
-              )}
             </div>
-
             {/* Şifre tekrarı alanı */}
             <div className="space-y-2">
               <label className="theme-text text-sm font-semibold block">
@@ -241,69 +200,54 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
-                    onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                    className={`theme-input w-full px-4 pr-12 py-3 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      validationErrors.confirmPassword ? 'border-red-500 bg-red-50' : 
-                      formData.confirmPassword && formData.password === formData.confirmPassword ? 'border-green-500 bg-green-50' : ''
-                    }`}
-                    placeholder="Şifrenizi tekrar girin"
-                    disabled={isLoading}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    placeholder="••••••••"
+                    disabled={isLoading || !isAuthAvailable}
+                    className="w-full theme-input pr-10"
+                    required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading}
+                    disabled={isLoading || !isAuthAvailable}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
-              
-              {/* Şifre eşleşme göstergesi */}
-              {formData.confirmPassword && (
-                <div className="flex items-center gap-1 mt-1">
-                  {formData.password === formData.confirmPassword ? (
-                    <>
-                      <CheckCircle className="w-3 h-3 text-green-500" />
-                      <span className="text-green-500 text-xs">Şifreler eşleşiyor</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-3 h-3 text-red-500" />
-                      <span className="text-red-500 text-xs">Şifreler eşleşmiyor</span>
-                    </>
-                  )}
+              {formData.password === formData.confirmPassword ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                  <span className="text-green-500 text-xs">Şifreler eşleşiyor</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mt-2">
+                  <AlertCircle className="w-3 h-3 text-red-500" />
+                  <span className="text-red-500 text-xs">Şifreler eşleşmiyor</span>
                 </div>
               )}
-              
-              {validationErrors.confirmPassword && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {validationErrors.confirmPassword}
-                </p>
-              )}
             </div>
-
             {/* Kayıt ol butonu */}
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full theme-primary hover:opacity-90 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              disabled={isLoading || !isAuthAvailable}
+              className="w-full theme-primary text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  <span>Hesap oluşturuluyor...</span>
+                  <span>Kayıt olunuyor...</span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2">
                   <UserPlus className="w-5 h-5" />
-                  <span>Hesap Oluştur</span>
+                  <span>Kayıt Ol</span>
                 </div>
               )}
             </button>
           </form>
+        </div>
 
           {/* Giriş yap linki */}
           <div className="mt-8 text-center">
