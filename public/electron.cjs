@@ -1303,3 +1303,4 @@ function createWindow() {
     console.error('❌ Pencere yükleme hatası:', errorCode, errorDescription);
   });
 }
+}
