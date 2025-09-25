@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -493,7 +493,8 @@ Lütfen daha sonra tekrar deneyin.
       let message = `💊 *BUGÜN ALINACAK İLAÇLAR*\n📅 ${dayNames[dayOfWeek]}, ${today.toLocaleDateString('tr-TR')}\n\n`;
       
       todayMeds.forEach((med, index) => {
-        message += `${index + 1}. *${med.name}* - ${med.time}\n`;
+        const timeText = (typeof med.time === 'string' && med.time) ? med.time : 'Zaman belirtilmemiş';
+        message += `${index + 1}. *${med.name}* - ${timeText}\n`;
         if (med.dosage) message += `   💊 Doz: ${med.dosage}\n`;
         if (med.notes) message += `   📝 Not: _${med.notes}_\n`;
         message += '\n';
@@ -538,40 +539,45 @@ Lütfen daha sonra tekrar deneyin.
       
       let message = `📅 *HAFTALIK İLAÇ PROGRAMI*\n\n`;
       
-      // Her gün için ilaçları listele
+      // Her gün için ilaçları listele (null-safe)
       orderedDays.forEach(day => {
         const dayMeds = medications.filter(med => {
+          const days = med?.days || {};
           return (
-            (day.index === 0 && med.days.sunday) ||
-            (day.index === 1 && med.days.monday) ||
-            (day.index === 2 && med.days.tuesday) ||
-            (day.index === 3 && med.days.wednesday) ||
-            (day.index === 4 && med.days.thursday) ||
-            (day.index === 5 && med.days.friday) ||
-            (day.index === 6 && med.days.saturday)
+            (day.index === 0 && days.sunday) ||
+            (day.index === 1 && days.monday) ||
+            (day.index === 2 && days.tuesday) ||
+            (day.index === 3 && days.wednesday) ||
+            (day.index === 4 && days.thursday) ||
+            (day.index === 5 && days.friday) ||
+            (day.index === 6 && days.saturday)
           );
         });
         
-        // Saate göre sırala
+        // Saate göre sırala (null-safe)
         dayMeds.sort((a, b) => {
-          const timeA = a.time.split(':');
-          const timeB = b.time.split(':');
-          return (parseInt(timeA[0]) * 60 + parseInt(timeA[1])) - (parseInt(timeB[0]) * 60 + parseInt(timeB[1]));
+          const parseTime = (t) => {
+            if (typeof t !== 'string' || !t.includes(':')) return Number.POSITIVE_INFINITY;
+            const [h, m] = t.split(':');
+            const hh = parseInt(h, 10);
+            const mm = parseInt(m, 10);
+            if (Number.isNaN(hh) || Number.isNaN(mm)) return Number.POSITIVE_INFINITY;
+            return hh * 60 + mm;
+          };
+          return parseTime(a.time) - parseTime(b.time);
         });
         
-        if (day.index === currentDayIndex) {
-          message += `📌 *${day.name} (Bugün)*\n`;
-        } else {
-          message += `📆 *${day.name}*\n`;
-        }
-        
-        if (dayMeds.length === 0) {
-          message += `   İlaç yok\n\n`;
-        } else {
-          dayMeds.forEach(med => {
-            message += `   • ${med.time} - ${med.name}\n`;
+        if (dayMeds.length > 0) {
+          message += `📅 ${day.name}\n`;
+          dayMeds.forEach((med, index) => {
+            const timeText = (typeof med.time === 'string' && med.time) ? med.time : 'Zaman belirtilmemiş';
+            message += `${index + 1}. *${med.name}* - ${timeText}\n`;
+            if (med.dosage) message += `   💊 Doz: ${med.dosage}\n`;
+            if (med.notes) message += `   📝 Not: _${med.notes}_\n`;
+            message += '\n';
           });
-          message += `\n`;
+        } else {
+          message += `📅 ${day.name}\n   ⛔ İlaç yok\n\n`;
         }
       });
       
@@ -875,6 +881,99 @@ function setupIpcHandlers() {
       return { success: false, error: error.message };
     }
   });
+
+  // Basit sistem bildirimi
+  ipcMain.handle('show-notification', async (event, title, body) => {
+    try {
+      if (Notification && Notification.isSupported()) {
+        const notification = new Notification({
+          title,
+          body,
+          icon: path.join(__dirname, 'icon.ico')
+        });
+        notification.show();
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Uygulama sürümü
+  ipcMain.handle('app-version', () => {
+    return app.getVersion();
+  });
+
+  // Güncelleme kontrolü
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      await autoUpdater.checkForUpdates();
+      return { success: true, message: 'Update check started' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Güncellemeyi indir
+  ipcMain.handle('download-update', async () => {
+    try {
+      await autoUpdater.downloadUpdate();
+      return { success: true, message: 'Download started' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Güncellemeyi kur
+  ipcMain.handle('install-update', () => {
+    try {
+      autoUpdater.quitAndInstall();
+      return { success: true, message: 'Installing update...' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  });
+
+  // AppData dosya işlemleri - kaydet
+  ipcMain.handle('save-app-data', async (event, key, data) => {
+    try {
+      const appDataPath = getAppDataPath();
+      if (!fs.existsSync(appDataPath)) {
+        fs.mkdirSync(appDataPath, { recursive: true });
+      }
+      const fileName = key; // mevcut sürümde checks.json / medications.json / settings.json kullanılıyor
+      const filePath = path.join(appDataPath, `${fileName}.json`);
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+
+      // Settings kaydedildiğinde Telegram bot'u yeniden başlat
+      if (key === 'settings') {
+        setTimeout(initializeTelegramBot, 1000);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ AppData save error:', error);
+      return false;
+    }
+  });
+
+  // AppData dosya işlemleri - yükle
+  ipcMain.handle('load-app-data', async (event, key) => {
+    try {
+      const appDataPath = getAppDataPath();
+      const fileName = key;
+      const filePath = path.join(appDataPath, `${fileName}.json`);
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
+      const data = fs.readFileSync(filePath, 'utf8');
+      const parsedData = JSON.parse(data);
+      return parsedData;
+    } catch (error) {
+      console.error('❌ AppData load error:', error);
+      return null;
+    }
+  });
 }
 
 // Otomatik güncelleme
@@ -882,6 +981,9 @@ function setupAutoUpdater() {
   // Güncellemeler için olay dinleyicileri
   autoUpdater.on('checking-for-update', () => {
     console.log('🔍 Güncellemeler kontrol ediliyor...');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', 'checking-for-update');
+    }
   });
   
   autoUpdater.on('update-available', (info) => {
@@ -889,25 +991,32 @@ function setupAutoUpdater() {
     
     // Kullanıcıya bildir
     if (mainWindow) {
-      mainWindow.webContents.send('update-available', info);
+      mainWindow.webContents.send('update-status', 'update-available', info);
     }
   });
   
   autoUpdater.on('update-not-available', () => {
     console.log('✅ Uygulama güncel');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', 'update-not-available');
+    }
   });
   
   autoUpdater.on('error', (err) => {
     console.error('❌ Güncelleme hatası:', err);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', 'error', { message: err.message });
+    }
   });
   
   autoUpdater.on('download-progress', (progressObj) => {
-    const logMessage = `⏬ İndiriliyor: ${Math.round(progressObj.percent)}%`;
+    const percent = Math.round(progressObj.percent);
+    const logMessage = `⏬ İndiriliyor: ${percent}%`;
     console.log(logMessage);
     
     // İlerlemeyi kullanıcıya bildir
     if (mainWindow) {
-      mainWindow.webContents.send('update-progress', progressObj);
+      mainWindow.webContents.send('update-status', 'download-progress', { percent });
     }
   });
   
@@ -916,7 +1025,7 @@ function setupAutoUpdater() {
     
     // Kullanıcıya bildir ve yeniden başlatma seçeneği sun
     if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded', info);
+      mainWindow.webContents.send('update-status', 'update-downloaded', info);
       
       dialog.showMessageBox(mainWindow, {
         type: 'info',
@@ -1089,21 +1198,26 @@ function checkForMedications() {
     
     // Şu anda alınması gereken ilaçları filtrele
     const currentMeds = medications.filter(med => {
+      const days = med?.days || {};
       // İlacın bugün alınması gerekiyor mu?
       const isDueToday = (
-        (med.days.sunday && dayOfWeek === 0) ||
-        (med.days.monday && dayOfWeek === 1) ||
-        (med.days.tuesday && dayOfWeek === 2) ||
-        (med.days.wednesday && dayOfWeek === 3) ||
-        (med.days.thursday && dayOfWeek === 4) ||
-        (med.days.friday && dayOfWeek === 5) ||
-        (med.days.saturday && dayOfWeek === 6)
+        (days.sunday && dayOfWeek === 0) ||
+        (days.monday && dayOfWeek === 1) ||
+        (days.tuesday && dayOfWeek === 2) ||
+        (days.wednesday && dayOfWeek === 3) ||
+        (days.thursday && dayOfWeek === 4) ||
+        (days.friday && dayOfWeek === 5) ||
+        (days.saturday && dayOfWeek === 6)
       );
       
       if (!isDueToday) return false;
       
       // İlacın saati şu anki saatle uyuşuyor mu?
-      const [medHour, medMinute] = med.time.split(':').map(Number);
+      if (!med?.time || typeof med.time !== 'string' || !med.time.includes(':')) return false;
+      const [medHourStr, medMinuteStr] = med.time.split(':');
+      const medHour = parseInt(medHourStr, 10);
+      const medMinute = parseInt(medMinuteStr, 10);
+      if (Number.isNaN(medHour) || Number.isNaN(medMinute)) return false;
       
       // Son 15 dakika içinde mi?
       const medTimeInMinutes = medHour * 60 + medMinute;
