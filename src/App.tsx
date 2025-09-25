@@ -467,8 +467,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      {/* Show only login/register if not authenticated */}
-      {!isAuthenticated ? (
+      {/* Auth ekranını yalnızca Supabase yapılandırılmışsa ve kullanıcı henüz giriş yapmadıysa göster */}
+      {!isAuthenticated && isAuthAvailable ? (
         <div className="min-h-screen theme-bg">
           {authLoading ? (
             <div className="min-h-screen flex items-center justify-center">
@@ -500,7 +500,7 @@ export default function App() {
           )}
         </div>
       ) : (
-        /* Show main app if authenticated */
+        /* Supabase yoksa veya kullanıcı giriş yaptıysa ana uygulamayı göster (offline mod desteklenir) */
         <>
           {/* Migration Prompt */}
           <MigrationPrompt 
