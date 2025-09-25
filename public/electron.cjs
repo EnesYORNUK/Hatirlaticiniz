@@ -20,15 +20,15 @@ let telegramBot = null;
 let isQuitting = false;
 let backgroundNotificationInterval = null;
 
-// Single Instance Lock - Geçici olarak devre dışı
-// const gotTheLock = app.requestSingleInstanceLock();
+// Single Instance Lock - Etkin
+const gotTheLock = app.requestSingleInstanceLock();
 
-// if (!gotTheLock) {
-//   // Eğer zaten bir instance çalışıyorsa, bu instance'ı kapat
-//   console.log('Uygulama zaten çalışıyor. Mevcut pencereyi öne getiriliyor...');
-//   app.quit();
-//   process.exit(0);
-// } else {
+if (!gotTheLock) {
+  // Eğer zaten bir instance çalışıyorsa, yeni süreci kapat
+  console.log('Uygulama zaten çalışıyor. Mevcut pencereyi öne getiriliyor...');
+  app.quit();
+  process.exit(0);
+} else {
   // İkinci instance açılmaya çalışıldığında bu event tetiklenir
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     console.log('İkinci instance tespit edildi. Ana pencereyi öne getiriliyor...');
