@@ -467,8 +467,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      {/* Auth ekranını yalnızca Supabase yapılandırılmışsa ve kullanıcı henüz giriş yapmadıysa göster */}
-      {!isAuthenticated && isAuthAvailable ? (
+      {/* Auth ekranını kullanıcı henüz giriş yapmadıysa göster (Supabase yapılandırılmamışsa bile) */}
+      {!isAuthenticated ? (
         <div className="min-h-screen theme-bg">
           {authLoading ? (
             <div className="min-h-screen flex items-center justify-center">
