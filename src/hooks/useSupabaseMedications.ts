@@ -348,10 +348,18 @@ export function useSupabaseMedications() {
       const medication = medications.find(m => m.id === medicationId);
       if (!medication) return false;
 
+      // scheduled_time değerini bugünün tarihi ve ilaç saati ile ISO timestamp olarak oluştur
+      const [hourStr, minuteStr] = (medication.time || '').split(':');
+      const hour = parseInt(hourStr ?? '0', 10);
+      const minute = parseInt(minuteStr ?? '0', 10);
+      const scheduledDate = new Date(now);
+      scheduledDate.setHours(isNaN(hour) ? 0 : hour, isNaN(minute) ? 0 : minute, 0, 0);
+      const scheduledIso = scheduledDate.toISOString();
+
       const logData = convertMedicationLogToInsert({
         medicationId,
         takenAt: now.toISOString(),
-        scheduledTime: medication.time,
+        scheduledTime: scheduledIso,
         status,
         notes: notes || ''
       });
@@ -380,6 +388,12 @@ export function useSupabaseMedications() {
   // Migration function to import localStorage data
   const migrateFromLocalStorage = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
+
+    // Supabase guard
+    if (!supabase) {
+      setError('Veri servisi kullanılamıyor');
+      return false;
+    }
 
     try {
       // Migrate medications
