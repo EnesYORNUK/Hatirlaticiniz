@@ -168,7 +168,9 @@ export function useSupabaseMedications() {
         if (medication.frequency === 'daily') {
           return true;
         } else if (medication.frequency === 'weekly' && medication.weekDay !== undefined) {
-          return dayOfWeek === medication.weekDay;
+          // Haftalık: weekDay 1=Pazartesi, 7=Pazar -> dayOfWeek 0=Pazar, 1=Pazartesi
+          const targetDay = medication.weekDay === 7 ? 0 : medication.weekDay;
+          return dayOfWeek === targetDay;
         } else if (medication.frequency === 'monthly' && medication.monthDay !== undefined) {
           return dayOfMonth === medication.monthDay;
         }
