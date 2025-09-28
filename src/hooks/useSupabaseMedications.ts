@@ -86,11 +86,13 @@ export function useSupabaseMedications() {
       return;
     }
 
+    const sb = supabase!; // non-null after guard
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('medications')
         .select('*')
         .eq('user_id', user.id)
@@ -121,15 +123,21 @@ export function useSupabaseMedications() {
     // Supabase guard
     if (!supabase) {
       setError('Veri servisi kullanılamıyor');
+      setIsLoading(false);
       return;
     }
 
+    const sb = supabase!; // non-null after guard
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('medication_logs')
         .select('*')
         .eq('user_id', user.id)
-        .order('taken_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -137,67 +145,62 @@ export function useSupabaseMedications() {
 
       const convertedLogs = data?.map(convertRowToMedicationLog) || [];
       setMedicationLogs(convertedLogs);
-      console.log(`✅ ${convertedLogs.length} ilaç logu yüklendi`);
+      console.log(`✅ ${convertedLogs.length} ilaç logu Supabase'den yüklendi`);
     } catch (err: unknown) {
       console.error('❌ İlaç logları yüklenemedi:', err);
       setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
     }
   }, [user, isAuthenticated, convertRowToMedicationLog]);
 
-  // Load data when user changes
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadMedications();
-      loadMedicationLogs();
-    } else {
-      setMedications([]);
-      setMedicationLogs([]);
-    }
-  }, [user, isAuthenticated, loadMedications, loadMedicationLogs]);
+  // Get today's schedule
+  const getTodaySchedule = useCallback((): MedicationScheduleItem[] => {
+    const today = new Date();
+    return getDailySchedule(today);
+  }, []);
 
-  // Get today's medication schedule
-  const getDailySchedule = useCallback((date: Date = new Date()): MedicationScheduleItem[] => {
-    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const dayOfMonth = date.getDate();
-    
-    return medications
-      .filter(medication => {
-        if (!medication.isActive) return false;
-        
-        // Check if medication should be taken today based on frequency
-        if (medication.frequency === 'daily') {
-          return true;
-        } else if (medication.frequency === 'weekly' && medication.weekDay !== undefined) {
-          // Haftalık: weekDay 1=Pazartesi, 7=Pazar -> dayOfWeek 0=Pazar, 1=Pazartesi
-          const targetDay = medication.weekDay === 7 ? 0 : medication.weekDay;
-          return dayOfWeek === targetDay;
-        } else if (medication.frequency === 'monthly' && medication.monthDay !== undefined) {
-          return dayOfMonth === medication.monthDay;
+  // Get daily schedule for a specific date
+  const getDailySchedule = useCallback((date: Date): MedicationScheduleItem[] => {
+    const dayOfWeek = date.getDay(); // 0 (Sun) - 6 (Sat)
+
+    const schedule: MedicationScheduleItem[] = medications
+      .filter((med) => {
+        if (!med.isActive) return false;
+
+        const startDate = new Date(med.startDate);
+        const endDate = med.endDate ? new Date(med.endDate) : null;
+        if (date < startDate) return false;
+        if (endDate && date > endDate) return false;
+
+        if (med.frequency === 'daily') return true;
+
+        if (med.frequency === 'weekly') {
+          if (med.weekDay === undefined) return false;
+          const weekDayMapped = med.weekDay === 7 ? 0 : med.weekDay;
+          return weekDayMapped === dayOfWeek;
         }
-        
+
+        if (med.frequency === 'monthly') {
+          if (med.monthDay === undefined) return false;
+          return med.monthDay === date.getDate();
+        }
+
         return false;
       })
-      .map(medication => {
-        // Find existing log for today
-        const todayStr = date.toISOString().split('T')[0];
-        const log = medicationLogs.find(l => 
-          l.medicationId === medication.id && 
-          l.scheduledTime.startsWith(todayStr)
-        );
-        
-        return {
-          medication,
-          scheduledTime: medication.time,
-          log,
-          status: log?.status || 'pending'
-        };
-      });
-  }, [medications, medicationLogs]);
+      .map((med) => ({
+        medication: med,
+        scheduledTime: med.time,
+        status: 'pending' as const,
+      }));
 
-  // Bugünkü programı getir
-  const getTodaySchedule = useCallback(() => {
-    return getDailySchedule(new Date());
-  }, [getDailySchedule]);
+    return schedule;
+  }, [medications]);
+
+  useEffect(() => {
+    loadMedications();
+    loadMedicationLogs();
+  }, [loadMedications, loadMedicationLogs]);
 
   // Add new medication
   const addMedication = useCallback(async (medicationData: Omit<Medication, 'id' | 'createdAt'>): Promise<boolean> => {
@@ -209,12 +212,14 @@ export function useSupabaseMedications() {
       return false;
     }
 
+    const sb = supabase!; // non-null after guard
+
     setIsLoading(true);
     setError(null);
 
     try {
       const insertData = convertMedicationToInsert(medicationData);
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('medications')
         .insert(insertData as any)
         .select()
@@ -247,6 +252,8 @@ export function useSupabaseMedications() {
       return false;
     }
 
+    const sb = supabase!; // non-null after guard
+
     setIsLoading(true);
     setError(null);
 
@@ -265,7 +272,7 @@ export function useSupabaseMedications() {
       if (updates.notes !== undefined) updateData.notes = updates.notes;
       if (updates.createdBy !== undefined) updateData.created_by = updates.createdBy;
 
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('medications')
         .update(updateData)
         .eq('id', id)
@@ -300,19 +307,21 @@ export function useSupabaseMedications() {
       return false;
     }
 
+    const sb = supabase!; // non-null after guard
+
     setIsLoading(true);
     setError(null);
 
     try {
       // First delete all logs for this medication
-      await supabase
+      await sb
         .from('medication_logs')
         .delete()
         .eq('medication_id', id)
         .eq('user_id', user.id);
 
       // Then delete the medication
-      const { error } = await supabase
+      const { error } = await sb
         .from('medications')
         .delete()
         .eq('id', id)
@@ -345,6 +354,8 @@ export function useSupabaseMedications() {
       return false;
     }
 
+    const sb = supabase!; // non-null after guard
+
     try {
       const now = new Date();
       const medication = medications.find(m => m.id === medicationId);
@@ -366,7 +377,7 @@ export function useSupabaseMedications() {
         notes: notes || ''
       });
 
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('medication_logs')
         .insert(logData as any)
         .select()
@@ -397,6 +408,8 @@ export function useSupabaseMedications() {
       return false;
     }
 
+    const sb = supabase!; // non-null after guard
+
     try {
       // Migrate medications
       const localMedications = localStorage.getItem('medications');
@@ -411,7 +424,7 @@ export function useSupabaseMedications() {
 
         for (const medication of parsedMedications) {
           const insertData = convertMedicationToInsert(medication);
-          await supabase!.from('medications').insert(insertData as any);
+          await sb.from('medications').insert(insertData as any);
           medicationCount++;
         }
       }
@@ -422,7 +435,7 @@ export function useSupabaseMedications() {
 
         for (const log of parsedLogs) {
           const insertData = convertMedicationLogToInsert(log);
-          await supabase!.from('medication_logs').insert(insertData as any);
+          await sb.from('medication_logs').insert(insertData as any);
           logCount++;
         }
       }
