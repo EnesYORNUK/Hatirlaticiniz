@@ -311,6 +311,9 @@ Repository: Hatirlaticiniz
 
 🆕 Sürüm Geçmişi
 
+v4.0.18
+✅ Beyaz ekran sorunu düzeltildi ve TypeScript hataları giderildi.
+
 v2.0.0 (Mevcut)
 
 ✅ İlaç takip sistemi eklendi
