@@ -2,6 +2,7 @@
 
 export interface Medication {
   id: string;
+  userId: string;
   name: string; // Hap adı
   dosage: string; // Doz bilgisi (örn: "1 tablet", "5ml")
   frequency: 'daily' | 'weekly' | 'monthly'; // Sıklık
@@ -18,6 +19,7 @@ export interface Medication {
 
 export interface MedicationLog {
   id: string;
+  userId: string;
   medicationId: string;
   takenAt: string; // İçildiği tarih-saat
   scheduledTime: string; // Planlandığı saat
@@ -28,12 +30,14 @@ export interface MedicationLog {
 
 export interface DailyMedicationSchedule {
   date: string; // YYYY-MM-DD formatında
-  medications: {
-    medication: Medication;
-    scheduledTime: string;
-    log?: MedicationLog;
-    status: 'pending' | 'taken' | 'missed' | 'skipped';
-  }[];
+  medications: MedicationScheduleItem[];
+}
+
+export interface MedicationScheduleItem {
+  medication: Medication;
+  scheduledTime: string;
+  log?: MedicationLog;
+  status: 'pending' | 'taken' | 'missed' | 'skipped';
 }
 
 export interface MedicationStats {

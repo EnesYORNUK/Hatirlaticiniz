@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // AppData dosya işlemleri
   saveAppData: (key, data) => ipcRenderer.invoke('save-app-data', key, data),
   loadAppData: (key) => ipcRenderer.invoke('load-app-data', key),
+  // AppData path
+  getAppDataPath: () => ipcRenderer.invoke('get-app-data-path'),
 });
 
 // IPC Renderer'ı da expose et (event listening için)

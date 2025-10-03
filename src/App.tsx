@@ -70,6 +70,7 @@ export default function App() {
   
   const {
     medications,
+    isLoading: medicationsLoading,
     getDailySchedule,
     addMedication,
     updateMedication,
@@ -92,6 +93,8 @@ export default function App() {
   const activeChecks = checks.length > 0 || !fallbackChecks.length ? checks : fallbackChecks;
   const activeSettings = Object.keys(settings).length > 2 ? settings : fallbackSettings;
   
+  const medicationSchedule = getDailySchedule(new Date());
+
   // Bildirim hook'u - use active settings
   useElectronNotifications(activeChecks, activeSettings);
 
@@ -270,37 +273,19 @@ export default function App() {
     setCurrentPage('add');
   };
 
-  // Helper function to convert getTodaySchedule to DailyMedicationSchedule format
-  const getTodayMedicationSchedule = () => {
-    const todaySchedule = getDailySchedule();
-    const today = new Date().toISOString().split('T')[0];
-    
-    return {
-      date: today,
-      medications: todaySchedule.map((item: any) => ({
-        medication: item.medication,
-        scheduledTime: item.scheduledTime,
-        log: item.log,
-        status: item.status as 'pending' | 'taken' | 'missed' | 'skipped'
-      }))
-    };
-  };
-
   // İlaç işlemleri - already using Supabase through useSupabaseMedications
-  const handleAddMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>) => {
-    const success = await addMedication(medicationData);
-    if (success) {
+  const handleAddMedication = async (medicationData: Omit<Medication, 'id' | 'userId' | 'createdBy' | 'createdAt'>) => {
+    const newMedication = await addMedication(medicationData as never);
+    if (newMedication) {
       setCurrentPage('medications');
     }
   };
 
-  const handleEditMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>) => {
+  const handleEditMedication = async (medicationData: Omit<Medication, 'id' | 'userId' | 'createdBy' | 'createdAt'>) => {
     if (!editingMedication) return;
-    const success = await updateMedication(editingMedication.id, medicationData);
-    if (success) {
-      setEditingMedication(null);
-      setCurrentPage('medications');
-    }
+    await updateMedication(editingMedication.id, medicationData as never);
+    setEditingMedication(null);
+    setCurrentPage('medications');
   };
 
   const handleDeleteMedication = async (id: string) => {
@@ -316,28 +301,6 @@ export default function App() {
   const handleEditMedicationClick = (medication: Medication) => {
     setEditingMedication(medication);
     setCurrentPage('add-medication');
-  };
-
-  // Ödeme olarak işaretle (günlük programdan)
-  const handleMarkPaymentPaid = async (paymentId: string) => {
-    await handleTogglePaid(paymentId);
-  };
-
-  // Bugünkü ödemeleri getir
-  const getTodayPayments = () => {
-    const today = new Date().toDateString();
-    return activeChecks.filter(check => {
-      if (check.isPaid) return false;
-      
-      let checkDate;
-      if (check.isRecurring && check.nextPaymentDate) {
-        checkDate = new Date(check.nextPaymentDate).toDateString();
-      } else {
-        checkDate = new Date(check.paymentDate).toDateString();
-      }
-      
-      return checkDate === today;
-    });
   };
 
   const handleSaveSettings = async (newSettings: SettingsType) => {
@@ -428,12 +391,14 @@ export default function App() {
           />
         );
       case 'daily-schedule':
-        return (
+        return medicationsLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+          </div>
+        ) : (
           <DailySchedule
-            medicationSchedule={getTodayMedicationSchedule()}
-            todayPayments={getTodayPayments()}
+            medicationSchedule={medicationSchedule}
             onMarkMedicationTaken={markMedicationTaken}
-            onMarkPaymentPaid={handleMarkPaymentPaid}
           />
         );
       case 'settings':
@@ -453,13 +418,14 @@ export default function App() {
             onDeleteAccount={handleDeleteAccount}
           />
         );
+      case 'list':
       default:
         return (
           <CheckList
             checks={activeChecks}
             onEdit={handleEditCheckClick}
             onDelete={handleDeleteCheck}
-            onTogglePaid={handleMarkPaymentPaid}
+            onTogglePaid={handleTogglePaid}
           />
         );
     }
@@ -467,8 +433,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      {/* Auth ekranını kullanıcı henüz giriş yapmadıysa göster (Supabase yapılandırılmamışsa bile) */}
-      {!isAuthenticated ? (
+      {/* Auth ekranını sadece Supabase yapılandırılmışsa ve kullanıcı henüz giriş yapmadıysa göster */}
+      {isAuthAvailable && !isAuthenticated ? (
         <div className="min-h-screen theme-bg">
           {authLoading ? (
             <div className="min-h-screen flex items-center justify-center">

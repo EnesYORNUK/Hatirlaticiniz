@@ -696,53 +696,83 @@ if (!fs.existsSync(appDataPath)) {
 app.whenReady().then(() => {
   console.log('🚀 Uygulama başlatılıyor...');
   
-  // Tray ikonu oluştur
-  const iconPath = process.platform === 'win32' 
-    ? path.join(__dirname, 'icon.ico') 
-    : path.join(__dirname, 'icon-256x256.png');
+  // Tray ikon yolu çözümlemesini üretim/geliştirme modları için sağlamlaştır ve Notification ikonunda aynı çözümü kullan. new Tray oluşturmayı try/catch ile sarmala.
+  const { nativeImage } = require('electron');
+  function resolveAssetPath(fileName) {
+    try {
+      const candidates = [
+        process.resourcesPath ? path.join(process.resourcesPath, fileName) : null,
+        path.join(__dirname, fileName),
+      ].filter(Boolean);
+      for (const p of candidates) {
+        if (fs.existsSync(p)) return p;
+      }
+      return path.join(__dirname, fileName);
+    } catch (e) {
+      return path.join(__dirname, fileName);
+    }
+  }
   
-  const trayIcon = nativeImage.createFromPath(iconPath);
-  tray = new Tray(trayIcon);
+  function getTrayNativeImage() {
+    const fileName = process.platform === 'win32' ? 'icon.ico' : 'icon-256x256.png';
+    const iconPath = resolveAssetPath(fileName);
+    let icon = nativeImage.createEmpty();
+    try {
+      const created = nativeImage.createFromPath(iconPath);
+      if (!created.isEmpty()) {
+        icon = created;
+      }
+    } catch (e) {
+      console.error('❌ Tray icon yükleme hatası:', e);
+    }
+    return icon;
+  }
+  try {
+    const trayIcon = getTrayNativeImage();
+    tray = new Tray(trayIcon);
   
-  const contextMenu = Menu.buildFromTemplate([
-    { 
-      label: 'Hatırlatıcınım', 
-      enabled: false,
-      icon: process.platform === 'win32' ? nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }) : null
-    },
-    { type: 'separator' },
-    { 
-      label: 'Göster', 
-      click: () => {
-        if (mainWindow) {
+    const contextMenu = Menu.buildFromTemplate([
+      { 
+        label: 'Hatırlatıcınım', 
+        enabled: false,
+        icon: process.platform === 'win32' ? getTrayNativeImage().resize({ width: 16, height: 16 }) : null
+      },
+      { type: 'separator' },
+      { 
+        label: 'Göster', 
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        } 
+      },
+      { type: 'separator' },
+      { 
+        label: 'Çıkış', 
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        } 
+      }
+    ]);
+  
+    tray.setToolTip('Hatırlatıcınım');
+    tray.setContextMenu(contextMenu);
+  
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
           mainWindow.show();
           mainWindow.focus();
         }
-      } 
-    },
-    { type: 'separator' },
-    { 
-      label: 'Çıkış', 
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      } 
-    }
-  ]);
-  
-  tray.setToolTip('Hatırlatıcınım');
-  tray.setContextMenu(contextMenu);
-  
-  tray.on('click', () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        mainWindow.hide();
-      } else {
-        mainWindow.show();
-        mainWindow.focus();
       }
-    }
-  });
+    });
+  } catch (e) {
+    console.error('❌ Tray oluşturma hatası:', e);
+  }
   
   // Ana pencereyi oluştur
   createWindow();
@@ -759,221 +789,86 @@ app.whenReady().then(() => {
       initializeTelegramBot();
     }, 5000); // 5 saniye sonra başlat
   }
-  
-  // Arka plan bildirimleri
-  startBackgroundNotifications();
 });
-
-// Tüm pencereler kapatıldığında
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+ipcMain.handle('show-notification', async (event, title, body) => {
+  try {
+    if (Notification && Notification.isSupported()) {
+      const notification = new Notification({
+        title,
+        body,
+        icon: resolveAssetPath(process.platform === 'win32' ? 'icon.ico' : 'icon-256x256.png')
+      });
+      notification.show();
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
   }
 });
-
-// macOS'ta dock'a tıklandığında
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  } else {
-    mainWindow.show();
+ipcMain.handle('app-version', () => {
+  return app.getVersion();
+});
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true, message: 'Update check started' };
+  } catch (error) {
+    return { success: false, message: error.message };
   }
 });
-
-// Uygulama kapanırken
-app.on('before-quit', () => {
-  isQuitting = true;
-  
-  // Arka plan bildirimlerini durdur
-  if (backgroundNotificationInterval) {
-    clearInterval(backgroundNotificationInterval);
-  }
-  
-  // Telegram bot'u durdur
-  if (telegramBot) {
-    try {
-      telegramBot.stopPolling();
-    } catch (error) {
-      console.error('❌ Telegram bot durdurma hatası:', error.message);
-    }
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true, message: 'Download started' };
+  } catch (error) {
+    return { success: false, message: error.message };
   }
 });
+ipcMain.handle('install-update', () => {
+  try {
+    autoUpdater.quitAndInstall();
+    return { success: true, message: 'Installing update...' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+ipcMain.handle('save-app-data', async (event, key, data) => {
+  try {
+    const appDataPath = getAppDataPath();
+    if (!fs.existsSync(appDataPath)) {
+      fs.mkdirSync(appDataPath, { recursive: true });
+    }
+    const fileName = key; // mevcut sürümde checks.json / medications.json / settings.json kullanılıyor
+    const filePath = path.join(appDataPath, `${fileName}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 
-// IPC olaylarını ayarla
-function setupIpcHandlers() {
-  // Veri klasörü yolunu al
-  ipcMain.handle('get-app-data-path', () => {
-    return getAppDataPath();
-  });
-  
-  // Dosya okuma
-  ipcMain.handle('read-file', async (event, filePath) => {
-    try {
-      const data = await fs.promises.readFile(filePath, 'utf8');
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
+    // Settings kaydedildiğinde Telegram bot'u yeniden başlat
+    if (key === 'settings') {
+      setTimeout(initializeTelegramBot, 1000);
     }
-  });
-  
-  // Dosya yazma
-  ipcMain.handle('write-file', async (event, filePath, data) => {
-    try {
-      await fs.promises.writeFile(filePath, data, 'utf8');
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
-  
-  // Dosya varlığını kontrol et
-  ipcMain.handle('check-file-exists', async (event, filePath) => {
-    try {
-      const exists = await fs.promises.access(filePath)
-        .then(() => true)
-        .catch(() => false);
-      return { success: true, exists };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
-  
-  // Klasör oluştur
-  ipcMain.handle('create-directory', async (event, dirPath) => {
-    try {
-      await fs.promises.mkdir(dirPath, { recursive: true });
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
-  
-  // Telegram bot'u yeniden başlat
-  ipcMain.handle('restart-telegram-bot', async () => {
-    try {
-      if (TelegramBot) {
-        initializeTelegramBot();
-        return { success: true };
-      } else {
-        return { 
-          success: false, 
-          error: 'Telegram Bot API yüklü değil. Uygulamayı yeniden başlatın veya node-telegram-bot-api paketini yükleyin.' 
-        };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
-  
-  // Telegram test mesajı gönder
-  ipcMain.handle('send-telegram-test', async (event, chatId) => {
-    try {
-      if (!telegramBot) {
-        return { 
-          success: false, 
-          error: 'Telegram bot başlatılmadı. Önce ayarlardan bot\'u etkinleştirin ve token girin.' 
-        };
-      }
-      
-      sendTestMessage(chatId);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
 
-  // Basit sistem bildirimi
-  ipcMain.handle('show-notification', async (event, title, body) => {
-    try {
-      if (Notification && Notification.isSupported()) {
-        const notification = new Notification({
-          title,
-          body,
-          icon: path.join(__dirname, 'icon.ico')
-        });
-        notification.show();
-      }
-      return { success: true };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  });
-
-  // Uygulama sürümü
-  ipcMain.handle('app-version', () => {
-    return app.getVersion();
-  });
-
-  // Güncelleme kontrolü
-  ipcMain.handle('check-for-updates', async () => {
-    try {
-      await autoUpdater.checkForUpdates();
-      return { success: true, message: 'Update check started' };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  });
-
-  // Güncellemeyi indir
-  ipcMain.handle('download-update', async () => {
-    try {
-      await autoUpdater.downloadUpdate();
-      return { success: true, message: 'Download started' };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  });
-
-  // Güncellemeyi kur
-  ipcMain.handle('install-update', () => {
-    try {
-      autoUpdater.quitAndInstall();
-      return { success: true, message: 'Installing update...' };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  });
-
-  // AppData dosya işlemleri - kaydet
-  ipcMain.handle('save-app-data', async (event, key, data) => {
-    try {
-      const appDataPath = getAppDataPath();
-      if (!fs.existsSync(appDataPath)) {
-        fs.mkdirSync(appDataPath, { recursive: true });
-      }
-      const fileName = key; // mevcut sürümde checks.json / medications.json / settings.json kullanılıyor
-      const filePath = path.join(appDataPath, `${fileName}.json`);
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-
-      // Settings kaydedildiğinde Telegram bot'u yeniden başlat
-      if (key === 'settings') {
-        setTimeout(initializeTelegramBot, 1000);
-      }
-
-      return true;
-    } catch (error) {
-      console.error('❌ AppData save error:', error);
-      return false;
-    }
-  });
-
-  // AppData dosya işlemleri - yükle
-  ipcMain.handle('load-app-data', async (event, key) => {
-    try {
-      const appDataPath = getAppDataPath();
-      const fileName = key;
-      const filePath = path.join(appDataPath, `${fileName}.json`);
-      if (!fs.existsSync(filePath)) {
-        return null;
-      }
-      const data = fs.readFileSync(filePath, 'utf8');
-      const parsedData = JSON.parse(data);
-      return parsedData;
-    } catch (error) {
-      console.error('❌ AppData load error:', error);
+    return true;
+  } catch (error) {
+    console.error('❌ AppData save error:', error);
+    return false;
+  }
+});
+ipcMain.handle('load-app-data', async (event, key) => {
+  try {
+    const appDataPath = getAppDataPath();
+    const fileName = key;
+    const filePath = path.join(appDataPath, `${fileName}.json`);
+    if (!fs.existsSync(filePath)) {
       return null;
     }
-  });
+    const data = fs.readFileSync(filePath, 'utf8');
+    const parsedData = JSON.parse(data);
+    return parsedData;
+  } catch (error) {
+    console.error('❌ AppData load error:', error);
+    return null;
+  }
+});
 }
 
 // Otomatik güncelleme
@@ -1416,5 +1311,4 @@ function createWindow() {
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('❌ Pencere yükleme hatası:', errorCode, errorDescription);
   });
-}
 }
