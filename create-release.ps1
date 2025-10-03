@@ -1,11 +1,15 @@
-# Değişiklikleri hazırlık alanına ekle
-git add .
+# Bu betik, yeni bir sürüm oluşturma sürecini otomatikleştirir.
 
-# Commit mesajı için tarih ve saat bilgisi al
-$commitMessage = "feat: Auto-release on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+# Hata durumunda betiği durdur
+$ErrorActionPreference = "Stop"
 
-# Değişiklikleri commit'le
-git commit -m $commitMessage
+# 1. Sürüm numarasını artır ve git etiketi oluştur
+Write-Host "Sürüm numarası artırılıyor ve git etiketi oluşturuluyor..."
+npm version patch
 
-# Değişiklikleri GitHub'a push'la ve otomatik sürüm oluşturmayı tetikle
-git push origin main
+# 2. Değişiklikleri ve etiketleri GitHub'a gönder
+Write-Host "Değişiklikler ve etiketler GitHub'a gönderiliyor..."
+git push origin main --tags
+
+Write-Host "Yeni sürüm oluşturma işlemi başarıyla tetiklendi!"
+Write-Host "GitHub Actions iş akışının durumunu 'Actions' sekmesinden kontrol edebilirsiniz."
