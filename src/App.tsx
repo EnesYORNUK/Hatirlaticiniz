@@ -433,36 +433,32 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      {/* Auth ekranını sadece Supabase yapılandırılmışsa ve kullanıcı henüz giriş yapmadıysa göster */}
-      {isAuthAvailable && !isAuthenticated ? (
+      {/* Auth durumu yüklenirken her zaman yükleme ekranı göster */}
+      {authLoading ? (
+        <div className="min-h-screen theme-bg flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+            <p className="theme-text text-sm">Yükleniyor...</p>
+          </div>
+        </div>
+      ) : isAuthAvailable && !isAuthenticated ? (
         <div className="min-h-screen theme-bg">
-          {authLoading ? (
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="flex flex-col items-center gap-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-                <p className="theme-text text-sm">Yüklüyor...</p>
-              </div>
-            </div>
+          {authView === 'login' ? (
+            <Login
+              onLogin={handleLogin}
+              onSwitchToRegister={() => switchAuthView('register')}
+              isLoading={false} // authLoading zaten bitti
+              error={authError}
+              isAuthAvailable={isAuthAvailable}
+            />
           ) : (
-            <div>
-              {authView === 'login' ? (
-                <Login
-                  onLogin={handleLogin}
-                  onSwitchToRegister={() => switchAuthView('register')}
-                  isLoading={authLoading}
-                  error={authError}
-                  isAuthAvailable={isAuthAvailable}
-                />
-              ) : (
-                <Register
-                  onRegister={handleRegister}
-                  onSwitchToLogin={() => switchAuthView('login')}
-                  isLoading={authLoading}
-                  error={authError}
-                  isAuthAvailable={isAuthAvailable}
-                />
-              )}
-            </div>
+            <Register
+              onRegister={handleRegister}
+              onSwitchToLogin={() => switchAuthView('login')}
+              isLoading={false} // authLoading zaten bitti
+              error={authError}
+              isAuthAvailable={isAuthAvailable}
+            />
           )}
         </div>
       ) : (
