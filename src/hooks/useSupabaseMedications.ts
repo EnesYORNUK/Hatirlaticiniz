@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase'; // Import supabase client
+import { supabase, initializeSupabase } from '../lib/supabase'; // Import supabase client
 import { useAuth } from './useAuth';
 import { Medication, MedicationLog, MedicationScheduleItem } from '../types/medication';
 import { Database } from '../types/supabase-mcp';
@@ -50,6 +50,10 @@ export const useSupabaseMedications = () => {
   const [medicationLogs, setMedicationLogs] = useState<MedicationLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [medicationsError, setMedicationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    initializeSupabase();
+  }, []);
 
   const fetchMedications = useCallback(async () => {
     if (!isAuthenticated || !user || !supabase) return;

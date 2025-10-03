@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check } from '../types';
-import { supabase, SupabaseUpdate } from '../lib/supabase';
+import { supabase, SupabaseUpdate, initializeSupabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
 export function useSupabaseChecks() {
@@ -8,6 +8,10 @@ export function useSupabaseChecks() {
   const [checks, setChecks] = useState<Check[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    initializeSupabase();
+  }, []);
 
   // Convert Supabase row to Check type
   const convertRowToCheck = useCallback((row: Record<string, unknown>): Check => ({

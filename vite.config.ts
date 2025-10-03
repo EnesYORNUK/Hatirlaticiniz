@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     base: './',
     build: {
+      target: 'esnext', // Top-level await desteği için
       outDir: 'dist',
       assetsDir: 'assets'
     },

@@ -2,6 +2,7 @@
 
 interface Window {
   electronAPI: {
+    getSupabaseConfig: () => Promise<{ supabaseUrl: string; supabaseAnonKey: string; }>;
     showNotification: (title: string, body: string) => Promise<void>;
     checkForUpdates: () => Promise<{ success: boolean; message: string; }>;
     downloadUpdate: () => Promise<{ success: boolean; message: string; }>;

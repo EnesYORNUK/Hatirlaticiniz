@@ -1,7 +1,8 @@
-import { supabase } from '../lib/supabase';
+import { supabase, initializeSupabase } from '../lib/supabase';
 
 export const deleteUserAccount = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
+    await initializeSupabase(); // Ensure Supabase is initialized
     // Guard: Supabase offline/null ise işlemi iptal et
     if (!supabase) {
       return { success: false, error: 'Veri servisi kullanılamıyor' };

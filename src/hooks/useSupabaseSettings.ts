@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { supabase, SupabaseUpdate } from '../lib/supabase';
+import { supabase, initializeSupabase, SupabaseUpdate } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
 const defaultSettings: SettingsType = {
@@ -23,8 +23,12 @@ const defaultSettings: SettingsType = {
 export function useSupabaseSettings() {
   const { user, isAuthenticated } = useAuth();
   const [settings, setSettings] = useState<SettingsType>(defaultSettings);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    initializeSupabase();
+  }, []);
 
   // Convert Supabase row to Settings type
   const convertRowToSettings = useCallback((row: Record<string, unknown>): SettingsType => ({

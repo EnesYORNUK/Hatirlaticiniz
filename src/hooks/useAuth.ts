@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, AuthState, LoginData, RegisterData } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, initializeSupabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Convert Supabase user to our User type
@@ -22,6 +22,7 @@ export const useAuth = () => {
   useEffect(() => {
     const checkAuthState = async () => {
       try {
+        await initializeSupabase();
         console.log('🔍 Checking auth state...');
         
         // If Supabase is not initialized, skip auth check

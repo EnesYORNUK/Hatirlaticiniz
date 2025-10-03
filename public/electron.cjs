@@ -15,6 +15,7 @@ try {
   console.warn('📱 Telegram bot özellikleri devre dışı olacak');
 }
 
+// Expose Supabase config to the renderer process
 ipcMain.handle('get-supabase-config', () => {
   return {
     supabaseUrl: process.env.VITE_SUPABASE_URL,

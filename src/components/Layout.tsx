@@ -1,74 +1,63 @@
 import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { LayoutGrid, Plus, Settings, List, Pill, Calendar, PlusCircle, LogOut, User, UserCircle } from 'lucide-react';
-import { User as UserType, Settings as SettingsType, Medication } from '../types';
-import { supabase } from '../lib/supabase';
+import { LayoutGrid, Plus, Settings, Pill, Calendar, PlusCircle, LogOut, User, UserCircle } from 'lucide-react';
+import { User as UserType } from '../types';
 
 interface LayoutProps {
   children?: React.ReactNode; // Outlet will handle rendering, but keep for flexibility
-  settings: SettingsType;
   onLogout?: () => void;
   user?: UserType | null; // Add user to props
-  showMedicationsInDashboard: boolean;
-  medications: Medication[];
-  medicationSchedule: any[]; // Replace with a proper type
-  onMarkTaken: (medicationId: string, time: string) => void;
 }
 
 export default function Layout({ 
-  settings, 
   onLogout, 
   user, // Get user from props
-  showMedicationsInDashboard, 
-  medications, 
-  medicationSchedule, 
-  onMarkTaken 
 }: LayoutProps) {
   const location = useLocation();
 
   const menuItems = [
-    { 
-      id: '/', 
-      label: 'Anasayfa', 
-      icon: LayoutGrid,
-      description: 'Tüm çek ve faturaları görüntüle'
-    },
-    { 
-      id: '/schedule', 
-      label: 'Günlük Program', 
-      icon: Calendar,
-      description: 'Bugünün ilaç ve ödeme programı'
-    },
-    { 
-      id: '/medications', 
-      label: 'İlaçlarım', 
-      icon: Pill,
-      description: 'İlaç takip sistemi'
-    },
-    { 
-      id: '/add', 
-      label: 'Yeni Ödeme', 
-      icon: Plus,
-      description: 'Çek veya fatura ekle'
-    },
-    { 
-      id: '/medications/add', 
-      label: 'Yeni İlaç', 
-      icon: PlusCircle,
-      description: 'İlaç ekle ve program oluştur'
-    },
-    { 
-      id: '/profile', 
-      label: 'Profil', 
-      icon: UserCircle,
-      description: 'Hesap ayarları ve profil yönetimi'
-    },
-    { 
-      id: '/settings', 
-      label: 'Ayarlar', 
-      icon: Settings,
-      description: 'Uygulama ayarları'
-    },
+    {
+        id: '/',
+        label: 'Anasayfa',
+        icon: LayoutGrid,
+        description: 'Tüm çek ve faturaları görüntüle'
+      },
+      {
+        id: '/schedule',
+        label: 'Günlük Program',
+        icon: Calendar,
+        description: 'Bugünün ilaç ve ödeme programı'
+      },
+      {
+        id: '/medications',
+        label: 'İlaçlarım',
+        icon: Pill,
+        description: 'İlaç takip sistemi'
+      },
+      {
+        id: '/add',
+        label: 'Yeni Ödeme',
+        icon: Plus,
+        description: 'Çek veya fatura ekle'
+      },
+      {
+        id: '/medications/add',
+        label: 'Yeni İlaç',
+        icon: PlusCircle,
+        description: 'İlaç ekle ve program oluştur'
+      },
+      {
+        id: '/profile',
+        label: 'Profil',
+        icon: UserCircle,
+        description: 'Hesap ayarları ve profil yönetimi'
+      },
+      {
+        id: '/settings',
+        label: 'Ayarlar',
+        icon: Settings,
+        description: 'Uygulama ayarları'
+      },
   ];
 
   return (

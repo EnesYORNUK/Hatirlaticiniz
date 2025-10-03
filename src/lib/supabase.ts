@@ -1,5 +1,3 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
 // Supabase Database Types
 export interface Database {
   public: {
@@ -235,50 +233,35 @@ export interface Database {
   }
 }
 
-// Asynchronously initialize Supabase client
-async function initializeSupabase(): Promise<SupabaseClient<Database> | null> {
-  // In Electron, get config from the main process via IPC.
-  if (window.electronAPI) {
-    const { supabaseUrl, supabaseAnonKey } = await window.electronAPI.getSupabaseConfig();
 
-    console.log('🔍 Supabase config from main process:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseAnonKey,
-      url: supabaseUrl?.substring(0, 30) + '...'
-    });
 
-    if (supabaseUrl && supabaseAnonKey) {
-      // Custom storage adapter for Electron
-      const electronStore = {
-        getItem: async (key: string) => {
-          return window.electronAPI?.getSession(key);
-        },
-        setItem: async (key: string, value: string) => {
-          window.electronAPI?.setSession(key, value);
-        },
-        removeItem: async (key: string) => {
-          window.electronAPI?.deleteSession(key);
-        },
-      };
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-      return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: false,
-          storage: electronStore,
-        }
-      });
-    }
+let supabase: SupabaseClient | null = null;
+
+async function initializeSupabase() {
+  if (supabase) {
+    return supabase;
   }
 
-  // If not in Electron or if config is missing, warn and return null.
-  console.warn('⚠️ Supabase configuration not found. Running in offline mode.');
-  return null;
+  try {
+    const config = await window.electronAPI.getSupabaseConfig();
+    if (config && config.supabaseUrl && config.supabaseAnonKey) {
+      supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+    } else {
+      console.error('Supabase configuration is missing.');
+    }
+  } catch (error) {
+    console.error('Error initializing Supabase:', error);
+  }
+
+  return supabase;
 }
 
-// Initialize the client and export it. This makes the module asynchronous.
-export const supabase = await initializeSupabase();
+// Initialize Supabase asynchronously
+initializeSupabase();
+
+export { supabase, initializeSupabase };
 
 // Type exports for better type safety
 export type SupabaseTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]
