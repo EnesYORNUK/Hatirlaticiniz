@@ -340,3 +340,5 @@ Yeni Issue: Sorununuzu GitHub'da rapor edin
 ⚡ Hatırlatıcınız ile çek ödemelerinizi ve ilaç alım zamanlarınızı asla unutmayın!
 
 -Bu README dosyası uygulamanızın tüm özelliklerini kapsamlı bir şekilde açıklıyor. İsterseniz bazı bölümleri güncelleyebilir veya eksik gördüğünüz kısımları ekleyebiliriz.-
+
+<!-- release trigger -->
