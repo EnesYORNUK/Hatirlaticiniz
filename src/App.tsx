@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import CheckList from './components/CheckList';
 import CheckForm from './components/CheckForm';
@@ -46,11 +47,11 @@ const defaultSettings: SettingsType = {
 export default function App() {
   // Authentication state
   const { user, isAuthenticated, isLoading: authLoading, login, register, logout } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState<string>('');
-  const isAuthAvailable = !!supabase;
   
-  const [currentPage, setCurrentPage] = useState('list');
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   
@@ -104,6 +105,8 @@ export default function App() {
     const result = await login(loginData);
     if (!result.success) {
       setAuthError(result.error || 'Giriş yapılamadı');
+    } else {
+      navigate('/');
     }
   };
 
@@ -112,13 +115,15 @@ export default function App() {
     const result = await register(registerData);
     if (!result.success) {
       setAuthError(result.error || 'Kayıt olunamadı');
+    } else {
+      navigate('/');
     }
   };
 
   const handleLogout = async () => {
     if (window.confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
       await logout();
-      setCurrentPage('list');
+      navigate('/login');
     }
   };
 
@@ -135,6 +140,7 @@ export default function App() {
       const result = await deleteUserAccount(user.id);
       if (result.success) {
         alert('Hesabınız başarıyla silindi.');
+        navigate('/login');
         // User will be automatically logged out by the deleteUserAccount function
       } else {
         throw new Error(result.error || 'Hesap silinirken bir hata oluştu');
@@ -147,8 +153,8 @@ export default function App() {
 
   // Clear auth error when switching views
   const switchAuthView = (view: 'login' | 'register') => {
-    setAuthView(view);
     setAuthError('');
+    navigate(view === 'login' ? '/login' : '/register');
   };
 
   // Debug function to clear localStorage
@@ -198,288 +204,257 @@ export default function App() {
 
   const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (isAuthenticated && user) {
-      // Use Supabase
-      const success = await addSupabaseCheck(checkData);
-      if (success) {
-        setCurrentPage('list');
-      }
+      await addSupabaseCheck({ ...checkData, user_id: user.id });
     } else {
-      // Fallback to localStorage
+      // Fallback for non-authenticated users (if needed)
       const newCheck: Check = {
         ...checkData,
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
+        paid: false,
+        isRecurring: false,
       };
-      
-      await setRawChecks([...activeChecks, newCheck]);
-      setCurrentPage('list');
+      await setRawChecks([newCheck, ...activeChecks]);
     }
+    navigate('/');
   };
 
-  const handleEditCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
-    if (!editingCheck) return;
-    
-    if (isAuthenticated && user) {
-      // Use Supabase
-      const success = await updateSupabaseCheck(editingCheck.id, checkData);
-      if (success) {
-        setEditingCheck(null);
-        setCurrentPage('list');
-      }
+  const handleUpdateCheck = async (updatedCheck: Check) => {
+    if (isAuthenticated) {
+      await updateSupabaseCheck(updatedCheck);
     } else {
-      // Fallback to localStorage
-      const updatedCheck: Check = {
-        ...checkData,
-        id: editingCheck.id,
-        createdAt: editingCheck.createdAt,
-      };
-      
-      const updatedChecks = activeChecks.map(check => 
-        check.id === editingCheck.id ? updatedCheck : check
+      await setRawChecks(
+        activeChecks.map((c) => (c.id === updatedCheck.id ? updatedCheck : c))
       );
-      
-      await setRawChecks(updatedChecks);
-      setEditingCheck(null);
-      setCurrentPage('list');
     }
+    setEditingCheck(null);
+    navigate('/');
   };
 
   const handleDeleteCheck = async (id: string) => {
-    if (isAuthenticated && user) {
-      // Use Supabase
-      await deleteSupabaseCheck(id);
-    } else {
-      // Fallback to localStorage
-      const updatedChecks = activeChecks.filter(check => check.id !== id);
-      await setRawChecks(updatedChecks);
+    if (window.confirm('Bu kontrolü silmek istediğinizden emin misiniz?')) {
+      if (isAuthenticated) {
+        await deleteSupabaseCheck(id);
+      } else {
+        await setRawChecks(activeChecks.filter((c) => c.id !== id));
+      }
     }
   };
 
   const handleTogglePaid = async (id: string) => {
-    if (isAuthenticated && user) {
-      // Use Supabase
+    if (isAuthenticated) {
       await toggleSupabasePaid(id);
     } else {
-      // Fallback to localStorage
-      const updatedChecks = activeChecks.map(check =>
-        check.id === id ? { ...check, isPaid: !check.isPaid } : check
+      await setRawChecks(
+        activeChecks.map((c) => (c.id === id ? { ...c, paid: !c.paid } : c))
       );
-      await setRawChecks(updatedChecks);
     }
   };
 
-  const handleEditCheckClick = (check: Check) => {
+  const handleEditCheck = (check: Check) => {
     setEditingCheck(check);
-    setCurrentPage('add');
+    navigate(`/edit/${check.id}`);
   };
 
-  // İlaç işlemleri - already using Supabase through useSupabaseMedications
-  const handleAddMedication = async (medicationData: Omit<Medication, 'id' | 'userId' | 'createdBy' | 'createdAt'>) => {
-    const newMedication = await addMedication(medicationData as never);
-    if (newMedication) {
-      setCurrentPage('medications');
+  const handleUpdateSettings = async (newSettings: Partial<SettingsType>) => {
+    if (isAuthenticated) {
+      await updateSupabaseSettings(newSettings);
+    } else {
+      // Fallback to localStorage
+      setFallbackSettings({ ...activeSettings, ...newSettings });
     }
+    alert('Ayarlar kaydedildi!');
+    navigate('/');
   };
 
-  const handleEditMedication = async (medicationData: Omit<Medication, 'id' | 'userId' | 'createdBy' | 'createdAt'>) => {
-    if (!editingMedication) return;
-    await updateMedication(editingMedication.id, medicationData as never);
+  // 💊 Hap sistemi fonksiyonları
+  const handleAddMedication = async (medication: Omit<Medication, 'id' | 'user_id'>) => {
+    await addMedication(medication);
+    navigate('/medications');
+  };
+
+  const handleUpdateMedication = async (medication: Medication) => {
+    await updateMedication(medication);
     setEditingMedication(null);
-    setCurrentPage('medications');
+    navigate('/medications');
+  };
+
+  const handleEditMedication = (medication: Medication) => {
+    setEditingMedication(medication);
+    navigate(`/medications/edit/${medication.id}`);
   };
 
   const handleDeleteMedication = async (id: string) => {
-    if (window.confirm('Bu hapı silmek istediğinizden emin misiniz?')) {
+    if (window.confirm('Bu ilacı silmek istediğinizden emin misiniz?')) {
       await deleteMedication(id);
     }
   };
 
-  const handleToggleMedicationActive = async (id: string, isActive: boolean) => {
-    await updateMedication(id, { isActive });
+  const handleMarkMedicationTaken = async (medicationId: string, time: string) => {
+    await markMedicationTaken(medicationId, time);
   };
 
-  const handleEditMedicationClick = (medication: Medication) => {
-    setEditingMedication(medication);
-    setCurrentPage('add-medication');
-  };
-
-  const handleSaveSettings = async (newSettings: SettingsType) => {
-    if (isAuthenticated && user) {
-      // Use Supabase
-      await updateSupabaseSettings(newSettings);
-    } else {
-      // Fallback to localStorage
-      await setFallbackSettings(newSettings);
-    }
-  };
-
-  const handleExportData = () => {
-    const data = {
-      checks: activeChecks,
-      settings: activeSettings,
-      exportDate: new Date().toISOString(),
-      version: '1.0'
-    };
-    
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `hatirlaticiniz-backup-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-        
-        if (data.checks) {
-          setFallbackChecks(data.checks);
-        }
-        if (data.settings) {
-          setFallbackSettings(data.settings);
-        }
-        
-        alert('Veriler başarıyla içe aktarıldı!');
-      } catch {
-        alert('Dosya formatı hatalı!');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'add':
-        return (
-          <CheckForm
-            onSave={editingCheck ? handleEditCheck : handleAddCheck}
-            onCancel={() => {
-              setEditingCheck(null);
-              setCurrentPage('list');
-            }}
-            initialData={editingCheck || undefined}
-          />
-        );
-      case 'add-medication':
-        return (
-          <MedicationForm
-            onSave={editingMedication ? handleEditMedication : handleAddMedication}
-            onCancel={() => {
-              setEditingMedication(null);
-              setCurrentPage('medications');
-            }}
-            initialData={editingMedication || undefined}
-          />
-        );
-      case 'medications':
-        return (
-          <MedicationList
-            medications={medications}
-            onEdit={handleEditMedicationClick}
-            onDelete={handleDeleteMedication}
-            onToggleActive={handleToggleMedicationActive}
-          />
-        );
-      case 'daily-schedule':
-        return medicationsLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-          </div>
-        ) : (
-          <DailySchedule
-            medicationSchedule={medicationSchedule}
-            onMarkMedicationTaken={markMedicationTaken}
-          />
-        );
-      case 'settings':
-        return (
-          <Settings
-            settings={activeSettings}
-            onSave={handleSaveSettings}
-            onExportData={handleExportData}
-            onImportData={handleImportData}
-          />
-        );
-      case 'profile':
-        return (
-          <Profile
-            user={user}
-            onLogout={handleLogout}
-            onDeleteAccount={handleDeleteAccount}
-          />
-        );
-      case 'list':
-      default:
-        return (
-          <CheckList
-            checks={activeChecks}
-            onEdit={handleEditCheckClick}
-            onDelete={handleDeleteCheck}
-            onTogglePaid={handleTogglePaid}
-          />
-        );
-    }
-  };
-
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen">Yükleniyor...</div>;
+  }
+  
   return (
     <ErrorBoundary>
-      {/* Auth durumu yüklenirken her zaman yükleme ekranı göster */}
-      {authLoading ? (
-        <div className="min-h-screen theme-bg flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-            <p className="theme-text text-sm">Yükleniyor...</p>
-          </div>
-        </div>
-      ) : isAuthAvailable && !isAuthenticated ? (
-        <div className="min-h-screen theme-bg">
-          {authView === 'login' ? (
-            <Login
-              onLogin={handleLogin}
-              onSwitchToRegister={() => switchAuthView('register')}
-              isLoading={false} // authLoading zaten bitti
-              error={authError}
-              isAuthAvailable={isAuthAvailable}
-            />
-          ) : (
-            <Register
-              onRegister={handleRegister}
-              onSwitchToLogin={() => switchAuthView('login')}
-              isLoading={false} // authLoading zaten bitti
-              error={authError}
-              isAuthAvailable={isAuthAvailable}
-            />
-          )}
-        </div>
-      ) : (
-        /* Supabase yoksa veya kullanıcı giriş yaptıysa ana uygulamayı göster (offline mod desteklenir) */
-        <>
-          {/* Migration Prompt */}
-          <MigrationPrompt 
-            migrationStatus={migrationStatus}
-            onRunMigration={runMigration}
-            onSkipMigration={skipMigration}
-          />
-          
-          <Layout 
-            currentPage={currentPage} 
-            onNavigate={setCurrentPage}
-            user={user}
-            onLogout={handleLogout}
+      <Routes>
+        {isAuthenticated ? (
+          <Route 
+            path="/" 
+            element={
+              <Layout 
+                user={user}
+                settings={activeSettings} 
+                onLogout={handleLogout}
+                showMedicationsInDashboard={activeSettings.showMedicationsInDashboard}
+                medications={medications}
+                medicationSchedule={medicationSchedule}
+                onMarkTaken={handleMarkMedicationTaken}
+              />
+            }
           >
-            {renderPage()}
-          </Layout>
-        </>
+            <Route 
+              index 
+              element={
+                <CheckList
+                  checks={activeChecks}
+                  onEdit={handleEditCheck}
+                  onDelete={handleDeleteCheck}
+                  onTogglePaid={handleTogglePaid}
+                  onAdd={() => navigate('/add')}
+                />
+              } 
+            />
+            <Route 
+              path="add" 
+              element={
+                <CheckForm
+                  onAddCheck={handleAddCheck}
+                  onCancel={() => navigate('/')}
+                />
+              } 
+            />
+            <Route 
+              path="edit/:id" 
+              element={
+                editingCheck ? (
+                  <CheckForm
+                    onAddCheck={handleUpdateCheck}
+                    onCancel={() => {
+                      setEditingCheck(null);
+                      navigate('/');
+                    }}
+                    editingCheck={editingCheck}
+                  />
+                ) : (
+                  <Navigate to="/" />
+                )
+              } 
+            />
+            <Route 
+              path="settings" 
+              element={
+                <Settings
+                  settings={activeSettings}
+                  onSave={handleUpdateSettings}
+                  onCancel={() => navigate('/')}
+                />
+              } 
+            />
+            <Route 
+              path="profile" 
+              element={
+                <Profile 
+                  user={user} 
+                  onLogout={handleLogout} 
+                  onDeleteAccount={handleDeleteAccount} 
+                />
+              } 
+            />
+            <Route path="medications">
+              <Route 
+                index 
+                element={
+                  <MedicationList
+                    medications={medications}
+                    onEdit={handleEditMedication}
+                    onDelete={handleDeleteMedication}
+                    onAdd={() => navigate('/medications/add')}
+                    isLoading={medicationsLoading}
+                  />
+                }
+              />
+              <Route 
+                path="add" 
+                element={
+                  <MedicationForm
+                    onSave={handleAddMedication}
+                    onCancel={() => navigate('/medications')}
+                  />
+                }
+              />
+              <Route 
+                path="edit/:id" 
+                element={
+                  editingMedication ? (
+                    <MedicationForm
+                      onSave={handleUpdateMedication}
+                      onCancel={() => {
+                        setEditingMedication(null);
+                        navigate('/medications');
+                      }}
+                      editingMedication={editingMedication}
+                    />
+                  ) : (
+                    <Navigate to="/medications" />
+                  )
+                }
+              />
+            </Route>
+            <Route 
+              path="schedule" 
+              element={
+                <DailySchedule 
+                  schedule={medicationSchedule} 
+                  onMarkTaken={handleMarkMedicationTaken} 
+                />
+              } 
+            />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Route>
+        ) : (
+          <>
+            <Route 
+              path="/login" 
+              element={
+                <Login 
+                  onLogin={handleLogin} 
+                  onSwitchToRegister={() => navigate('/register')} 
+                  error={authError} 
+                  isLoading={authLoading}
+                />
+              } 
+            />
+            <Route 
+              path="/register" 
+              element={
+                <Register 
+                  onRegister={handleRegister} 
+                  onSwitchToLogin={() => navigate('/login')} 
+                  error={authError} 
+                  isLoading={authLoading}
+                />
+              } 
+            />
+            <Route path="*" element={<Navigate to="/login" />} />
+          </>
+        )}
+      </Routes>
+      {migrationStatus === 'pending' && (
+        <MigrationPrompt onMigrate={runMigration} onSkip={skipMigration} />
       )}
     </ErrorBoundary>
   );

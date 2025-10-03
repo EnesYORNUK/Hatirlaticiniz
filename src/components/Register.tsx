@@ -5,12 +5,11 @@ import { RegisterData } from '../types';
 interface RegisterProps {
   onRegister: (data: RegisterData) => Promise<void> | void;
   onSwitchToLogin: () => void;
+  error: string | null;
   isLoading: boolean;
-  error?: string;
-  isAuthAvailable?: boolean;
 }
 
-const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoading, error, isAuthAvailable = true }) => {
+export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, error, isLoading }) => {
   const [formData, setFormData] = useState<RegisterData>({
     email: '',
     password: '',
@@ -85,14 +84,6 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
 
         {/* Kayıt formu */}
         <div className="theme-surface rounded-2xl shadow-XL border theme-border p-8">
-          {isAuthAvailable ? null : (
-            <div className="flex items-center gap-3 text-amber-700 bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">
-                Kimlik doğrulama servisi yapılandırılmamış. Lütfen uygulamayı güncelleyip tekrar deneyin.
-              </span>
-            </div>
-          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Genel hata mesajı */}
             {error && (
@@ -115,7 +106,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   value={formData.fullName}
                   onChange={(e) => handleChange('fullName', e.target.value)}
                   placeholder="Ad Soyad"
-                  disabled={isLoading || !isAuthAvailable}
+                  disabled={isLoading}
                   className="flex-1 theme-input"
                   required
                 />
@@ -138,7 +129,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="ornek@eposta.com"
-                  disabled={isLoading || !isAuthAvailable}
+                  disabled={isLoading}
                   className="flex-1 theme-input"
                   required
                 />
@@ -162,7 +153,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                     value={formData.password}
                     onChange={(e) => handleChange('password', e.target.value)}
                     placeholder="••••••••"
-                    disabled={isLoading || !isAuthAvailable}
+                    disabled={isLoading}
                     className="w-full theme-input pr-10"
                     required
                   />
@@ -170,7 +161,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading || !isAuthAvailable}
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -195,7 +186,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                     value={formData.confirmPassword}
                     onChange={(e) => handleChange('confirmPassword', e.target.value)}
                     placeholder="••••••••"
-                    disabled={isLoading || !isAuthAvailable}
+                    disabled={isLoading}
                     className="w-full theme-input pr-10"
                     required
                   />
@@ -203,7 +194,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading || !isAuthAvailable}
+                    disabled={isLoading}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -216,7 +207,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin, isLoad
             {/* Kayıt ol butonu */}
             <button
               type="submit"
-              disabled={isLoading || !isAuthAvailable}
+              disabled={isLoading}
               className="w-full theme-primary text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (

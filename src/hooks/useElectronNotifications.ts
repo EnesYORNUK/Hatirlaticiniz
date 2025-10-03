@@ -7,7 +7,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
   
   // İlaç hook'u - use Supabase version
-  const { getTodaySchedule, medications } = useSupabaseMedications();
+  const { getDailySchedule, medications } = useSupabaseMedications();
 
   // Bildirim geçmişini localStorage'dan yükle/kaydet
   const getNotificationHistory = useCallback((): NotificationHistory[] => {
@@ -152,11 +152,11 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
     
     const now = new Date();
     const reminderMinutes = settings.medicationReminderMinutes || 30;
-    const todaySchedule = getTodaySchedule();
+    const todaySchedule = getDailySchedule();
     
     todaySchedule.forEach(item => {
-      // Zaten alınmış ilaçları hatırlatma
-      if (item.status === 'taken') return;
+      // Zaten alınmış veya zamanlanmamış ilaçları atla
+      if (item.status === 'taken' || !item.scheduledTime) return;
       
       // Planlanan zamanı hesapla
       const [hours, minutes] = item.scheduledTime.split(':').map(Number);
@@ -199,7 +199,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
         );
       }
     });
-  }, [settings.medicationNotificationsEnabled, settings.medicationReminderMinutes, getTodaySchedule, medications, sendNotificationWithHistory]);
+  }, [settings.medicationNotificationsEnabled, settings.medicationReminderMinutes, getDailySchedule, medications, sendNotificationWithHistory]);
 
   // Günlük özet bildirimi
   const sendDailySummary = useCallback(() => {
@@ -210,7 +210,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
       check.paymentDate === today && !check.isPaid
     );
     
-    const todayMedications = getTodaySchedule().filter(item => item.status !== 'taken');
+    const todayMedications = getDailySchedule().filter(item => item.status !== 'taken');
     
     if (todayChecks.length > 0 || todayMedications.length > 0) {
       let message = '📋 Günlük Özet:\n';
@@ -230,7 +230,7 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
         message
       );
     }
-  }, [checks, getTodaySchedule, sendNotificationWithHistory]);
+  }, [checks, getDailySchedule, sendNotificationWithHistory]);
 
   // Ana kontrol fonksiyonu
   const runNotificationChecks = useCallback(() => {

@@ -5,12 +5,11 @@ import { LoginData } from '../types';
 interface LoginProps {
   onLogin: (data: LoginData) => Promise<void> | void;
   onSwitchToRegister: () => void;
+  error: string | null;
   isLoading: boolean;
-  error?: string;
-  isAuthAvailable?: boolean;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, error, isAuthAvailable = true }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, error, isLoading }) => {
   const [formData, setFormData] = useState<LoginData>({
     email: 'demo@hatirlaticiniz.com', // Demo için pre-fill
     password: 'demo123' // Demo için pre-fill
@@ -56,14 +55,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
 
         {/* Giriş formu */}
         <div className="theme-surface rounded-2xl shadow-xl border theme-border p-8">
-          {isAuthAvailable ? null : (
-            <div className="flex items-center gap-3 text-amber-700 bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">
-                Kimlik doğrulama servisi yapılandırılmamış. Lütfen uygulamayı güncelleyip tekrar deneyin.
-              </span>
-            </div>
-          )}
           <form onSubmit={handleFormSubmit} className="space-y-6">
             {/* Genel hata mesajı */}
             {error && (
@@ -86,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="ornek@eposta.com"
-                  disabled={isLoading || !isAuthAvailable}
+                  disabled={isLoading}
                   className="flex-1 theme-input"
                   required
                 />
@@ -111,7 +102,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="••••••••"
-                    disabled={isLoading || !isAuthAvailable}
+                    disabled={isLoading}
                     className="w-full theme-input pr-10"
                     required
                   />
@@ -119,7 +110,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading || !isAuthAvailable}
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -127,22 +118,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
               </div>
             </div>
             {/* Giriş yap butonu */}
-            <button
-              type="submit"
-              disabled={isLoading || !isAuthAvailable}
-              className="w-full theme-primary text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            <button 
+              type="submit" 
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+              disabled={isLoading}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  <span>Giriş yapılıyor...</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <LogIn className="w-5 h-5" />
-                  <span>Giriş Yap</span>
-                </div>
-              )}
+              {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </button>
             {/* Kayıt ol linki */}
             <div className="mt-8 text-center">
@@ -157,7 +138,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, isLoading, e
               <div className="mt-6">
                 <button
                   onClick={onSwitchToRegister}
-                  disabled={isLoading || !isAuthAvailable}
+                  disabled={isLoading}
                   className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors disabled:opacity-50"
                 >
                   Henüz hesabınız yok mu? <span className="underline">Kayıt olun</span>

@@ -62,7 +62,7 @@ export const useSupabaseMedications = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      setMedications(data.map(fromMedicationRow));
+      setMedications(data || []);
     } catch (err: any) {
       setMedicationsError(err.message);
       console.error("Error loading medications:", err);
@@ -284,54 +284,63 @@ export const useSupabaseMedications = () => {
     loadMedicationLogs();
   };
 
-  const getDailySchedule = useCallback((date: Date): MedicationScheduleItem[] => {
-    const schedule: MedicationScheduleItem[] = [];
-    const dayOfWeek = date.getDay(); // 0 = Pazar, 1 = Pazartesi, ...
-    const dayOfMonth = date.getDate();
-    const dateString = date.toISOString().split('T')[0];
-
-    medications.forEach(med => {
-      if (!med.isActive) return;
-
-      const startDate = new Date(med.startDate);
-      const endDate = med.endDate ? new Date(med.endDate) : null;
-
-      if (startDate > date) return;
-      if (endDate && endDate < date) return;
-
-      let shouldBeTaken = false;
-      if (med.frequency === 'daily') {
-        shouldBeTaken = true;
-      } else if (med.frequency === 'weekly') {
-        // Adjust for Supabase (1=Pazartesi, 7=Pazar) vs JS (0=Pazar, 1=Pazartesi)
-        const jsDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-        if (med.weekDay === jsDayOfWeek) {
-          shouldBeTaken = true;
-        }
-      } else if (med.frequency === 'monthly') {
-        if (med.monthDay === dayOfMonth) {
-          shouldBeTaken = true;
-        }
+  const getDailySchedule = useCallback(
+    (date: Date = new Date()): MedicationScheduleItem[] => {
+      if (isLoading || medicationsError) {
+        return [];
       }
+      const schedule: MedicationScheduleItem[] = [];
+      const dayOfWeek = date.getDay(); // 0 = Pazar, 1 = Pazartesi, ...
+      const dayOfMonth = date.getDate();
+      const dateString = date.toISOString().split('T')[0];
 
-      if (shouldBeTaken) {
-        const log = medicationLogs.find(l => 
-          l.medicationId === med.id && 
-          l.scheduledTime === med.time &&
-          new Date(l.takenAt).toISOString().split('T')[0] === dateString
-        );
+      medications.forEach(med => {
+        if (!med.isActive) return;
 
-        schedule.push({
-          medication: med,
-          scheduledTime: med.time,
-          status: log ? log.status : 'pending',
-          log: log,
-        });
-      }
-    });
+        const startDate = new Date(med.startDate);
+        const endDate = med.endDate ? new Date(med.endDate) : null;
 
-    return schedule.sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
-  }, [medications, medicationLogs]);
+        // Tarih kontrolü
+        const checkDate = new Date(date); // Gelen tarihi kopyala
+        checkDate.setHours(0, 0, 0, 0); // Saati sıfırla
+
+        if (startDate > checkDate) return;
+        if (endDate && endDate < checkDate) return;
+
+
+        let shouldBeTaken = false;
+        if (med.frequency === 'daily') {
+          shouldBeTaken = true;
+        } else if (med.frequency === 'weekly') {
+          // JS: Pazar=0, Pzt=1.. Cmt=6 | Supabase: Pzt=1.. Pazar=7
+          const jsDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+          if (med.weekDay === jsDayOfWeek) {
+            shouldBeTaken = true;
+          }
+        } else if (med.frequency === 'monthly') {
+          if (med.monthDay === dayOfMonth) {
+            shouldBeTaken = true;
+          }
+        }
+
+        if (shouldBeTaken && med.time) {
+          const log = medicationLogs.find(l =>
+            l.medicationId === med.id &&
+            l.scheduledTime === med.time &&
+            new Date(l.takenAt).toISOString().split('T')[0] === dateString
+          );
+
+          schedule.push({
+            medication: med,
+            scheduledTime: med.time,
+            status: log ? log.status : 'pending',
+            log: log,
+          });
+        }
+      });
+
+      return schedule.sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
+    }, [medications, medicationLogs, isLoading, medicationsError]);
 
 
   return { 

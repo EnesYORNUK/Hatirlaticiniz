@@ -1,55 +1,70 @@
 import React from 'react';
+import { Link, useLocation, Outlet } from 'react-router-dom';
 import { LayoutGrid, Plus, Settings, List, Pill, Calendar, PlusCircle, LogOut, User, UserCircle } from 'lucide-react';
-import { User as UserType } from '../types';
+import { User as UserType, Settings as SettingsType, Medication } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface LayoutProps {
-  children: React.ReactNode;
-  currentPage: string;
-  onNavigate: (page: string) => void;
-  user?: UserType | null;
+  children?: React.ReactNode; // Outlet will handle rendering, but keep for flexibility
+  settings: SettingsType;
   onLogout?: () => void;
+  user?: UserType | null; // Add user to props
+  showMedicationsInDashboard: boolean;
+  medications: Medication[];
+  medicationSchedule: any[]; // Replace with a proper type
+  onMarkTaken: (medicationId: string, time: string) => void;
 }
 
-export default function Layout({ children, currentPage, onNavigate, user, onLogout }: LayoutProps) {
+export default function Layout({ 
+  settings, 
+  onLogout, 
+  user, // Get user from props
+  showMedicationsInDashboard, 
+  medications, 
+  medicationSchedule, 
+  onMarkTaken 
+}: LayoutProps) {
+  const location = useLocation();
+
   const menuItems = [
     { 
-      id: 'list', 
+      id: '/', 
       label: 'Anasayfa', 
       icon: LayoutGrid,
       description: 'Tüm çek ve faturaları görüntüle'
     },
     { 
-      id: 'daily-schedule', 
+      id: '/schedule', 
       label: 'Günlük Program', 
       icon: Calendar,
       description: 'Bugünün ilaç ve ödeme programı'
     },
     { 
-      id: 'medications', 
+      id: '/medications', 
       label: 'İlaçlarım', 
       icon: Pill,
       description: 'İlaç takip sistemi'
     },
     { 
-      id: 'add', 
+      id: '/add', 
       label: 'Yeni Ödeme', 
       icon: Plus,
       description: 'Çek veya fatura ekle'
     },
     { 
-      id: 'add-medication', 
+      id: '/medications/add', 
       label: 'Yeni İlaç', 
       icon: PlusCircle,
       description: 'İlaç ekle ve program oluştur'
     },
     { 
-      id: 'profile', 
+      id: '/profile', 
       label: 'Profil', 
       icon: UserCircle,
       description: 'Hesap ayarları ve profil yönetimi'
     },
     { 
-      id: 'settings', 
+      id: '/settings', 
       label: 'Ayarlar', 
       icon: Settings,
       description: 'Uygulama ayarları'
@@ -104,11 +119,11 @@ export default function Layout({ children, currentPage, onNavigate, user, onLogo
           <div className="flex space-x-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentPage === item.id;
+              const isActive = location.pathname === item.id;
               return (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => onNavigate(item.id)}
+                  to={item.id}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-2 ${
                     isActive
                       ? 'border-current theme-primary text-white bg-opacity-10'
@@ -117,7 +132,7 @@ export default function Layout({ children, currentPage, onNavigate, user, onLogo
                 >
                   <Icon className="w-4 h-4" />
                   <span>{item.label}</span>
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -126,7 +141,7 @@ export default function Layout({ children, currentPage, onNavigate, user, onLogo
 
       {/* Clean Content Area */}
       <main className="max-w-6xl mx-auto px-6 py-6">
-        {children}
+        <Outlet />
       </main>
     </div>
   );
