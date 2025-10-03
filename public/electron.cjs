@@ -869,6 +869,19 @@ ipcMain.handle('load-app-data', async (event, key) => {
     return null;
   }
 });
+
+// Add IPC handlers for session management
+ipcMain.handle('get-session', async () => {
+  return session.get('supabase.session');
+});
+
+ipcMain.handle('set-session', async (event, sessionData) => {
+  session.set('supabase.session', sessionData);
+});
+
+ipcMain.handle('delete-session', async () => {
+  session.remove('supabase.session');
+});
 }
 
 // Otomatik güncelleme

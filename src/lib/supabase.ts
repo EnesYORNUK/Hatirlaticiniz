@@ -1,7 +1,17 @@
-// Unused imports removed
 import { createClient } from '@supabase/supabase-js';
 
-// MCP-optimized Supabase client configuration
+// Custom storage adapter for Electron
+const electronStore = {
+  getItem: async (key: string) => {
+    return window.electronAPI?.getSession(key);
+  },
+  setItem: async (key: string, value: string) => {
+    window.electronAPI?.setSession(key, value);
+  },
+  removeItem: async (key: string) => {
+    window.electronAPI?.deleteSession(key);
+  },
+};
 
 // Supabase Database Types
 export interface Database {
@@ -260,7 +270,8 @@ export const supabase = supabaseUrl && supabaseAnonKey
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false
+        detectSessionInUrl: false,
+        storage: window.electronAPI ? electronStore : undefined,
       }
     })
   : null;

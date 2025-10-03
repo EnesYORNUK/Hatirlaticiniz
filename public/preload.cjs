@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadAppData: (key) => ipcRenderer.invoke('load-app-data', key),
   // AppData path
   getAppDataPath: () => ipcRenderer.invoke('get-app-data-path'),
+  // Supabase session management
+  getSession: () => ipcRenderer.invoke('get-session'),
+  setSession: (session) => ipcRenderer.invoke('set-session', session),
+  deleteSession: () => ipcRenderer.invoke('delete-session'),
 });
 
 // IPC Renderer'ı da expose et (event listening için)
