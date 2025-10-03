@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, Notification } = require('electron');
+require('dotenv').config();
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -13,6 +14,13 @@ try {
   console.warn('⚠️ Telegram Bot API yüklenemedi:', error.message);
   console.warn('📱 Telegram bot özellikleri devre dışı olacak');
 }
+
+ipcMain.handle('get-supabase-config', () => {
+  return {
+    supabaseUrl: process.env.VITE_SUPABASE_URL,
+    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY,
+  };
+});
 
 let mainWindow;
 let tray = null;

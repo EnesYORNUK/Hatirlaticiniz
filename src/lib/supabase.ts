@@ -1,17 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Custom storage adapter for Electron
-const electronStore = {
-  getItem: async (key: string) => {
-    return window.electronAPI?.getSession(key);
-  },
-  setItem: async (key: string, value: string) => {
-    window.electronAPI?.setSession(key, value);
-  },
-  removeItem: async (key: string) => {
-    window.electronAPI?.deleteSession(key);
-  },
-};
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Supabase Database Types
 export interface Database {
@@ -248,33 +235,50 @@ export interface Database {
   }
 }
 
-// Environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Asynchronously initialize Supabase client
+async function initializeSupabase(): Promise<SupabaseClient<Database> | null> {
+  // In Electron, get config from the main process via IPC.
+  if (window.electronAPI) {
+    const { supabaseUrl, supabaseAnonKey } = await window.electronAPI.getSupabaseConfig();
 
-// Debug logging
-console.log('🔍 Supabase env check:', { 
-  hasUrl: !!supabaseUrl, 
-  hasKey: !!supabaseAnonKey,
-  url: supabaseUrl?.substring(0, 30) + '...' 
-});
+    console.log('🔍 Supabase config from main process:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseAnonKey,
+      url: supabaseUrl?.substring(0, 30) + '...'
+    });
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase environment variables not found. Running in offline mode.');
-  console.warn('Please check your .env file for VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+    if (supabaseUrl && supabaseAnonKey) {
+      // Custom storage adapter for Electron
+      const electronStore = {
+        getItem: async (key: string) => {
+          return window.electronAPI?.getSession(key);
+        },
+        setItem: async (key: string, value: string) => {
+          window.electronAPI?.setSession(key, value);
+        },
+        removeItem: async (key: string) => {
+          window.electronAPI?.deleteSession(key);
+        },
+      };
+
+      return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+          storage: electronStore,
+        }
+      });
+    }
+  }
+
+  // If not in Electron or if config is missing, warn and return null.
+  console.warn('⚠️ Supabase configuration not found. Running in offline mode.');
+  return null;
 }
 
-// Create Supabase client
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-        storage: window.electronAPI ? electronStore : undefined,
-      }
-    })
-  : null;
+// Initialize the client and export it. This makes the module asynchronous.
+export const supabase = await initializeSupabase();
 
 // Type exports for better type safety
 export type SupabaseTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]
