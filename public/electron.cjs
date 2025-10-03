@@ -1266,7 +1266,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // Doğru yol: public klasöründen dist klasörüne
-    const indexPath = path.join(__dirname, 'dist', 'index.html');
+    const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
     console.log('📁 Index dosyası yolu:', indexPath);
     console.log('📁 Dosya var mı?', fs.existsSync(indexPath));
     
