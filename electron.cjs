@@ -21,7 +21,7 @@ function createWindow() {
     height: 800,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, 'dist-electron/preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
     },
