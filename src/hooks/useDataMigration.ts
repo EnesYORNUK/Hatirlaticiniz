@@ -32,7 +32,7 @@ export function useDataMigration() {
     const hasLocalSettings = localStorage.getItem('settings');
     const hasLocalMedications = localStorage.getItem('medications');
     const hasLocalMedicationLogs = localStorage.getItem('medication-logs');
-    const migrationCompleted = localStorage.getItem('migration-completed');
+    const migrationCompleted = localStorage.getItem('migration-completed') === 'true';
 
     const needsMigration = !migrationCompleted && Boolean(
       hasLocalChecks || 
@@ -104,7 +104,12 @@ export function useDataMigration() {
 
       // Step 3: Migrate medications
       setMigrationStatus(prev => ({ ...prev, progress: 'İlaçlar migrate ediliyor...' }));
-      const medicationsSuccess = await migrateMedications();
+      const localMedications = JSON.parse(localStorage.getItem('medications') || '[]');
+      const localMedicationLogs = JSON.parse(localStorage.getItem('medication-logs') || '[]');
+      const medicationsSuccess = await migrateMedications({
+        medications: localMedications,
+        medicationLogs: localMedicationLogs
+      });
       if (!medicationsSuccess) {
         throw new Error('İlaçlar migrate edilemedi');
       }

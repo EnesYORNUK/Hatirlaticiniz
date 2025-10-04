@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User, AuthState, LoginData, RegisterData } from '../types';
-import { supabase, initializeSupabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Convert Supabase user to our User type
@@ -11,177 +11,179 @@ const convertSupabaseUser = (supabaseUser: SupabaseUser, profile?: Record<string
   createdAt: supabaseUser.created_at
 });
 
-export const useAuth = () => {
-  const [authState, setAuthState] = useState<AuthState>({
+// Global authentication state manager - TRUE SINGLETON
+class AuthManager {
+  private static instance: AuthManager | null = null;
+  private initialized = false;
+  private subscription: any = null;
+  private listeners: Set<(state: AuthState) => void> = new Set();
+  private currentState: AuthState = {
     user: null,
     isAuthenticated: false,
     isLoading: true
-  });
+  };
 
-  // Check authentication state on mount
-  useEffect(() => {
-    const checkAuthState = async () => {
-      try {
-        await initializeSupabase();
-        console.log('🔍 Checking auth state...');
-        
-        // If Supabase is not initialized, skip auth check
-        if (!supabase) {
-          console.log('⚠️ Supabase not initialized, skipping auth check');
-          setAuthState({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false
-          });
-          return;
-        }
-        
-        // Get session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ Error getting session:', error);
-          setAuthState({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false
-          });
-          return;
-        }
+  private constructor() {}
 
-        console.log('✅ Session check completed:', session?.user?.id || 'No session');
+  static getInstance(): AuthManager {
+    if (!AuthManager.instance) {
+      AuthManager.instance = new AuthManager();
+    }
+    return AuthManager.instance;
+  }
 
-        if (session?.user) {
-          console.log('👤 User session found, getting profile...');
-          // Get user profile from database
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+  addListener(callback: (state: AuthState) => void) {
+    this.listeners.add(callback);
+    // Immediately call with current state
+    callback(this.currentState);
+  }
 
-            if (profileError && profileError.code !== 'PGRST116') {
-              console.error('❌ Error getting profile:', profileError);
+  removeListener(callback: (state: AuthState) => void) {
+    this.listeners.delete(callback);
+  }
+
+  private notifyListeners() {
+    this.listeners.forEach(callback => callback(this.currentState));
+  }
+
+  private updateState(newState: Partial<AuthState>) {
+    this.currentState = { ...this.currentState, ...newState };
+    this.notifyListeners();
+  }
+
+  async initialize() {
+    if (this.initialized) {
+      console.log('🔄 Auth manager already initialized');
+      return;
+    }
+
+    this.initialized = true;
+    console.log('🚀 Initializing auth manager...');
+
+    // Set timeout to prevent hanging
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ Auth initialization timeout');
+      this.updateState({ isLoading: false });
+    }, 5000);
+
+    try {
+      // Check initial session
+      await this.checkSession();
+      clearTimeout(timeoutId);
+
+      // Set up auth state listener - ONLY ONCE
+      if (supabase && !this.subscription) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('🔄 Auth state changed:', event);
+            
+            // Ignore INITIAL_SESSION completely
+            if (event === 'INITIAL_SESSION') {
+              console.log('⏭️ Ignoring INITIAL_SESSION event');
+              return;
             }
-
-            const user = convertSupabaseUser(session.user, profile || undefined);
-            console.log('✅ User authenticated:', user);
-            setAuthState({
-              user,
-              isAuthenticated: true,
-              isLoading: false
-            });
-          } catch (profileError: unknown) {
-            console.error('❌ Error in profile fetch:', profileError);
-            // Still authenticate with just the session user
-            const user = convertSupabaseUser(session.user);
-            setAuthState({
-              user,
-              isAuthenticated: true,
-              isLoading: false
-            });
+            
+            if (event === 'SIGNED_IN') {
+              console.log('✅ User signed in');
+              await this.handleSignIn(session);
+            } else if (event === 'SIGNED_OUT') {
+              console.log('👋 User signed out');
+              this.updateState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false
+              });
+            } else if (event === 'TOKEN_REFRESHED') {
+              console.log('🔄 Token refreshed');
+              // Session should still be valid, no action needed
+            }
           }
-        } else {
-          console.log('👤 No user session found');
-          setAuthState({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false
-          });
-        }
-      } catch (error: unknown) {
-        console.error('❌ Auth check error:', error);
-        setAuthState({
+        );
+
+        this.subscription = subscription;
+      }
+    } catch (error) {
+      console.error('❌ Auth initialization error:', error);
+      this.updateState({ isLoading: false });
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private async checkSession() {
+    if (!supabase) {
+      console.log('⚠️ Supabase not initialized');
+      this.updateState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false
+      });
+      return;
+    }
+
+    try {
+      console.log('🔍 Checking session...');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('❌ Error getting session:', error);
+        this.updateState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false
+        });
+        return;
+      }
+
+      if (session?.user) {
+        console.log('👤 User session found:', session.user.id);
+        await this.handleSignIn(session);
+      } else {
+        console.log('👤 No user session found');
+        this.updateState({
           user: null,
           isAuthenticated: false,
           isLoading: false
         });
       }
-    };
-
-    // Set a backup timeout to ensure loading never hangs
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ Auth check timeout - forcing loaded state');
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-    }, 3000); // 3 second backup timeout
-
-    checkAuthState().finally(() => {
-      clearTimeout(timeoutId);
-    });
-
-    // Set up auth state change listener
-    if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          console.log('🔄 Auth state changed:', event, session?.user?.id);
-          
-          if (event === 'SIGNED_OUT') {
-            console.log('👋 User signed out');
-            setAuthState({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false
-            });
-            return;
-          }
-          
-          if (session?.user) {
-            try {
-              if (supabase) {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('id', session.user.id)
-                  .single();
-                
-                const user = convertSupabaseUser(session.user, profile || undefined);
-                console.log('✅ User authenticated via state change:', user);
-                setAuthState({
-                  user,
-                  isAuthenticated: true,
-                  isLoading: false
-                });
-              } else {
-                // Fallback when supabase is not available
-                const user = convertSupabaseUser(session.user);
-                setAuthState({
-                  user,
-                  isAuthenticated: true,
-                  isLoading: false
-                });
-              }
-            } catch (error: unknown) {
-              console.error('❌ Error getting profile on auth change:', error);
-              // Still authenticate with just the session user
-              const user = convertSupabaseUser(session.user);
-              setAuthState({
-                user,
-                isAuthenticated: true,
-                isLoading: false
-              });
-            }
-          }
-        }
-      );
-
-      return () => {
-        subscription?.unsubscribe();
-        clearTimeout(timeoutId);
-      };
-    } else {
-      // If no supabase, immediately set to not loading
-      setAuthState({
+    } catch (error) {
+      console.error('❌ Session check error:', error);
+      this.updateState({
         user: null,
         isAuthenticated: false,
         isLoading: false
       });
-      clearTimeout(timeoutId);
     }
-  }, []);
+  }
 
-  // Login with email and password
-  const login = useCallback(async ({ email, password }: LoginData) => {
+  private async handleSignIn(session: any) {
+    if (!session?.user || !supabase) return;
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      const user = convertSupabaseUser(session.user, profile || undefined);
+      console.log('✅ User authenticated:', user);
+      this.updateState({
+        user,
+        isAuthenticated: true,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('❌ Error getting profile:', error);
+      const user = convertSupabaseUser(session.user);
+      this.updateState({
+        user,
+        isAuthenticated: true,
+        isLoading: false
+      });
+    }
+  }
+
+  async login({ email, password }: LoginData) {
     try {
       if (!supabase) throw new Error('Supabase not initialized');
       
@@ -192,22 +194,17 @@ export const useAuth = () => {
       
       if (error) throw error;
       
-      return { success: true, data };
+      return { user: data.user, error: null };
     } catch (error: unknown) {
-      console.error('Login error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
+      console.error('❌ Login error:', error);
+      return { user: null, error: error as Error };
     }
-  }, []);
+  }
 
-  // Register with email and password
-  const register = useCallback(async ({ email, password, fullName }: RegisterData) => {
+  async register({ email, password, fullName }: RegisterData) {
     try {
       if (!supabase) throw new Error('Supabase not initialized');
       
-      // Create the user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -220,53 +217,103 @@ export const useAuth = () => {
       
       if (error) throw error;
       
-      // Create profile record
+      // Create profile in database
       if (data.user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: data.user.id,
-            full_name: fullName,
-            email
-          } as any);
+          .insert([
+            {
+              id: data.user.id,
+              email: data.user.email,
+              full_name: fullName,
+              created_at: new Date().toISOString()
+            }
+          ]);
         
         if (profileError) {
-          console.error('Error creating profile:', profileError);
+          console.error('❌ Profile creation error:', profileError);
         }
       }
       
-      return { success: true, data };
+      return { user: data.user, error: null };
     } catch (error: unknown) {
-      console.error('Registration error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
+      console.error('❌ Registration error:', error);
+      return { user: null, error: error as Error };
     }
-  }, []);
+  }
 
-  // Logout
-  const logout = useCallback(async () => {
+  async logout() {
     try {
       if (!supabase) throw new Error('Supabase not initialized');
       
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      return { success: true };
+      return { error: null };
     } catch (error: unknown) {
-      console.error('Logout error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
+      console.error('❌ Logout error:', error);
+      return { error: error as Error };
     }
-  }, []);
+  }
+
+  async refreshSession() {
+    await this.checkSession();
+  }
+
+  cleanup() {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+      this.subscription = null;
+    }
+    this.listeners.clear();
+    this.initialized = false;
+  }
+}
+
+// Get the singleton instance
+const authManager = AuthManager.getInstance();
+
+export const useAuth = () => {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    isAuthenticated: false,
+    isLoading: true
+  });
+
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    // Create a stable callback that checks if component is still mounted
+    const handleStateChange = (state: AuthState) => {
+      if (mountedRef.current) {
+        setAuthState(state);
+      }
+    };
+
+    // Add listener to auth manager
+    authManager.addListener(handleStateChange);
+
+    // Initialize auth manager (will only happen once globally)
+    authManager.initialize();
+
+    // Cleanup on unmount
+    return () => {
+      mountedRef.current = false;
+      authManager.removeListener(handleStateChange);
+    };
+  }, []); // Empty dependency array - effect runs only once
+
+  // Wrap auth manager methods with useCallback for stability
+  const login = useCallback((data: LoginData) => authManager.login(data), []);
+  const register = useCallback((data: RegisterData) => authManager.register(data), []);
+  const logout = useCallback(() => authManager.logout(), []);
+  const refreshSession = useCallback(() => authManager.refreshSession(), []);
 
   return {
     ...authState,
     login,
     register,
-    logout
+    logout,
+    refreshSession
   };
 };

@@ -239,53 +239,65 @@ export const useSupabaseMedications = () => {
     }
   };
 
-  const migrateFromLocalStorage = async (localStorageData: { medications: Medication[], medicationLogs: MedicationLog[] }) => {
-    if (!user || !supabase) return;
+  const migrateFromLocalStorage = async (localStorageData: { medications: Medication[], medicationLogs: MedicationLog[] }): Promise<boolean> => {
+    if (!user || !supabase) return false;
 
-    const { medications: localMeds, medicationLogs: localLogs } = localStorageData;
+    try {
+      const { medications: localMeds, medicationLogs: localLogs } = localStorageData;
 
-    // Medications
-    if (localMeds.length > 0) {
-        const newMedications: TablesInsert<'medications'>[] = localMeds.map(m => ({
-            user_id: user.id,
-            created_by: m.createdBy || user.email || 'unknown',
-            name: m.name,
-            dosage: m.dosage,
-            frequency: m.frequency,
-            time: m.time,
-            start_date: m.startDate,
-            week_day: m.weekDay,
-            month_day: m.monthDay,
-            is_active: m.isActive,
-            end_date: m.endDate,
-            notes: m.notes,
-        }));
+      // Medications
+      if (localMeds.length > 0) {
+          const newMedications: TablesInsert<'medications'>[] = localMeds.map(m => ({
+              user_id: user.id,
+              created_by: m.createdBy || user.email || 'unknown',
+              name: m.name,
+              dosage: m.dosage,
+              frequency: m.frequency,
+              time: m.time,
+              start_date: m.startDate,
+              week_day: m.weekDay,
+              month_day: m.monthDay,
+              is_active: m.isActive,
+              end_date: m.endDate,
+              notes: m.notes,
+          }));
 
-        const { error: medError } = await supabase
-            .from('medications')
-            .insert(newMedications as never[]);
-        if (medError) console.error('Migration error (medications):', medError);
+          const { error: medError } = await supabase
+              .from('medications')
+              .insert(newMedications as never[]);
+          if (medError) {
+            console.error('Migration error (medications):', medError);
+            return false;
+          }
+      }
+
+      // Medication Logs
+      if (localLogs.length > 0) {
+          const newLogs: TablesInsert<'medication_logs'>[] = localLogs.map(l => ({
+              user_id: user.id,
+              medication_id: l.medicationId,
+              taken_at: l.takenAt,
+              scheduled_time: l.scheduledTime,
+              status: l.status,
+              notes: l.notes,
+          }));
+          const { error: logError } = await supabase
+              .from('medication_logs')
+              .insert(newLogs as never[]);
+          if (logError) {
+            console.error('Migration error (logs):', logError);
+            return false;
+          }
+      }
+
+      // Refresh data from supabase
+      fetchMedications();
+      loadMedicationLogs();
+      return true;
+    } catch (error) {
+      console.error('Migration error:', error);
+      return false;
     }
-
-    // Medication Logs
-    if (localLogs.length > 0) {
-        const newLogs: TablesInsert<'medication_logs'>[] = localLogs.map(l => ({
-            user_id: user.id,
-            medication_id: l.medicationId,
-            taken_at: l.takenAt,
-            scheduled_time: l.scheduledTime,
-            status: l.status,
-            notes: l.notes,
-        }));
-        const { error: logError } = await supabase
-            .from('medication_logs')
-            .insert(newLogs as never[]);
-        if (logError) console.error('Migration error (logs):', logError);
-    }
-
-    // Refresh data from supabase
-    fetchMedications();
-    loadMedicationLogs();
   };
 
   const getDailySchedule = useCallback(

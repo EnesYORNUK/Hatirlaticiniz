@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import CheckList from './components/CheckList';
 import CheckForm from './components/CheckForm';
@@ -22,7 +22,6 @@ import MigrationPrompt from './components/MigrationPrompt';
 import { deleteUserAccount } from './utils/accountUtils';
 import { Check, Settings as SettingsType, ThemeType, LoginData, RegisterData } from './types';
 import { Medication } from './types/medication';
-import { supabase } from './lib/supabase';
 
 const defaultSettings: SettingsType = {
   reminderDays: 3,
@@ -50,7 +49,6 @@ export default function App() {
   const [authError, setAuthError] = useState<string>('');
   
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
@@ -71,7 +69,6 @@ export default function App() {
   
   const {
     medications,
-    isLoading: medicationsLoading,
     getDailySchedule,
     addMedication,
     updateMedication,
@@ -103,8 +100,8 @@ export default function App() {
   const handleLogin = async (loginData: LoginData) => {
     setAuthError('');
     const result = await login(loginData);
-    if (!result.success) {
-      setAuthError(result.error || 'Giriş yapılamadı');
+    if (result.error) {
+      setAuthError(result.error.message || 'Giriş yapılamadı');
     } else {
       navigate('/');
     }
@@ -113,8 +110,8 @@ export default function App() {
   const handleRegister = async (registerData: RegisterData) => {
     setAuthError('');
     const result = await register(registerData);
-    if (!result.success) {
-      setAuthError(result.error || 'Kayıt olunamadı');
+    if (result.error) {
+      setAuthError(result.error.message || 'Kayıt olunamadı');
     } else {
       navigate('/');
     }
@@ -151,11 +148,7 @@ export default function App() {
     }
   };
 
-  // Clear auth error when switching views
-  const switchAuthView = (view: 'login' | 'register') => {
-    setAuthError('');
-    navigate(view === 'login' ? '/login' : '/register');
-  };
+
 
   // Debug function to clear localStorage
   const clearAuthData = () => {
@@ -204,14 +197,14 @@ export default function App() {
 
   const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (isAuthenticated && user) {
-      await addSupabaseCheck({ ...checkData, user_id: user.id });
+      await addSupabaseCheck({ ...checkData, createdBy: user.id });
     } else {
       // Fallback for non-authenticated users (if needed)
       const newCheck: Check = {
         ...checkData,
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
-        paid: false,
+        isPaid: false,
         isRecurring: false,
       };
       await setRawChecks([newCheck, ...activeChecks]);
@@ -219,9 +212,17 @@ export default function App() {
     navigate('/');
   };
 
-  const handleUpdateCheck = async (updatedCheck: Check) => {
+  const handleUpdateCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
+    if (!editingCheck) return;
+    
+    const updatedCheck: Check = {
+      ...checkData,
+      id: editingCheck.id,
+      createdAt: editingCheck.createdAt
+    };
+    
     if (isAuthenticated) {
-      await updateSupabaseCheck(updatedCheck);
+      await updateSupabaseCheck(updatedCheck.id, updatedCheck);
     } else {
       await setRawChecks(
         activeChecks.map((c) => (c.id === updatedCheck.id ? updatedCheck : c))
@@ -246,7 +247,7 @@ export default function App() {
       await toggleSupabasePaid(id);
     } else {
       await setRawChecks(
-        activeChecks.map((c) => (c.id === id ? { ...c, paid: !c.paid } : c))
+        activeChecks.map((c) => (c.id === id ? { ...c, isPaid: !c.isPaid } : c))
       );
     }
   };
@@ -256,27 +257,34 @@ export default function App() {
     navigate(`/edit/${check.id}`);
   };
 
-  const handleUpdateSettings = async (newSettings: Partial<SettingsType>) => {
+  const handleUpdateSettings = async (newSettings: SettingsType) => {
     if (isAuthenticated) {
       await updateSupabaseSettings(newSettings);
     } else {
       // Fallback to localStorage
-      setFallbackSettings({ ...activeSettings, ...newSettings });
+      setFallbackSettings(newSettings);
     }
     alert('Ayarlar kaydedildi!');
     navigate('/');
   };
 
   // 💊 Hap sistemi fonksiyonları
-  const handleAddMedication = async (medication: Omit<Medication, 'id' | 'user_id'>) => {
-    await addMedication(medication);
+  const handleAddMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>) => {
+    await addMedication(medicationData);
     navigate('/medications');
   };
 
-  const handleUpdateMedication = async (medication: Medication) => {
-    await updateMedication(medication);
-    setEditingMedication(null);
-    navigate('/medications');
+  const handleUpdateMedication = async (medicationData: Omit<Medication, 'id' | 'createdAt'>) => {
+    if (editingMedication) {
+      const updatedMedication: Medication = {
+        ...medicationData,
+        id: editingMedication.id,
+        createdAt: editingMedication.createdAt
+      };
+      await updateMedication(updatedMedication.id, updatedMedication);
+      setEditingMedication(null);
+      navigate('/medications');
+    }
   };
 
   const handleEditMedication = (medication: Medication) => {
@@ -291,11 +299,56 @@ export default function App() {
   };
 
   const handleMarkMedicationTaken = async (medicationId: string, time: string) => {
-    await markMedicationTaken(medicationId, time);
+    await markMedicationTaken(medicationId, time, 'taken');
+  };
+
+  // Data export/import functions
+  const handleExportData = () => {
+    const data = {
+      checks: activeChecks,
+      settings: activeSettings,
+      medications: medications,
+      exportDate: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hatirlaticiniz-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        // Handle import logic here
+        console.log('Import data:', data);
+        alert('Veri içe aktarma özelliği henüz geliştirilmekte!');
+      } catch (error) {
+        alert('Geçersiz dosya formatı!');
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (authLoading) {
-    return <div className="flex justify-center items-center h-screen">Yükleniyor...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center theme-bg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="theme-text">Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
   
   return (
@@ -307,12 +360,7 @@ export default function App() {
             element={
               <Layout 
                 user={user}
-                settings={activeSettings} 
                 onLogout={handleLogout}
-                showMedicationsInDashboard={activeSettings.showMedicationsInDashboard}
-                medications={medications}
-                medicationSchedule={medicationSchedule}
-                onMarkTaken={handleMarkMedicationTaken}
               />
             }
           >
@@ -324,7 +372,6 @@ export default function App() {
                   onEdit={handleEditCheck}
                   onDelete={handleDeleteCheck}
                   onTogglePaid={handleTogglePaid}
-                  onAdd={() => navigate('/add')}
                 />
               } 
             />
@@ -332,7 +379,7 @@ export default function App() {
               path="add" 
               element={
                 <CheckForm
-                  onAddCheck={handleAddCheck}
+                  onSave={handleAddCheck}
                   onCancel={() => navigate('/')}
                 />
               } 
@@ -342,12 +389,12 @@ export default function App() {
               element={
                 editingCheck ? (
                   <CheckForm
-                    onAddCheck={handleUpdateCheck}
+                    onSave={handleUpdateCheck}
                     onCancel={() => {
                       setEditingCheck(null);
                       navigate('/');
                     }}
-                    editingCheck={editingCheck}
+                    initialData={editingCheck}
                   />
                 ) : (
                   <Navigate to="/" />
@@ -360,7 +407,8 @@ export default function App() {
                 <Settings
                   settings={activeSettings}
                   onSave={handleUpdateSettings}
-                  onCancel={() => navigate('/')}
+                  onExportData={handleExportData}
+                  onImportData={handleImportData}
                 />
               } 
             />
@@ -382,8 +430,12 @@ export default function App() {
                     medications={medications}
                     onEdit={handleEditMedication}
                     onDelete={handleDeleteMedication}
-                    onAdd={() => navigate('/medications/add')}
-                    isLoading={medicationsLoading}
+                    onToggleActive={(id, isActive) => {
+                      const medication = medications.find(m => m.id === id);
+                      if (medication) {
+                        updateMedication(id, { ...medication, isActive });
+                      }
+                    }}
                   />
                 }
               />
@@ -406,7 +458,7 @@ export default function App() {
                         setEditingMedication(null);
                         navigate('/medications');
                       }}
-                      editingMedication={editingMedication}
+                      initialData={editingMedication}
                     />
                   ) : (
                     <Navigate to="/medications" />
@@ -418,8 +470,8 @@ export default function App() {
               path="schedule" 
               element={
                 <DailySchedule 
-                  schedule={medicationSchedule} 
-                  onMarkTaken={handleMarkMedicationTaken} 
+                  medicationSchedule={medicationSchedule} 
+                  onMarkMedicationTaken={handleMarkMedicationTaken} 
                 />
               } 
             />
@@ -453,8 +505,12 @@ export default function App() {
           </>
         )}
       </Routes>
-      {migrationStatus === 'pending' && (
-        <MigrationPrompt onMigrate={runMigration} onSkip={skipMigration} />
+      {migrationStatus.isNeeded && !migrationStatus.isComplete && (
+        <MigrationPrompt 
+          migrationStatus={migrationStatus}
+          onRunMigration={runMigration} 
+          onSkipMigration={skipMigration} 
+        />
       )}
     </ErrorBoundary>
   );

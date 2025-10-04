@@ -245,9 +245,22 @@ async function initializeSupabase() {
   }
 
   try {
-    const config = await window.electronAPI.getSupabaseConfig();
+    let config;
+    
+    // Check if running in Electron environment
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.getSupabaseConfig) {
+      config = await window.electronAPI.getSupabaseConfig();
+    } else {
+      // Fallback for web environment - use environment variables
+      config = {
+        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+        supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
+      };
+    }
+    
     if (config && config.supabaseUrl && config.supabaseAnonKey) {
       supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+      console.log('Supabase client created successfully');
     } else {
       console.error('Supabase configuration is missing.');
     }
@@ -259,7 +272,7 @@ async function initializeSupabase() {
 }
 
 // Initialize Supabase asynchronously
-initializeSupabase();
+
 
 export { supabase, initializeSupabase };
 
