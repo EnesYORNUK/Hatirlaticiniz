@@ -1,10 +1,8 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
-import dotenv from 'dotenv';
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('node:path');
+const fs = require('node:fs');
+const dotenv = require('dotenv');
 
-const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 process.env.DIST_ELECTRON = path.join(__dirname, '../dist-electron');
 

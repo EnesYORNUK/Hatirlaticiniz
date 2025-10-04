@@ -15,23 +15,23 @@ export default defineConfig(({ mode }) => {
           // Main-Process entry file of the Electron App.
           entry: 'electron.cjs',
           vite: {
-            build: {
-              minify: process.env.NODE_ENV === 'production',
-              outDir: 'dist-electron',
-              lib: {
-                entry: 'electron.cjs',
-                formats: ['cjs'],
-                fileName: () => 'electron.js'
-              },
-              rollupOptions: {
-                external: ['electron', 'path', 'fs', 'dotenv'],
-                output: {
-                  format: 'cjs',
-                  entryFileNames: 'electron.js',
-                },
+          build: {
+            minify: false, // Electron ana süreci için minification devre dışı
+            outDir: 'dist-electron',
+            lib: {
+              entry: 'electron.cjs',
+              formats: ['cjs'],
+              fileName: () => 'electron.js'
+            },
+            rollupOptions: {
+              external: ['electron', 'path', 'fs', 'dotenv'],
+              output: {
+                format: 'cjs',
+                entryFileNames: 'electron.js',
               },
             },
           },
+        },
         },
         {
           entry: 'preload.ts',

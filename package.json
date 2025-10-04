@@ -3,7 +3,6 @@
   "private": false,
   "version": "4.0.28",
   "main": "dist-electron/electron.js",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "electron": "electron .",
