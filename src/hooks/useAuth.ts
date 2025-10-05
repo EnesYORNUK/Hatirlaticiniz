@@ -126,6 +126,15 @@ class AuthManager {
       
       if (error) {
         console.error('❌ Error getting session:', error);
+        const msg = (error as any)?.message || String(error);
+        if (msg.includes('Invalid Refresh Token')) {
+          try {
+            await supabase.auth.signOut();
+            console.log('🧹 Cleared invalid session tokens');
+          } catch (signOutErr) {
+            console.warn('⚠️ Failed to sign out while clearing invalid session', signOutErr);
+          }
+        }
         this.updateState({
           user: null,
           isAuthenticated: false,

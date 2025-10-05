@@ -1,7 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+const supabaseConfigArg = process.argv.find(arg => arg.startsWith('--supabase-config='));
+let supabaseConfig = {};
+if (supabaseConfigArg) {
+  try {
+    const configString = supabaseConfigArg.split('=')[1];
+    supabaseConfig = JSON.parse(configString);
+    console.log('Parsed supabaseConfig in preload:', supabaseConfig);
+  } catch (error) {
+    console.error('Error parsing supabaseConfig in preload:', error, supabaseConfigArg);
+  }
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  getSupabaseConfig: () => ipcRenderer.invoke('get-supabase-config'),
+  supabaseConfig,
   showNotification: (title: string, body: string) => ipcRenderer.invoke('show-notification', title, body),
   getVersion: () => ipcRenderer.invoke('app-version'),
   onMenuAction: (callback: () => void) => {

@@ -4,14 +4,11 @@ copyright: Copyright © 2025 Hatirlaticinim
 directories:
   output: electron-dist
 files:
+  - dist-electron/**/*
   - dist/**/*
-  - index.html
-  - public/electron.cjs
-  - public/preload.cjs
-  - public/icon.ico
-  - public/icon-256x256.png
-  - node_modules/**/*
 extraResources:
+  - from: .env
+    to: .env
   - from: public/icon.ico
     to: icon.ico
 win:

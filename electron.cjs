@@ -7,23 +7,31 @@ const __dirname = path.dirname(__filename);
 process.env.DIST_ELECTRON = path.join(__dirname, '../dist-electron');
 
 // Load environment variables from .env file
-dotenv.config({ path: path.join(__dirname, '../.env') });
-
-const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
-
+// Production build'de electron.cjs zaten dist-electron klasöründe olduğu için
+// .env dosyası yolunu buna göre ayarlıyoruz
 let win;
 
-function createWindow() {
+function createWindow(supabaseConfig) {
+  console.log('Creating window with supabaseConfig:', supabaseConfig);
+  const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+
+  const preloadPath = VITE_DEV_SERVER_URL
+    ? path.join(__dirname, '../dist-electron/preload.cjs')
+    : path.join(__dirname, 'preload.cjs');
+
   win = new BrowserWindow({
     width: 1200,
     height: 800,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'dist-electron/preload.cjs'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
+      additionalArguments: [`--supabase-config=${JSON.stringify(supabaseConfig)}`],
     },
   });
+
+  console.log('Additional arguments:', win.webContents.additionalArguments);
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
@@ -67,19 +75,53 @@ app.on('activate', () => {
 
 app.setPath('userData', path.join(__dirname, 'electron-data'));
 app.disableHardwareAcceleration();
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+  // Resolve .env path robustly for both dev and local production runs
+  // Priority: project root .env -> dist-electron sibling .env -> packaged resources .env
+  let envPath = path.join(__dirname, '../.env');
+  if (!fs.existsSync(envPath)) {
+    const altPath = path.join(__dirname, '.env');
+    envPath = fs.existsSync(altPath) ? altPath : path.join(process.resourcesPath || __dirname, '.env');
+  }
+  console.log('Resolved .env path:', envPath, 'exists:', fs.existsSync(envPath));
+
+  let supabaseConfig = {};
+  try {
+    const envFileContent = fs.readFileSync(envPath, 'utf8');
+    envFileContent.split('\n').forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const match = trimmedLine.match(/^([^=]+)=(.*)$/);
+        if (match) {
+          const key = match[1].trim();
+          let value = match[2].trim();
+          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.substring(1, value.length - 1);
+          }
+          process.env[key] = value;
+        }
+      }
+    });
+    supabaseConfig = {
+      url: process.env.VITE_SUPABASE_URL,
+      anonKey: process.env.VITE_SUPABASE_ANON_KEY,
+    };
+    console.log('.env file loaded and parsed successfully.');
+    console.log('Supabase URL present:', Boolean(supabaseConfig.url), 'Anon key present:', Boolean(supabaseConfig.anonKey));
+  } catch (error) {
+    console.error('Failed to load .env file:', error);
+  }
+
+  createWindow(supabaseConfig);
+});
 
 ipcMain.on('get-app-version', (event) => {
   event.reply('app-version', { version: app.getVersion() });
 });
 
 // Supabase config handler
-ipcMain.handle('get-supabase-config', () => {
-  return {
-    supabaseUrl: process.env.VITE_SUPABASE_URL,
-    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY
-  };
-});
+
 
 // Notification handler
 ipcMain.handle('show-notification', (event, title, body) => {

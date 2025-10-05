@@ -238,6 +238,7 @@ export interface Database {
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabase: SupabaseClient | null = null;
+let warnedMissingConfig = false;
 
 async function initializeSupabase() {
   if (supabase) {
@@ -245,27 +246,41 @@ async function initializeSupabase() {
   }
 
   try {
-    let config;
-    
-    // Check if running in Electron environment
-    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.getSupabaseConfig) {
-      config = await window.electronAPI.getSupabaseConfig();
+    const electronConfig = (typeof window !== 'undefined' && (window as any).electronAPI)
+      ? (window as any).electronAPI.supabaseConfig
+      : undefined;
+
+    const url = (electronConfig && (electronConfig.url || electronConfig.supabaseUrl)) || import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = (electronConfig && (electronConfig.anonKey || electronConfig.supabaseAnonKey)) || import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (electronConfig) {
+      console.log('Supabase config from electronAPI:', {
+        hasUrl: Boolean(electronConfig.url || electronConfig.supabaseUrl),
+        hasAnonKey: Boolean(electronConfig.anonKey || electronConfig.supabaseAnonKey)
+      });
     } else {
-      // Fallback for web environment - use environment variables
-      config = {
-        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-        supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
-      };
+      console.log('Supabase config from env:', { hasUrl: Boolean(url), hasAnonKey: Boolean(anonKey) });
     }
-    
-    if (config && config.supabaseUrl && config.supabaseAnonKey) {
-      supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+    if (url && anonKey) {
+      supabase = createClient(url, anonKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      });
       console.log('Supabase client created successfully');
     } else {
-      console.error('Supabase configuration is missing.');
+      if (!warnedMissingConfig) {
+        console.error('Supabase configuration is missing. URL or anonKey not found.');
+        warnedMissingConfig = true;
+      }
+      return null;
     }
   } catch (error) {
     console.error('Error initializing Supabase:', error);
+    return null;
   }
 
   return supabase;
