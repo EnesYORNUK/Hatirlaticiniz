@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import CheckList from './components/CheckList';
 import CheckForm from './components/CheckForm';
@@ -51,6 +51,7 @@ export default function App() {
   const [authLoadFallback, setAuthLoadFallback] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
@@ -197,6 +198,17 @@ export default function App() {
       setAuthLoadFallback(false);
     }
   }, [isAuthenticated, authLoading]);
+
+  // Giriş durumuna göre güvenli yönlendirme ve loglama
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Eğer login/register sayfasında isek ana sayfaya geç
+      if (location.pathname === '/login' || location.pathname === '/register') {
+        console.log('🔁 Auth true, /login|/register -> /');
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isAuthenticated, navigate, location.pathname]);
 
   const setRawChecks = async (newChecks: Check[]) => {
     // For backward compatibility during migration period
@@ -367,157 +379,147 @@ export default function App() {
   
   return (
     <ErrorBoundary>
-      <Routes>
-        {isAuthenticated ? (
-          <Route 
-            path="/" 
+      {/* Force remount when auth state flips to avoid stale routing */}
+      <Routes key={isAuthenticated ? 'auth' : 'guest'}>
+        {/* Protected app layout: redirect to /login when not authenticated */}
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? (
+              <Layout user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        >
+          <Route
+            index
             element={
-              <Layout 
-                user={user}
-                onLogout={handleLogout}
+              <CheckList
+                checks={activeChecks}
+                onEdit={handleEditCheck}
+                onDelete={handleDeleteCheck}
+                onTogglePaid={handleTogglePaid}
               />
             }
-          >
-            <Route 
-              index 
-              element={
-                <CheckList
-                  checks={activeChecks}
-                  onEdit={handleEditCheck}
-                  onDelete={handleDeleteCheck}
-                  onTogglePaid={handleTogglePaid}
-                />
-              } 
-            />
-            <Route 
-              path="add" 
-              element={
+          />
+          <Route
+            path="add"
+            element={<CheckForm onSave={handleAddCheck} onCancel={() => navigate('/')} />}
+          />
+          <Route
+            path="edit/:id"
+            element={
+              editingCheck ? (
                 <CheckForm
-                  onSave={handleAddCheck}
-                  onCancel={() => navigate('/')}
+                  onSave={handleUpdateCheck}
+                  onCancel={() => {
+                    setEditingCheck(null);
+                    navigate('/');
+                  }}
+                  initialData={editingCheck}
                 />
-              } 
-            />
-            <Route 
-              path="edit/:id" 
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Settings
+                settings={activeSettings}
+                onSave={handleUpdateSettings}
+                onExportData={handleExportData}
+                onImportData={handleImportData}
+              />
+            }
+          />
+          <Route
+            path="profile"
+            element={<Profile user={user} onLogout={handleLogout} onDeleteAccount={handleDeleteAccount} />}
+          />
+          <Route path="medications">
+            <Route
+              index
               element={
-                editingCheck ? (
-                  <CheckForm
-                    onSave={handleUpdateCheck}
+                <MedicationList
+                  medications={medications}
+                  onEdit={handleEditMedication}
+                  onDelete={handleDeleteMedication}
+                  onToggleActive={(id, isActive) => {
+                    const medication = medications.find(m => m.id === id);
+                    if (medication) {
+                      updateMedication(id, { ...medication, isActive });
+                    }
+                  }}
+                />
+              }
+            />
+            <Route
+              path="add"
+              element={<MedicationForm onSave={handleAddMedication} onCancel={() => navigate('/medications')} />}
+            />
+            <Route
+              path="edit/:id"
+              element={
+                editingMedication ? (
+                  <MedicationForm
+                    onSave={handleUpdateMedication}
                     onCancel={() => {
-                      setEditingCheck(null);
-                      navigate('/');
+                      setEditingMedication(null);
+                      navigate('/medications');
                     }}
-                    initialData={editingCheck}
+                    initialData={editingMedication}
                   />
                 ) : (
-                  <Navigate to="/" />
+                  <Navigate to="/medications" />
                 )
-              } 
+              }
             />
-            <Route 
-              path="settings" 
-              element={
-                <Settings
-                  settings={activeSettings}
-                  onSave={handleUpdateSettings}
-                  onExportData={handleExportData}
-                  onImportData={handleImportData}
-                />
-              } 
-            />
-            <Route 
-              path="profile" 
-              element={
-                <Profile 
-                  user={user} 
-                  onLogout={handleLogout} 
-                  onDeleteAccount={handleDeleteAccount} 
-                />
-              } 
-            />
-            <Route path="medications">
-              <Route 
-                index 
-                element={
-                  <MedicationList
-                    medications={medications}
-                    onEdit={handleEditMedication}
-                    onDelete={handleDeleteMedication}
-                    onToggleActive={(id, isActive) => {
-                      const medication = medications.find(m => m.id === id);
-                      if (medication) {
-                        updateMedication(id, { ...medication, isActive });
-                      }
-                    }}
-                  />
-                }
-              />
-              <Route 
-                path="add" 
-                element={
-                  <MedicationForm
-                    onSave={handleAddMedication}
-                    onCancel={() => navigate('/medications')}
-                  />
-                }
-              />
-              <Route 
-                path="edit/:id" 
-                element={
-                  editingMedication ? (
-                    <MedicationForm
-                      onSave={handleUpdateMedication}
-                      onCancel={() => {
-                        setEditingMedication(null);
-                        navigate('/medications');
-                      }}
-                      initialData={editingMedication}
-                    />
-                  ) : (
-                    <Navigate to="/medications" />
-                  )
-                }
-              />
-            </Route>
-            <Route 
-              path="schedule" 
-              element={
-                <DailySchedule 
-                  medicationSchedule={medicationSchedule} 
-                  onMarkMedicationTaken={handleMarkMedicationTaken} 
-                />
-              } 
-            />
-            <Route path="*" element={<Navigate to="/" />} />
           </Route>
-        ) : (
-          <>
-            <Route 
-              path="/login" 
-              element={
-                <Login 
-                  onLogin={handleLogin} 
-                  onSwitchToRegister={() => navigate('/register')} 
-                  error={authError} 
-                  isLoading={authLoading && !authLoadFallback}
-                />
-              } 
-            />
-            <Route 
-              path="/register" 
-              element={
-                <Register 
-                  onRegister={handleRegister} 
-                  onSwitchToLogin={() => navigate('/login')} 
-                  error={authError} 
-                  isLoading={authLoading && !authLoadFallback}
-                />
-              } 
-            />
-            <Route path="*" element={<Navigate to="/login" />} />
-          </>
-        )}
+          <Route
+            path="schedule"
+            element={<DailySchedule medicationSchedule={medicationSchedule} onMarkMedicationTaken={handleMarkMedicationTaken} />}
+          />
+          {/* Nested catch-all within app layout */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Route>
+
+        {/* Public routes: login/register */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Login
+                onLogin={handleLogin}
+                onSwitchToRegister={() => navigate('/register')}
+                error={authError}
+                isLoading={authLoading && !authLoadFallback}
+              />
+            )
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Register
+                onRegister={handleRegister}
+                onSwitchToLogin={() => navigate('/login')}
+                error={authError}
+                isLoading={authLoading && !authLoadFallback}
+              />
+            )
+          }
+        />
+
+        {/* Top-level catch-all */}
+        <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
       </Routes>
       {migrationStatus.isNeeded && !migrationStatus.isComplete && (
         <MigrationPrompt 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { User, AuthState, LoginData, RegisterData } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, initializeSupabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Convert Supabase user to our User type
@@ -67,6 +67,8 @@ class AuthManager {
     }, 5000);
 
     try {
+      // Ensure Supabase client is initialized to avoid race conditions
+      await initializeSupabase();
       // Check initial session
       await this.checkSession();
       clearTimeout(timeoutId);
@@ -263,6 +265,12 @@ class AuthManager {
       
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      // Ensure UI updates immediately without relying solely on onAuthStateChange
+      this.updateState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false
+      });
       
       return { error: null };
     } catch (error: unknown) {

@@ -77,40 +77,61 @@ app.setPath('userData', path.join(__dirname, 'electron-data'));
 app.disableHardwareAcceleration();
 app.whenReady().then(() => {
   const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
-  // Resolve .env path robustly for both dev and local production runs
-  // Priority: project root .env -> dist-electron sibling .env -> packaged resources .env
-  let envPath = path.join(__dirname, '../.env');
-  if (!fs.existsSync(envPath)) {
-    const altPath = path.join(__dirname, '.env');
-    envPath = fs.existsSync(altPath) ? altPath : path.join(process.resourcesPath || __dirname, '.env');
-  }
-  console.log('Resolved .env path:', envPath, 'exists:', fs.existsSync(envPath));
+  // Resolve environment paths for both dev (Vite) and local production runs
+  // Priority: project root .env.local -> project root .env -> dist-electron sibling .env -> packaged resources .env
+  const candidatePaths = [
+    path.join(__dirname, '../.env.local'),
+    path.join(__dirname, '../.env'),
+    path.join(__dirname, '.env.local'),
+    path.join(__dirname, '.env'),
+    path.join(process.resourcesPath || __dirname, '.env.local'),
+    path.join(process.resourcesPath || __dirname, '.env'),
+  ];
+  const existingEnvPaths = candidatePaths.filter(p => fs.existsSync(p));
+  console.log('Resolved env candidates:', candidatePaths);
+  console.log('Existing env files:', existingEnvPaths);
 
   let supabaseConfig = {};
+
+  // Load variables from the first existing env file (prefer .env.local),
+  // then continue to load from the rest without overwriting already set keys.
   try {
-    const envFileContent = fs.readFileSync(envPath, 'utf8');
-    envFileContent.split('\n').forEach(line => {
-      const trimmedLine = line.trim();
-      if (trimmedLine && !trimmedLine.startsWith('#')) {
-        const match = trimmedLine.match(/^([^=]+)=(.*)$/);
-        if (match) {
-          const key = match[1].trim();
-          let value = match[2].trim();
-          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.substring(1, value.length - 1);
+    existingEnvPaths.forEach((envPath, idx) => {
+      try {
+        const envFileContent = fs.readFileSync(envPath, 'utf8');
+        envFileContent.split('\n').forEach(line => {
+          const trimmedLine = line.trim();
+          if (trimmedLine && !trimmedLine.startsWith('#')) {
+            const match = trimmedLine.match(/^([^=]+)=(.*)$/);
+            if (match) {
+              const key = match[1].trim();
+              let value = match[2].trim();
+              if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length - 1);
+              }
+              // Do not overwrite if already set by a higher-priority file
+              if (process.env[key] === undefined || process.env[key] === '') {
+                process.env[key] = value;
+              }
+            }
           }
-          process.env[key] = value;
-        }
+        });
+        console.log(`Loaded env file [${idx}]:`, envPath);
+      } catch (err) {
+        console.warn('Failed to read env file:', envPath, err);
       }
     });
+
     supabaseConfig = {
       url: process.env.VITE_SUPABASE_URL,
       anonKey: process.env.VITE_SUPABASE_ANON_KEY,
     };
-    console.log('.env file loaded and parsed successfully.');
-    console.log('Supabase URL present:', Boolean(supabaseConfig.url), 'Anon key present:', Boolean(supabaseConfig.anonKey));
+
+    const hasUrl = Boolean(supabaseConfig.url);
+    const hasAnon = Boolean(supabaseConfig.anonKey);
+    console.log('Env load complete. Supabase URL present:', hasUrl, 'Anon key present:', hasAnon);
   } catch (error) {
-    console.error('Failed to load .env file:', error);
+    console.error('Failed to load environment variables:', error);
   }
 
   createWindow(supabaseConfig);

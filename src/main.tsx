@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+// StrictMode devde efektleri iki kez çalıştırır; Electron akışını sade tutmak için kaldırıldı
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App.tsx';
@@ -13,16 +13,14 @@ const root = createRoot(rootElement!);
 
 // Show a loading message while Supabase is initializing
 root.render(
-  <StrictMode>
-    <HashRouter>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Supabase başlatılıyor...</p>
-        </div>
+  <HashRouter>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Supabase başlatılıyor...</p>
       </div>
-    </HashRouter>
-  </StrictMode>
+    </div>
+  </HashRouter>
 );
 
 console.log('Starting Supabase initialization...');
@@ -33,11 +31,9 @@ initializeSupabase()
     }
     console.log('Supabase initialized successfully');
     root.render(
-      <StrictMode>
-        <HashRouter>
-          <App />
-        </HashRouter>
-      </StrictMode>
+      <HashRouter>
+        <App />
+      </HashRouter>
     );
   })
   .catch((error) => {
