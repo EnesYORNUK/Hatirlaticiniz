@@ -92,6 +92,16 @@
       {
         "from": "public/icon.ico",
         "to": "icon.ico"
+      },
+      {
+        "from": ".env",
+        "to": ".env",
+        "filter": [".env"]
+      },
+      {
+        "from": ".env.local",
+        "to": ".env.local",
+        "filter": [".env.local"]
       }
     ],
     "mac": {

@@ -250,17 +250,29 @@ async function initializeSupabase() {
       ? (window as any).electronAPI.supabaseConfig
       : undefined;
 
-    const url = (electronConfig && (electronConfig.url || electronConfig.supabaseUrl)) || import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = (electronConfig && (electronConfig.anonKey || electronConfig.supabaseAnonKey)) || import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const normalize = (val: any) => {
+      if (val === undefined || val === null) return undefined;
+      if (typeof val !== 'string') return val;
+      const trimmed = val.trim();
+      if (!trimmed || trimmed.toLowerCase() === 'undefined' || trimmed.toLowerCase() === 'null') return undefined;
+      return trimmed;
+    };
+
+    const electronUrl = electronConfig ? normalize((electronConfig as any).url || (electronConfig as any).supabaseUrl) : undefined;
+    const electronAnon = electronConfig ? normalize((electronConfig as any).anonKey || (electronConfig as any).supabaseAnonKey) : undefined;
+    const envUrl = normalize(import.meta.env.VITE_SUPABASE_URL);
+    const envAnon = normalize(import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+    const url = electronUrl || envUrl;
+    const anonKey = electronAnon || envAnon;
 
     if (electronConfig) {
       console.log('Supabase config from electronAPI:', {
-        hasUrl: Boolean(electronConfig.url || electronConfig.supabaseUrl),
-        hasAnonKey: Boolean(electronConfig.anonKey || electronConfig.supabaseAnonKey)
+        hasUrl: Boolean(electronUrl),
+        hasAnonKey: Boolean(electronAnon)
       });
-    } else {
-      console.log('Supabase config from env:', { hasUrl: Boolean(url), hasAnonKey: Boolean(anonKey) });
     }
+    console.log('Supabase config from env define:', { hasUrl: Boolean(envUrl), hasAnonKey: Boolean(envAnon) });
 
     if (url && anonKey) {
       supabase = createClient(url, anonKey, {
