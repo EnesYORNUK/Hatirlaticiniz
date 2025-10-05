@@ -47,6 +47,8 @@ export default function App() {
   // Authentication state
   const { user, isAuthenticated, isLoading: authLoading, login, register, logout } = useAuth();
   const [authError, setAuthError] = useState<string>('');
+  // Eğer auth loading beklenenden uzun sürerse login ekranını gösterme fallback'i
+  const [authLoadFallback, setAuthLoadFallback] = useState(false);
   
   const navigate = useNavigate();
 
@@ -183,6 +185,18 @@ export default function App() {
 
     applyTheme(activeSettings.theme);
   }, [activeSettings.theme]);
+
+  // Auth yükleme beklenenden uzun sürerse login ekranına düş
+  useEffect(() => {
+    if (!isAuthenticated && authLoading) {
+      const t = setTimeout(() => {
+        setAuthLoadFallback(true);
+      }, 2000);
+      return () => clearTimeout(t);
+    } else {
+      setAuthLoadFallback(false);
+    }
+  }, [isAuthenticated, authLoading]);
 
   const setRawChecks = async (newChecks: Check[]) => {
     // For backward compatibility during migration period
@@ -340,7 +354,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  if (authLoading) {
+  if (authLoading && !authLoadFallback) {
     return (
       <div className="min-h-screen flex items-center justify-center theme-bg">
         <div className="text-center">
@@ -486,7 +500,7 @@ export default function App() {
                   onLogin={handleLogin} 
                   onSwitchToRegister={() => navigate('/register')} 
                   error={authError} 
-                  isLoading={authLoading}
+                  isLoading={authLoading && !authLoadFallback}
                 />
               } 
             />
@@ -497,7 +511,7 @@ export default function App() {
                   onRegister={handleRegister} 
                   onSwitchToLogin={() => navigate('/login')} 
                   error={authError} 
-                  isLoading={authLoading}
+                  isLoading={authLoading && !authLoadFallback}
                 />
               } 
             />

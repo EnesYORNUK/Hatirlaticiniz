@@ -27,7 +27,10 @@ root.render(
 
 console.log('Starting Supabase initialization...');
 initializeSupabase()
-  .then(() => {
+  .then((client) => {
+    if (!client) {
+      throw new Error('Supabase configuration missing or failed to initialize');
+    }
     console.log('Supabase initialized successfully');
     root.render(
       <StrictMode>

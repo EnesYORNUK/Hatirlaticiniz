@@ -194,6 +194,8 @@ class AuthManager {
 
   async login({ email, password }: LoginData) {
     try {
+      // Login başlarken yükleme durumunu aç
+      this.updateState({ isLoading: true });
       if (!supabase) throw new Error('Supabase not initialized');
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -202,10 +204,14 @@ class AuthManager {
       });
       
       if (error) throw error;
+      // Güvenli geçiş için oturumu tekrar kontrol et
+      await this.checkSession();
       
       return { user: data.user, error: null };
     } catch (error: unknown) {
       console.error('❌ Login error:', error);
+      // Hata durumunda yüklemeyi kapat
+      this.updateState({ isLoading: false });
       return { user: null, error: error as Error };
     }
   }
