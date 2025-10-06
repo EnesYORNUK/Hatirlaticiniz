@@ -18,6 +18,7 @@ import { useAuth } from './hooks/useAuth';
 import { useSupabaseChecks } from './hooks/useSupabaseChecks';
 import { useSupabaseSettings } from './hooks/useSupabaseSettings';
 import { useSupabaseMedications } from './hooks/useSupabaseMedications';
+import { useMedications as useLocalMedications } from './hooks/useMedications';
 import { useDataMigration } from './hooks/useDataMigration';
 import MigrationPrompt from './components/MigrationPrompt';
 import { deleteUserAccount } from './utils/accountUtils';
@@ -79,6 +80,11 @@ export default function App() {
     deleteMedication,
     markMedicationTaken
   } = useSupabaseMedications();
+
+  const {
+    getDailySchedule: getDailyScheduleLocal,
+    markMedicationTaken: markMedicationTakenLocal,
+  } = useLocalMedications();
   
   // Migration system
   const {
@@ -95,7 +101,9 @@ export default function App() {
   const activeChecks = checks.length > 0 || !fallbackChecks.length ? checks : fallbackChecks;
   const activeSettings = Object.keys(settings).length > 2 ? settings : fallbackSettings;
   
-  const medicationSchedule = getDailySchedule(new Date());
+  const medicationSchedule = isAuthenticated
+    ? getDailySchedule(new Date())
+    : getDailyScheduleLocal(new Date().toISOString()).medications;
 
   // Bildirim hook'u - use active settings and persist last notification check
   const handleDailyNotificationChecked = (iso: string) => {
@@ -336,8 +344,17 @@ export default function App() {
     }
   };
 
-  const handleMarkMedicationTaken = async (medicationId: string, time: string) => {
-    await markMedicationTaken(medicationId, time, 'taken');
+  const handleMarkMedicationTaken = async (
+    medicationId: string,
+    scheduledTime: string,
+    status: 'taken' | 'missed' | 'skipped',
+    notes?: string
+  ) => {
+    if (isAuthenticated) {
+      await markMedicationTaken(medicationId, status, notes);
+    } else {
+      await markMedicationTakenLocal(medicationId, status, notes);
+    }
   };
 
   // Data export/import functions

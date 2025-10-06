@@ -20,10 +20,15 @@ function createWindow(supabaseConfig) {
     ? path.join(__dirname, '../dist-electron/preload.cjs')
     : path.join(__dirname, 'preload.cjs');
 
+  const iconPath = VITE_DEV_SERVER_URL
+    ? path.join(__dirname, '../public/icon.ico')
+    : path.join(process.resourcesPath || __dirname, 'icon.ico');
+
   win = new BrowserWindow({
     width: 1200,
     height: 800,
     autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,

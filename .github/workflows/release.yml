@@ -120,6 +120,8 @@ jobs:
           name: Release v${{ steps.bump_version.outputs.new_version }}
           files: |
             electron-dist/*.exe
+            electron-dist/latest.yml
+            electron-dist/*.exe.blockmap
           generate_release_notes: true
           draft: false
           prerelease: false
