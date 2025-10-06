@@ -1,7 +1,7 @@
 {
   "name": "hatirlaticiniz",
   "private": false,
-  "version": "4.0.37",
+  "version": "4.0.38",
   "main": "dist-electron/electron.js",
   "scripts": {
     "dev": "vite",
@@ -96,12 +96,16 @@
       {
         "from": ".env",
         "to": ".env",
-        "filter": [".env"]
+        "filter": [
+          ".env"
+        ]
       },
       {
         "from": ".env.local",
         "to": ".env.local",
-        "filter": [".env.local"]
+        "filter": [
+          ".env.local"
+        ]
       }
     ],
     "mac": {
