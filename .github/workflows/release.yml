@@ -14,6 +14,8 @@ jobs:
       packages: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY != '' && secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout repository
@@ -47,16 +49,23 @@ jobs:
           echo "old_version=$oldVersion" >> $env:GITHUB_OUTPUT
           echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
 
+      - name: Validate Supabase config
+        shell: pwsh
+        run: |
+          if (-not $env:SUPABASE_URL) { Write-Error "Missing Supabase URL. Set repository Secret 'VITE_SUPABASE_URL' or Variable 'VITE_SUPABASE_URL'."; exit 1 }
+          if (-not $env:SUPABASE_ANON_KEY) { Write-Error "Missing Supabase anon key. Set repository Secret 'VITE_SUPABASE_ANON_KEY' or Variable 'VITE_SUPABASE_ANON_KEY'."; exit 1 }
+          Write-Host "Supabase config present."
+
       - name: Build application
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
 
       - name: Create runtime .env for packaged app
         run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" > .env
-          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          echo "VITE_SUPABASE_URL=${{ env.SUPABASE_URL }}" > .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY }}" >> .env
           type .env
 
       - name: Build Windows exe
