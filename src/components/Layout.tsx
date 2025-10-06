@@ -36,15 +36,9 @@ export default function Layout({
       },
       {
         id: '/add',
-        label: 'Yeni Ödeme',
-        icon: Plus,
-        description: 'Çek veya fatura ekle'
-      },
-      {
-        id: '/medications/add',
-        label: 'Yeni İlaç',
+        label: 'Yeni Ekle',
         icon: PlusCircle,
-        description: 'İlaç ekle ve program oluştur'
+        description: 'Çek/Fatura veya İlaç ekle'
       },
       {
         id: '/profile',

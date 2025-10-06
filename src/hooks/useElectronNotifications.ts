@@ -3,7 +3,11 @@ import { Check, Settings, NotificationHistory } from '../types';
 import { getDaysUntilPayment } from '../utils/dateUtils';
 import { useSupabaseMedications } from './useSupabaseMedications';
 
-export function useElectronNotifications(checks: Check[], settings: Settings) {
+export function useElectronNotifications(
+  checks: Check[],
+  settings: Settings,
+  onUpdateLastNotificationCheck?: (isoString: string) => void
+) {
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
   
   // İlaç hook'u - use Supabase version
@@ -229,6 +233,24 @@ export function useElectronNotifications(checks: Check[], settings: Settings) {
         '📋 Günlük Özet',
         message
       );
+
+      // Günlük özet gönderildikten sonra tekrarını önlemek için güncelle
+      try {
+        const nowIso = new Date().toISOString();
+        if (onUpdateLastNotificationCheck) {
+          onUpdateLastNotificationCheck(nowIso);
+        } else {
+          // Fallback: localStorage içerisindeki ayarları güncelle
+          const raw = localStorage.getItem('settings');
+          if (raw) {
+            const stored = JSON.parse(raw);
+            stored.lastNotificationCheck = nowIso;
+            localStorage.setItem('settings', JSON.stringify(stored));
+          }
+        }
+      } catch (err) {
+        console.error('lastNotificationCheck güncellenemedi:', err);
+      }
     }
   }, [checks, getDailySchedule, sendNotificationWithHistory]);
 

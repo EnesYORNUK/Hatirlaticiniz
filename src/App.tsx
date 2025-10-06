@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import Layout from './components/Layout';
 import CheckList from './components/CheckList';
 import CheckForm from './components/CheckForm';
+import AddUnified from './components/AddUnified';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -96,8 +97,19 @@ export default function App() {
   
   const medicationSchedule = getDailySchedule(new Date());
 
-  // Bildirim hook'u - use active settings
-  useElectronNotifications(activeChecks, activeSettings);
+  // Bildirim hook'u - use active settings and persist last notification check
+  const handleDailyNotificationChecked = (iso: string) => {
+    const next = { ...activeSettings, lastNotificationCheck: iso };
+    if (isAuthenticated) {
+      // Supabase'e yaz
+      updateSupabaseSettings(next);
+    } else {
+      // localStorage fallback
+      setFallbackSettings(next);
+    }
+  };
+
+  useElectronNotifications(activeChecks, activeSettings, handleDailyNotificationChecked);
 
   // Authentication handlers
   const handleLogin = async (loginData: LoginData) => {
@@ -405,7 +417,7 @@ export default function App() {
           />
           <Route
             path="add"
-            element={<CheckForm onSave={handleAddCheck} onCancel={() => navigate('/')} />}
+            element={<AddUnified onAddCheck={handleAddCheck} onAddMedication={handleAddMedication} onCancel={() => navigate('/')} />}
           />
           <Route
             path="edit/:id"
@@ -458,7 +470,7 @@ export default function App() {
             />
             <Route
               path="add"
-              element={<MedicationForm onSave={handleAddMedication} onCancel={() => navigate('/medications')} />}
+              element={<Navigate to="/add?type=medication" replace />}
             />
             <Route
               path="edit/:id"
