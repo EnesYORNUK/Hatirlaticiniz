@@ -23,8 +23,8 @@ jobs:
       packages: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SUPABASE_URL: ${{ github.event.inputs.supabase_url || secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ github.event.inputs.supabase_anon_key || secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_URL: https://asbcteplixnkuqvytqce.supabase.co
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzYmN0ZXBsaXhua3Vxdnl0cWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1MjIxMjYsImV4cCI6MjA3MzA5ODEyNn0.ysyedceXwi5KpRGordwG0uucIHRFFBA6fHuYhs_Lq5U
 
     steps:
       - name: Checkout repository
