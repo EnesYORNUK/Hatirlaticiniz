@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs');
 const dotenv = require('dotenv');
@@ -135,6 +136,33 @@ app.whenReady().then(() => {
   }
 
   createWindow(supabaseConfig);
+
+  // Configure autoUpdater and forward events
+  try {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+
+    autoUpdater.on('checking-for-update', () => {
+      win?.webContents.send('update-status', 'checking-for-update');
+    });
+    autoUpdater.on('update-available', (info) => {
+      win?.webContents.send('update-status', 'update-available', info);
+    });
+    autoUpdater.on('update-not-available', (info) => {
+      win?.webContents.send('update-status', 'update-not-available', info);
+    });
+    autoUpdater.on('error', (err) => {
+      win?.webContents.send('update-status', 'error', { message: err?.message || String(err) });
+    });
+    autoUpdater.on('download-progress', (progressObj) => {
+      win?.webContents.send('update-status', 'download-progress', progressObj);
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      win?.webContents.send('update-status', 'update-downloaded', info);
+    });
+  } catch (e) {
+    console.warn('autoUpdater setup failed:', e);
+  }
 });
 
 ipcMain.on('get-app-version', (event) => {
@@ -146,8 +174,14 @@ ipcMain.on('get-app-version', (event) => {
 
 // Notification handler
 ipcMain.handle('show-notification', (event, title, body) => {
-  // Notification implementation can be added here
-  console.log('Notification:', title, body);
+  try {
+    const notif = new Notification({ title: String(title), body: String(body) });
+    notif.show();
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to show notification:', err);
+    return { success: false, message: err?.message || String(err) };
+  }
 });
 
 // App version handler (using handle instead of on)
@@ -156,16 +190,34 @@ ipcMain.handle('app-version', () => {
 });
 
 // Update handlers (placeholders)
-ipcMain.handle('check-for-updates', () => {
-  console.log('Check for updates requested');
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true, message: 'Güncelleme kontrolü başlatıldı' };
+  } catch (err) {
+    win?.webContents.send('update-status', 'error', { message: err?.message || String(err) });
+    return { success: false, message: err?.message || String(err) };
+  }
 });
 
-ipcMain.handle('download-update', () => {
-  console.log('Download update requested');
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true, message: 'İndirme başlatıldı' };
+  } catch (err) {
+    win?.webContents.send('update-status', 'error', { message: err?.message || String(err) });
+    return { success: false, message: err?.message || String(err) };
+  }
 });
 
-ipcMain.handle('install-update', () => {
-  console.log('Install update requested');
+ipcMain.handle('install-update', async () => {
+  try {
+    autoUpdater.quitAndInstall(false, true);
+    return { success: true, message: 'Kurulum başlatıldı' };
+  } catch (err) {
+    win?.webContents.send('update-status', 'error', { message: err?.message || String(err) });
+    return { success: false, message: err?.message || String(err) };
+  }
 });
 
 // AppData handlers (placeholders)

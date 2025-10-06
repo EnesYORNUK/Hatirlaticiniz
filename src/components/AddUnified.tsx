@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, CreditCard, Pill, Info } from 'lucide-react';
+import { Plus, CreditCard, Pill, Info, Receipt } from 'lucide-react';
 import CheckForm from './CheckForm';
 import MedicationForm from './MedicationForm';
 import { Check } from '../types';
@@ -18,14 +18,15 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
   const initialTab = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const type = params.get('type');
-    return type === 'medication' ? 'medication' : 'payment';
+    if (type === 'bill' || type === 'medication' || type === 'check') return type;
+    return 'check';
   }, [location.search]);
 
-  const [activeTab, setActiveTab] = useState<'payment' | 'medication'>(initialTab as 'payment' | 'medication');
+  const [activeTab, setActiveTab] = useState<'check' | 'bill' | 'medication'>(initialTab as 'check' | 'bill' | 'medication');
 
-  const switchTab = (tab: 'payment' | 'medication') => {
+  const switchTab = (tab: 'check' | 'bill' | 'medication') => {
     setActiveTab(tab);
-    const search = tab === 'medication' ? '?type=medication' : '';
+    const search = `?type=${tab}`;
     navigate({ pathname: '/add', search }, { replace: true });
   };
 
@@ -57,15 +58,26 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
         <div className="p-4 border-b theme-border">
           <div className="flex gap-2">
             <button
-              onClick={() => switchTab('payment')}
+              onClick={() => switchTab('check')}
               className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'payment'
+                activeTab === 'check'
                   ? 'theme-primary text-white'
                   : 'theme-button-secondary'
               }`}
             >
               <CreditCard className="w-4 h-4" />
-              Ödeme (Çek/Fatura)
+              Çek
+            </button>
+            <button
+              onClick={() => switchTab('bill')}
+              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
+                activeTab === 'bill'
+                  ? 'theme-primary text-white'
+                  : 'theme-button-secondary'
+              }`}
+            >
+              <Receipt className="w-4 h-4" />
+              Fatura
             </button>
             <button
               onClick={() => switchTab('medication')}
@@ -82,9 +94,13 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
         </div>
 
         <div className="p-4">
-          {activeTab === 'payment' ? (
-            <CheckForm onSave={onAddCheck} onCancel={onCancel} />
-          ) : (
+          {activeTab === 'check' && (
+            <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="check" />
+          )}
+          {activeTab === 'bill' && (
+            <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="bill" />
+          )}
+          {activeTab === 'medication' && (
             <MedicationForm onSave={onAddMedication} onCancel={() => navigate('/medications')} />
           )}
         </div>

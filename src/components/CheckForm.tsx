@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Check } from '../types';
 import { Save, X, CreditCard, Receipt, Calendar, Repeat } from 'lucide-react';
 
@@ -6,9 +6,10 @@ interface CheckFormProps {
   onSave: (check: Omit<Check, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
   initialData?: Check;
+  forceType?: 'check' | 'bill';
 }
 
-export default function CheckForm({ onSave, onCancel, initialData }: CheckFormProps) {
+export default function CheckForm({ onSave, onCancel, initialData, forceType }: CheckFormProps) {
   const [formData, setFormData] = useState({
     createdDate: initialData?.createdDate || new Date().toISOString().split('T')[0],
     paymentDate: initialData?.paymentDate || '',
@@ -16,7 +17,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     createdBy: initialData?.createdBy || '',
     signedTo: initialData?.signedTo || '',
     isPaid: initialData?.isPaid || false,
-    type: initialData?.type || 'check' as 'check' | 'bill',
+    type: (forceType || initialData?.type || 'check') as 'check' | 'bill',
     billType: initialData?.billType || 'elektrik' as 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger',
     customBillType: initialData?.customBillType || '',
     isRecurring: initialData?.isRecurring || false,
@@ -24,6 +25,8 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
     recurringDay: initialData?.recurringDay || 1,
     nextPaymentDate: initialData?.nextPaymentDate || undefined,
   });
+
+  const displayType = useMemo(() => (forceType ? forceType : formData.type), [forceType, formData.type]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -184,7 +187,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
           {/* Clean Header */}
           <div className="theme-primary px-6 py-4 rounded-t-lg">
             <div className="flex items-center gap-3">
-              {formData.type === 'check' ? (
+              {displayType === 'check' ? (
                 <CreditCard className="w-5 h-5 text-white" />
               ) : (
                 <Receipt className="w-5 h-5 text-white" />
@@ -194,7 +197,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
                   {initialData ? 'Düzenle' : 'Yeni Ekle'}
                 </h2>
                 <p className="text-blue-100 text-sm">
-                  {formData.type === 'check' ? 'Çek bilgilerini girin' : 'Fatura bilgilerini girin'}
+                  {displayType === 'check' ? 'Çek bilgilerini girin' : 'Fatura bilgilerini girin'}
                 </p>
               </div>
             </div>
@@ -203,6 +206,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             
             {/* Type Selection */}
+            {!forceType && (
             <div>
               <label className="theme-text block text-sm font-medium mb-2">
                 Ödeme Türü
@@ -234,6 +238,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
                 </button>
               </div>
             </div>
+            )}
 
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -447,7 +452,7 @@ export default function CheckForm({ onSave, onCancel, initialData }: CheckFormPr
             </div>
 
             {/* Bill Type Selection (only for bills) */}
-            {formData.type === 'bill' && (
+            {displayType === 'bill' && (
               <div>
                 <label className="theme-text block text-sm font-medium mb-2">
                   Fatura Türü

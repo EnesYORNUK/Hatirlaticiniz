@@ -533,7 +533,7 @@ export default function App() {
         {/* Top-level catch-all */}
         <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
       </Routes>
-      {migrationStatus.isNeeded && !migrationStatus.isComplete && (
+      {migrationStatus.isNeeded && !migrationStatus.isComplete && location.pathname === '/' && (
         <MigrationPrompt 
           migrationStatus={migrationStatus}
           onRunMigration={runMigration} 
