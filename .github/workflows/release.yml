@@ -5,6 +5,15 @@ on:
     branches:
       - main   # sadece main branch push'larında çalışır
   workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: "Supabase Project URL (optional; overrides secrets/vars)"
+        required: false
+        type: string
+      supabase_anon_key:
+        description: "Supabase anon public key (optional; overrides secrets/vars)"
+        required: false
+        type: string
 
 jobs:
   release:
@@ -14,8 +23,8 @@ jobs:
       packages: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY != '' && secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_URL: ${{ github.event.inputs.supabase_url || secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ github.event.inputs.supabase_anon_key || secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout repository
@@ -54,7 +63,7 @@ jobs:
         run: |
           if (-not $env:SUPABASE_URL) { Write-Error "Missing Supabase URL. Set repository Secret 'VITE_SUPABASE_URL' or Variable 'VITE_SUPABASE_URL'."; exit 1 }
           if (-not $env:SUPABASE_ANON_KEY) { Write-Error "Missing Supabase anon key. Set repository Secret 'VITE_SUPABASE_ANON_KEY' or Variable 'VITE_SUPABASE_ANON_KEY'."; exit 1 }
-          Write-Host "Supabase config present."
+          Write-Host "Supabase config present. URL length: $($env:SUPABASE_URL.Length) / ANON length: $($env:SUPABASE_ANON_KEY.Length)"
 
       - name: Build application
         run: npm run build
@@ -66,7 +75,7 @@ jobs:
         run: |
           echo "VITE_SUPABASE_URL=${{ env.SUPABASE_URL }}" > .env
           echo "VITE_SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY }}" >> .env
-          type .env
+          echo "Runtime .env created (values masked)."
 
       - name: Build Windows exe
         run: npx electron-builder --win --publish never
