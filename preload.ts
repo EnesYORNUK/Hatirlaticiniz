@@ -2,11 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const supabaseConfigArg = process.argv.find(arg => arg.startsWith('--supabase-config='));
 let supabaseConfig = {};
+const isDev = process.env.NODE_ENV !== 'production';
 if (supabaseConfigArg) {
   try {
     const configString = supabaseConfigArg.split('=')[1];
     supabaseConfig = JSON.parse(configString);
-    console.log('Parsed supabaseConfig in preload:', supabaseConfig);
+    if (isDev) console.log('Parsed supabaseConfig in preload:', supabaseConfig);
   } catch (error) {
     console.error('Error parsing supabaseConfig in preload:', error, supabaseConfigArg);
   }

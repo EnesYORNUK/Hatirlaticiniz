@@ -2,17 +2,25 @@
 
 interface Window {
   electronAPI: {
-    getSupabaseConfig: () => Promise<{ supabaseUrl: string; supabaseAnonKey: string; }>;
+    supabaseConfig: Record<string, any>;
     showNotification: (title: string, body: string) => Promise<void>;
-    checkForUpdates: () => Promise<{ success: boolean; message: string; }>;
-    downloadUpdate: () => Promise<{ success: boolean; message: string; }>;
-    installUpdate: () => Promise<void>;
     getVersion: () => Promise<string>;
-    saveAppData: (key: string, data: any) => Promise<void>;
-    loadAppData: (key: string) => Promise<any>;
+    onMenuAction: (callback: () => void) => void;
+    removeMenuListener: (callback: () => void) => void;
+    checkForUpdates: () => Promise<{ success: boolean; message: string }>;
+    downloadUpdate: () => Promise<{ success: boolean; message: string }>;
+    installUpdate: () => Promise<{ success: boolean; message: string }>;
+    onUpdateStatus: (callback: (status: string, details: any) => void) => void;
+    removeUpdateStatusListener: () => void;
+    saveAppData: (filename: string, data: any) => Promise<void>;
+    loadAppData: (filename: string) => Promise<any>;
     getAppDataPath: () => Promise<string>;
-    getSession: (key: string) => Promise<any>;
-    setSession: (key: string, value: any) => Promise<void>;
-    deleteSession: (key: string) => Promise<void>;
+    getSession: () => Promise<any>;
+    setSession: (session: any) => Promise<void>;
+    deleteSession: () => Promise<void>;
+  };
+  ipcRenderer: {
+    on: (channel: string, func: (...args: any[]) => void) => void;
+    removeAllListeners: (channel: string) => void;
   };
 }

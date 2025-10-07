@@ -239,6 +239,43 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabase: SupabaseClient | null = null;
 let warnedMissingConfig = false;
+let cleanedStaleTokens = false;
+
+function clearStaleSupabaseAuthTokens() {
+  try {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) || '';
+      // Supabase JS v2 default storage key pattern: sb-<project-ref>-auth-token
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(key);
+        try {
+          const parsed = raw ? JSON.parse(raw) : null;
+          const hasRefreshToken = Boolean(
+            parsed?.currentSession?.refresh_token ||
+            parsed?.session?.refresh_token ||
+            parsed?.refresh_token
+          );
+          if (!hasRefreshToken) {
+            keysToRemove.push(key);
+          }
+        } catch {
+          // Malformed value -> remove
+          keysToRemove.push(key);
+        }
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    if (keysToRemove.length && import.meta.env.DEV) {
+      console.log(`🧹 ${keysToRemove.length} adet geçersiz Supabase oturum anahtarı temizlendi`);
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn('⚠️ Supabase token temizleme başarısız', e);
+  } finally {
+    cleanedStaleTokens = true;
+  }
+}
 
 async function initializeSupabase() {
   if (supabase) {
@@ -246,6 +283,7 @@ async function initializeSupabase() {
   }
 
   try {
+    const debug = import.meta.env?.DEV;
     const electronConfig = (typeof window !== 'undefined' && (window as any).electronAPI)
       ? (window as any).electronAPI.supabaseConfig
       : undefined;
@@ -266,15 +304,17 @@ async function initializeSupabase() {
     const url = electronUrl || envUrl;
     const anonKey = electronAnon || envAnon;
 
-    if (electronConfig) {
+    if (electronConfig && debug) {
       console.log('Supabase config from electronAPI:', {
         hasUrl: Boolean(electronUrl),
         hasAnonKey: Boolean(electronAnon)
       });
     }
-    console.log('Supabase config from env define:', { hasUrl: Boolean(envUrl), hasAnonKey: Boolean(envAnon) });
+    if (debug) console.log('Supabase config from env define:', { hasUrl: Boolean(envUrl), hasAnonKey: Boolean(envAnon) });
 
     if (url && anonKey) {
+      // Prevent Supabase from attempting a refresh with broken/missing tokens on startup
+      if (!cleanedStaleTokens) clearStaleSupabaseAuthTokens();
       supabase = createClient(url, anonKey, {
         auth: {
           autoRefreshToken: true,
@@ -282,7 +322,7 @@ async function initializeSupabase() {
           detectSessionInUrl: false,
         },
       });
-      console.log('Supabase client created successfully');
+      if (debug) console.log('Supabase client created successfully');
     } else {
       if (!warnedMissingConfig) {
         console.error('Supabase configuration is missing. URL or anonKey not found.');

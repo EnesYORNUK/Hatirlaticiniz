@@ -5,8 +5,19 @@ import App from './App.tsx';
 import './index.css';
 import { initializeSupabase } from './lib/supabase';
 
-console.log('React main.tsx is loading...')
-console.log('window.electronAPI:', window.electronAPI)
+const debug = import.meta.env.DEV;
+// Filter noisy LockManager warnings from gotrue in certain browsers
+const originalWarn = console.warn;
+console.warn = (...args: any[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('LockManager returned a null lock')) {
+    // Suppress this specific known warning
+    return;
+  }
+  originalWarn(...args as Parameters<typeof originalWarn>);
+};
+
+if (debug) console.log('React main.tsx is loading...')
+if (debug) console.log('window.electronAPI:', window.electronAPI)
 
 const rootElement = document.getElementById('root');
 const root = createRoot(rootElement!);
@@ -23,13 +34,13 @@ root.render(
   </HashRouter>
 );
 
-console.log('Starting Supabase initialization...');
+if (debug) console.log('Starting Supabase initialization...');
 initializeSupabase()
   .then((client) => {
     if (!client) {
       throw new Error('Supabase configuration missing or failed to initialize');
     }
-    console.log('Supabase initialized successfully');
+    if (debug) console.log('Supabase initialized successfully');
     root.render(
       <HashRouter>
         <App />

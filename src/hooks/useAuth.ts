@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { User, AuthState, LoginData, RegisterData } from '../types';
 import { supabase, initializeSupabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+const debug = import.meta.env?.DEV;
 
 // Convert Supabase user to our User type
 const convertSupabaseUser = (supabaseUser: SupabaseUser, profile?: Record<string, unknown>): User => ({
@@ -53,16 +54,16 @@ class AuthManager {
 
   async initialize() {
     if (this.initialized) {
-      console.log('🔄 Auth manager already initialized');
+      if (debug) console.log('🔄 Auth manager already initialized');
       return;
     }
 
     this.initialized = true;
-    console.log('🚀 Initializing auth manager...');
+    if (debug) console.log('🚀 Initializing auth manager...');
 
     // Set timeout to prevent hanging
     const timeoutId = setTimeout(() => {
-      console.log('⏰ Auth initialization timeout');
+      if (debug) console.log('⏰ Auth initialization timeout');
       this.updateState({ isLoading: false });
     }, 5000);
 
@@ -77,26 +78,26 @@ class AuthManager {
       if (supabase && !this.subscription) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, session) => {
-            console.log('🔄 Auth state changed:', event);
+            if (debug) console.log('🔄 Auth state changed:', event);
             
             // Ignore INITIAL_SESSION completely
             if (event === 'INITIAL_SESSION') {
-              console.log('⏭️ Ignoring INITIAL_SESSION event');
+              if (debug) console.log('⏭️ Ignoring INITIAL_SESSION event');
               return;
             }
             
             if (event === 'SIGNED_IN') {
-              console.log('✅ User signed in');
+              if (debug) console.log('✅ User signed in');
               await this.handleSignIn(session);
             } else if (event === 'SIGNED_OUT') {
-              console.log('👋 User signed out');
+              if (debug) console.log('👋 User signed out');
               this.updateState({
                 user: null,
                 isAuthenticated: false,
                 isLoading: false
               });
             } else if (event === 'TOKEN_REFRESHED') {
-              console.log('🔄 Token refreshed');
+              if (debug) console.log('🔄 Token refreshed');
               // Session should still be valid, no action needed
             }
           }
@@ -113,7 +114,7 @@ class AuthManager {
 
   private async checkSession() {
     if (!supabase) {
-      console.log('⚠️ Supabase not initialized');
+      if (debug) console.log('⚠️ Supabase not initialized');
       this.updateState({
         user: null,
         isAuthenticated: false,
@@ -123,7 +124,7 @@ class AuthManager {
     }
 
     try {
-      console.log('🔍 Checking session...');
+      if (debug) console.log('🔍 Checking session...');
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -132,9 +133,9 @@ class AuthManager {
         if (msg.includes('Invalid Refresh Token')) {
           try {
             await supabase.auth.signOut();
-            console.log('🧹 Cleared invalid session tokens');
+            if (debug) console.log('🧹 Cleared invalid session tokens');
           } catch (signOutErr) {
-            console.warn('⚠️ Failed to sign out while clearing invalid session', signOutErr);
+            if (debug) console.warn('⚠️ Failed to sign out while clearing invalid session', signOutErr);
           }
         }
         this.updateState({
@@ -146,10 +147,10 @@ class AuthManager {
       }
 
       if (session?.user) {
-        console.log('👤 User session found:', session.user.id);
+        if (debug) console.log('👤 User session found:', session.user.id);
         await this.handleSignIn(session);
       } else {
-        console.log('👤 No user session found');
+        if (debug) console.log('👤 No user session found');
         this.updateState({
           user: null,
           isAuthenticated: false,

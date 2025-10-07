@@ -1,24 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, Clock, AlertCircle, ArrowDownCircle, Pill } from 'lucide-react';
-
-declare global {
-  interface Window {
-    electronAPI?: {
-      showNotification: (title: string, body: string) => Promise<void>;
-      checkForUpdates: () => Promise<{success: boolean, message: string}>;
-      downloadUpdate: () => Promise<{success: boolean, message: string}>;
-      installUpdate: () => Promise<{success: boolean, message: string}>;
-      getVersion: () => Promise<string>;
-      saveAppData: (key: string, data: any) => Promise<void>;
-      loadAppData: (key: string) => Promise<any>;
-    };
-    ipcRenderer?: {
-      on: (channel: string, callback: (...args: any[]) => void) => void;
-      removeAllListeners: (channel: string) => void;
-    };
-  }
-}
+import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, AlertCircle, ArrowDownCircle, Pill } from 'lucide-react';
 
 const themeOptions: { value: ThemeType; label: string; color: string }[] = [
   { value: 'light', label: 'Açık', color: '#F8FAFC' },
@@ -32,7 +14,7 @@ const themeOptions: { value: ThemeType; label: string; color: string }[] = [
 
 interface SettingsProps {
   settings: SettingsType;
-  onSave: (settings: SettingsType) => void;
+  onSave: (settings: SettingsType) => Promise<void> | void;
   onExportData: () => void;
   onImportData: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -43,6 +25,11 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   useEffect(() => {
     if (window.electronAPI?.getVersion) {
@@ -55,7 +42,9 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
 
     // Update status event listener
     if (window.ipcRenderer) {
-      const handleUpdateStatus = (event: any, status: string, info?: any) => {
+      const handleUpdateStatus = (...args: any[]) => {
+        const status = args[1] as string;
+        const info = args[2];
         console.log('🔄 Update status received:', status, info);
         setUpdateStatus(status);
         setUpdateInfo(info);
@@ -74,8 +63,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   }, []);
 
   const handleSettingChange = (key: keyof SettingsType, value: any) => {
-    const newSettings = { ...settings, [key]: value };
-    onSave(newSettings);
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handleCheckForUpdates = async () => {
@@ -171,14 +159,23 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       
       {/* Header */}
       <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="theme-primary rounded-lg p-2.5">
-            <Palette className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="theme-primary rounded-lg p-2.5">
+              <Palette className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold theme-text">Ayarlar</h1>
+              <p className="theme-text-muted text-sm">Uygulamanızı özelleştirin</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold theme-text">Ayarlar</h1>
-            <p className="theme-text-muted text-sm">Uygulamanızı özelleştirin</p>
-          </div>
+          <button
+            onClick={() => onSave(localSettings)}
+            className="theme-button px-4 py-2 text-sm"
+            title="Değişiklikleri kaydet"
+          >
+            Kaydet
+          </button>
         </div>
       </div>
 
@@ -195,7 +192,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               key={option.value}
               onClick={() => handleSettingChange('theme', option.value)}
               className={`p-3 rounded-lg border transition-all text-sm ${
-                settings.theme === option.value
+                localSettings.theme === option.value
                   ? 'border-blue-500 bg-blue-50 text-blue-700'
                   : 'theme-border theme-text hover:theme-bg-secondary'
               }`}
@@ -234,7 +231,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.notificationsEnabled}
+                checked={localSettings.notificationsEnabled}
                 onChange={(e) => handleSettingChange('notificationsEnabled', e.target.checked)}
                 className="sr-only peer"
               />
@@ -243,7 +240,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           </div>
 
           {/* Kaç Gün Önceden Hatırlat */}
-          {settings.notificationsEnabled && (
+          {localSettings.notificationsEnabled && (
             <div className="pl-4 border-l-2 border-blue-200 space-y-3">
               <div>
                 <label className="theme-text text-sm font-medium block mb-2">
@@ -254,7 +251,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                     type="number"
                     min={1}
                     max={30}
-                    value={settings.reminderDays}
+                    value={localSettings.reminderDays}
                     onChange={(e) => handleSettingChange('reminderDays', parseInt(e.target.value) || 1)}
                     className="theme-input w-20 text-center"
                   />
@@ -283,7 +280,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.dailyNotificationEnabled}
+                checked={localSettings.dailyNotificationEnabled}
                 onChange={(e) => handleSettingChange('dailyNotificationEnabled', e.target.checked)}
                 className="sr-only peer"
               />
@@ -292,14 +289,14 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           </div>
 
           {/* Günlük Bildirim Saati */}
-          {settings.dailyNotificationEnabled && (
+          {localSettings.dailyNotificationEnabled && (
             <div className="pl-4 border-l-2 border-green-200">
               <label className="theme-text text-sm font-medium block mb-2">
                 Günlük bildirim saati
               </label>
               <input
                 type="time"
-                value={settings.dailyNotificationTime}
+                value={localSettings.dailyNotificationTime}
                 onChange={(e) => handleSettingChange('dailyNotificationTime', e.target.value)}
                 className="theme-input w-32 text-sm"
               />
@@ -326,7 +323,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.medicationNotificationsEnabled || false}
+                checked={localSettings.medicationNotificationsEnabled || false}
                 onChange={(e) => handleSettingChange('medicationNotificationsEnabled', e.target.checked)}
                 className="sr-only peer"
               />
@@ -335,7 +332,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           </div>
 
           {/* İlaç Hatırlatma Süresi */}
-          {(settings.medicationNotificationsEnabled || false) && (
+          {(localSettings.medicationNotificationsEnabled || false) && (
             <div className="pl-4 border-l-2 border-blue-200 space-y-3">
               <div>
                 <label className="theme-text text-sm font-medium block mb-2">
@@ -346,7 +343,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                     type="number"
                     min={0}
                     max={120}
-                    value={settings.medicationReminderMinutes || 15}
+                    value={localSettings.medicationReminderMinutes || 15}
                     onChange={(e) => handleSettingChange('medicationReminderMinutes', parseInt(e.target.value) || 15)}
                     className="theme-input w-20 text-center"
                   />
@@ -368,7 +365,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.showMedicationsInDashboard !== false}
+                checked={localSettings.showMedicationsInDashboard !== false}
                 onChange={(e) => handleSettingChange('showMedicationsInDashboard', e.target.checked)}
                 className="sr-only peer"
               />
@@ -385,7 +382,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.medicationSoundEnabled !== false}
+                checked={localSettings.medicationSoundEnabled !== false}
                 onChange={(e) => handleSettingChange('medicationSoundEnabled', e.target.checked)}
                 className="sr-only peer"
               />
@@ -413,7 +410,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={settings.telegramBotEnabled}
+                checked={localSettings.telegramBotEnabled}
                 onChange={(e) => handleSettingChange('telegramBotEnabled', e.target.checked)}
                 className="sr-only peer"
               />
@@ -422,7 +419,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           </div>
 
           {/* Telegram Bot Ayarları */}
-          {settings.telegramBotEnabled && (
+          {localSettings.telegramBotEnabled && (
             <div className="pl-4 border-l-2 border-blue-200 space-y-4">
               
               <div>
@@ -432,7 +429,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 <input
                   type="password"
                   placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  value={settings.telegramBotToken}
+                  value={localSettings.telegramBotToken}
                   onChange={(e) => handleSettingChange('telegramBotToken', e.target.value)}
                   className="theme-input w-full text-sm"
                 />
@@ -448,7 +445,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 <input
                   type="text"
                   placeholder="123456789"
-                  value={settings.telegramChatId}
+                  value={localSettings.telegramChatId}
                   onChange={(e) => handleSettingChange('telegramChatId', e.target.value)}
                   className="theme-input w-full text-sm"
                 />

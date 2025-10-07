@@ -184,7 +184,7 @@ export default function App() {
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'L') {
-        console.log('🔄 Clearing auth data...');
+        if (import.meta.env.DEV) console.log('🔄 Clearing auth data...');
         clearAuthData();
       }
     };
@@ -201,7 +201,7 @@ export default function App() {
       // Body'ye tema class'ı ekle
       document.body.className = 'theme-bg min-h-screen';
       
-      console.log(`🎨 Tema uygulandı: ${theme}`);
+      if (import.meta.env.DEV) console.log(`🎨 Tema uygulandı: ${theme}`);
     };
 
     applyTheme(activeSettings.theme);
@@ -224,7 +224,7 @@ export default function App() {
     if (isAuthenticated) {
       // Eğer login/register sayfasında isek ana sayfaya geç
       if (location.pathname === '/login' || location.pathname === '/register') {
-        console.log('🔁 Auth true, /login|/register -> /');
+        if (import.meta.env.DEV) console.log('🔁 Auth true, /login|/register -> /');
         navigate('/', { replace: true });
       }
     }
@@ -234,7 +234,7 @@ export default function App() {
     // For backward compatibility during migration period
     if (isAuthenticated && user) {
       // Use Supabase if user is authenticated
-      console.log('Using Supabase for check updates');
+      if (import.meta.env.DEV) console.log('Using Supabase for check updates');
     } else {
       // Fallback to localStorage
       await setFallbackChecks(newChecks);
@@ -351,7 +351,7 @@ export default function App() {
     notes?: string
   ) => {
     if (isAuthenticated) {
-      await markMedicationTaken(medicationId, status, notes);
+      await markMedicationTaken(medicationId, scheduledTime, status, notes);
     } else {
       await markMedicationTakenLocal(medicationId, status, notes);
     }
@@ -386,7 +386,7 @@ export default function App() {
       try {
         const data = JSON.parse(e.target?.result as string);
         // Handle import logic here
-        console.log('Import data:', data);
+        if (import.meta.env.DEV) console.log('Import data:', data);
         alert('Veri içe aktarma özelliği henüz geliştirilmekte!');
       } catch (error) {
         alert('Geçersiz dosya formatı!');
