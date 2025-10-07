@@ -60,9 +60,15 @@ export const useSupabaseMedications = () => {
 
     setIsLoading(true);
     try {
+      // Oturum hazır mı kontrol et
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      }
       const { data, error } = await supabase
         .from('medications')
         .select('*')
+        .order('created_at', { ascending: true })
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -73,7 +79,8 @@ export const useSupabaseMedications = () => {
       setMedicationsError(err.message);
       console.error("Error loading medications:", err);
     } finally {
-      // Logs yüklendikten sonra loading'i false yap
+      // Güvenli: her yükleme sonunda durumu kapat
+      setIsLoading(false);
     }
   }, [isAuthenticated, user]);
 
@@ -82,6 +89,11 @@ export const useSupabaseMedications = () => {
 
     setIsLoading(true);
     try {
+      // Oturum hazır mı kontrol et
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      }
       const { data, error } = await supabase
         .from('medication_logs')
         .select('*')
@@ -93,7 +105,7 @@ export const useSupabaseMedications = () => {
       setMedicationsError(err.message);
       console.error("Error loading medication logs:", err);
     } finally {
-      setIsLoading(false); // Her iki yükleme de tamamlandığında
+      setIsLoading(false);
     }
   }, [isAuthenticated, user]);
 
@@ -123,6 +135,11 @@ export const useSupabaseMedications = () => {
     };
 
     try {
+      setIsLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      }
       const { data, error } = await supabase
         .from('medications')
         .insert(newMedication as never)
@@ -138,6 +155,8 @@ export const useSupabaseMedications = () => {
       setMedicationsError(err.message);
       console.error("Error adding medication:", err);
       return null;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -163,6 +182,11 @@ export const useSupabaseMedications = () => {
 
 
     try {
+      setIsLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      }
       const { data, error } = await supabase
         .from('medications')
         .update(supabaseUpdates as never)
@@ -177,6 +201,8 @@ export const useSupabaseMedications = () => {
     } catch (err: any) {
       setMedicationsError(err.message);
       console.error("Error updating medication:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -184,21 +210,35 @@ export const useSupabaseMedications = () => {
     if (!user || !supabase) return;
 
     try {
-      // First, delete related logs
-      const { error: logError } = await supabase
-        .from('medication_logs')
-        .delete()
-        .eq('medication_id', id);
+      setIsLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      }
 
-      if (logError) throw logError;
-
-      // Then, delete the medication
+      // Önce ilacı sil (FK CASCADE zaten tanımlı)
       const { error: medError } = await supabase
         .from('medications')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
 
-      if (medError) throw medError;
+      if (medError) {
+        // FK hatası veya başka bir durum olursa logları silmeyi dene, sonra ilacı sil
+        const { error: logError } = await supabase
+          .from('medication_logs')
+          .delete()
+          .eq('medication_id', id)
+          .eq('user_id', user.id);
+        if (logError) throw logError;
+
+        const { error: medError2 } = await supabase
+          .from('medications')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+        if (medError2) throw medError2;
+      }
 
       setMedications(prev => prev.filter(m => m.id !== id));
       setMedicationLogs(prev => prev.filter(l => l.medicationId !== id));
@@ -206,6 +246,8 @@ export const useSupabaseMedications = () => {
     } catch (err: any) {
       setMedicationsError(err.message);
       console.error("Error deleting medication:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -223,6 +265,11 @@ export const useSupabaseMedications = () => {
     };
 
     try {
+      setIsLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      }
       const { data, error } = await supabase
         .from('medication_logs')
         .insert(logEntry as never)
@@ -238,6 +285,8 @@ export const useSupabaseMedications = () => {
       setMedicationsError(err.message);
       console.error("Error marking medication taken:", err);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
