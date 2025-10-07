@@ -29,10 +29,13 @@ const defaultSettings: SettingsType = {
   reminderDays: 3,
   notificationsEnabled: true,
   autoUpdateEnabled: true,
+  launchOnStartup: false,
   // Yeni bildirim ayarları
   dailyNotificationEnabled: true, // Günlük bildirim açık/kapalı
   dailyNotificationTime: '09:00', // "09:00" formatında
   lastNotificationCheck: '', // Son bildirim kontrolü tarihi
+  // Eski ödemeleri otomatik silme
+  autoDeleteAfterDays: 0,
   // Telegram bot ayarları
   telegramBotEnabled: false, // Telegram bot açık/kapalı
   telegramBotToken: '', // Bot token (@BotFather'dan alınan)
@@ -119,6 +122,33 @@ export default function App() {
 
   useElectronNotifications(activeChecks, activeSettings, handleDailyNotificationChecked);
 
+  // Otomatik silme: ödenmiş ödemeleri ödeme tarihinden X gün sonra temizle
+  useEffect(() => {
+    const days = activeSettings.autoDeleteAfterDays ?? 0;
+    if (!days || days <= 0) return;
+
+    const thresholdTime = Date.now() - days * 24 * 60 * 60 * 1000;
+    const shouldPrune = (c: Check) => {
+      if (!c.isPaid) return false;
+      const paymentTime = new Date(c.paymentDate).getTime();
+      return paymentTime < thresholdTime;
+    };
+
+    const toPrune = activeChecks.filter(shouldPrune);
+    if (toPrune.length === 0) return;
+
+    if (isAuthenticated) {
+      // Supabase tarafında tek tek sil
+      toPrune.forEach((c) => {
+        deleteSupabaseCheck(c.id);
+      });
+    } else {
+      // localStorage fallback: filtrele ve yaz
+      const kept = activeChecks.filter((c) => !shouldPrune(c));
+      setFallbackChecks(kept);
+    }
+  }, [activeChecks, activeSettings.autoDeleteAfterDays, isAuthenticated]);
+
   // Authentication handlers
   const handleLogin = async (loginData: LoginData) => {
     setAuthError('');
@@ -165,9 +195,10 @@ export default function App() {
       } else {
         throw new Error(result.error || 'Hesap silinirken bir hata oluştu');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error('Account deletion error:', error);
-      alert(`Hesap silinirken bir hata oluştu: ${error.message}`);
+      alert(`Hesap silinirken bir hata oluştu: ${message}`);
     }
   };
 
@@ -218,6 +249,18 @@ export default function App() {
       setAuthLoadFallback(false);
     }
   }, [isAuthenticated, authLoading]);
+
+  // Sistem başlangıcında otomatik başlatmayı ayarlama
+  useEffect(() => {
+    const enabled = !!activeSettings.launchOnStartup;
+    try {
+      if (window.electronAPI?.setLaunchOnStartup) {
+        window.electronAPI.setLaunchOnStartup(enabled);
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('Auto-launch ayarı uygulanamadı:', e);
+    }
+  }, [activeSettings.launchOnStartup]);
 
   // Giriş durumuna göre güvenli yönlendirme ve loglama
   useEffect(() => {

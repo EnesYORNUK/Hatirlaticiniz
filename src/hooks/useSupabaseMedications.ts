@@ -66,7 +66,9 @@ export const useSupabaseMedications = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      setMedications(data || []);
+      // Supabase satırlarını uygulama türlerine dönüştür
+      const mapped = (data || []).map(fromMedicationRow);
+      setMedications(mapped);
     } catch (err: any) {
       setMedicationsError(err.message);
       console.error("Error loading medications:", err);

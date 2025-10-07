@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadAppData: (filename: string) => ipcRenderer.invoke('load-app-data', filename),
   // AppData path
   getAppDataPath: () => ipcRenderer.invoke('get-app-data-path'),
+  // Auto-launch controls
+  getLaunchOnStartup: () => ipcRenderer.invoke('get-launch-on-startup'),
+  setLaunchOnStartup: (enable: boolean) => ipcRenderer.invoke('set-launch-on-startup', enable),
   // Supabase session management
   getSession: () => ipcRenderer.invoke('get-session'),
   setSession: (session: any) => ipcRenderer.invoke('set-session', session),

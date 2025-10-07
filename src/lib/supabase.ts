@@ -177,11 +177,13 @@ export interface Database {
           telegram_bot_enabled: boolean
           telegram_bot_token: string
           telegram_chat_id: string
+          launch_on_startup?: boolean | null
           theme: string
           medication_notifications_enabled: boolean
           medication_reminder_minutes: number
           show_medications_in_dashboard: boolean
           medication_sound_enabled: boolean
+          auto_delete_after_days: number | null
           created_at: string
           updated_at: string
         }
@@ -197,11 +199,13 @@ export interface Database {
           telegram_bot_enabled?: boolean
           telegram_bot_token?: string
           telegram_chat_id?: string
+          launch_on_startup?: boolean | null
           theme?: string
           medication_notifications_enabled?: boolean
           medication_reminder_minutes?: number
           show_medications_in_dashboard?: boolean
           medication_sound_enabled?: boolean
+          auto_delete_after_days?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -215,11 +219,13 @@ export interface Database {
           telegram_bot_enabled?: boolean
           telegram_bot_token?: string
           telegram_chat_id?: string
+          launch_on_startup?: boolean | null
           theme?: string
           medication_notifications_enabled?: boolean
           medication_reminder_minutes?: number
           show_medications_in_dashboard?: boolean
           medication_sound_enabled?: boolean
+          auto_delete_after_days?: number | null
           updated_at?: string
         }
       }

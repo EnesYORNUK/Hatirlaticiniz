@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -11,6 +11,23 @@ process.env.DIST_ELECTRON = path.join(__dirname, '../dist-electron');
 // Production build'de electron.cjs zaten dist-electron klasöründe olduğu için
 // .env dosyası yolunu buna göre ayarlıyoruz
 let win;
+let tray;
+
+// Ensure single instance across launches
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+    } else {
+      // If no window, create one with default config (env will be loaded on ready)
+      // Actual creation happens in whenReady handler below
+    }
+  });
+}
 
 function createWindow(supabaseConfig) {
   console.log('Creating window with supabaseConfig:', supabaseConfig);
@@ -64,13 +81,24 @@ function createWindow(supabaseConfig) {
     win.loadFile(indexPath);
     win.webContents.openDevTools();
   }
+
+  // Hide to tray on close/minimize
+  win.on('close', (e) => {
+    if (!app.isQuiting) {
+      e.preventDefault();
+      win.hide();
+    }
+  });
+
+  win.on('minimize', (e) => {
+    e.preventDefault();
+    win.hide();
+  });
 }
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-    win = null;
-  }
+  // Uygulama arkaplanda çalışmaya devam etsin
+  win = null;
 });
 
 app.on('activate', () => {
@@ -79,9 +107,46 @@ app.on('activate', () => {
   }
 });
 
-app.setPath('userData', path.join(__dirname, 'electron-data'));
 app.disableHardwareAcceleration();
 app.whenReady().then(() => {
+  // Attempt lightweight migration from legacy userData folders if current is empty
+  try {
+    const currentUserData = app.getPath('userData');
+    const parentDir = path.dirname(currentUserData);
+    const currentBase = path.basename(currentUserData);
+    const candidates = ['Hatirlaticiniz', 'Hatirlaticinim'].filter(n => n !== currentBase);
+    const isDirEmpty = (p) => {
+      try { return fs.existsSync(p) && fs.readdirSync(p).length === 0; } catch { return true; }
+    };
+    if (isDirEmpty(currentUserData)) {
+      for (const name of candidates) {
+        const legacyPath = path.join(parentDir, name);
+        if (fs.existsSync(legacyPath)) {
+          try {
+            // Shallow copy of files and subfolders (best effort)
+            const copyRecursiveSync = (src, dest) => {
+              if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+              for (const entry of fs.readdirSync(src)) {
+                const s = path.join(src, entry);
+                const d = path.join(dest, entry);
+                const stat = fs.lstatSync(s);
+                if (stat.isDirectory()) copyRecursiveSync(s, d);
+                else fs.copyFileSync(s, d);
+              }
+            };
+            copyRecursiveSync(legacyPath, currentUserData);
+            console.log('Migrated userData from legacy path:', legacyPath, 'to', currentUserData);
+            break;
+          } catch (e) {
+            console.warn('Migration failed from', legacyPath, '->', currentUserData, e);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('userData migration check failed:', e);
+  }
+
   const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
   // Resolve environment paths for both dev (Vite) and local production runs
   // Priority: project root .env.local -> project root .env -> dist-electron sibling .env -> packaged resources .env
@@ -141,6 +206,23 @@ app.whenReady().then(() => {
   }
 
   createWindow(supabaseConfig);
+
+  // Create tray to keep app running in background
+  try {
+    const iconPath = VITE_DEV_SERVER_URL
+      ? path.join(__dirname, '../public/icon.ico')
+      : path.join(process.resourcesPath || __dirname, 'icon.ico');
+    tray = new Tray(iconPath);
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'Göster', click: () => { if (win) { win.show(); } else { createWindow(supabaseConfig); } } },
+      { label: 'Çıkış', click: () => { app.isQuiting = true; app.quit(); } },
+    ]);
+    tray.setToolTip('Hatırlatıcınız');
+    tray.setContextMenu(contextMenu);
+    tray.on('click', () => { if (win) { win.show(); } else { createWindow(supabaseConfig); } });
+  } catch (e) {
+    console.warn('Tray setup failed:', e);
+  }
 
   // Configure autoUpdater and forward events
   try {
@@ -221,6 +303,25 @@ ipcMain.handle('install-update', async () => {
     return { success: true, message: 'Kurulum başlatıldı' };
   } catch (err) {
     win?.webContents.send('update-status', 'error', { message: err?.message || String(err) });
+    return { success: false, message: err?.message || String(err) };
+  }
+});
+
+// Auto-launch handlers
+ipcMain.handle('get-launch-on-startup', () => {
+  try {
+    const settings = app.getLoginItemSettings();
+    return { success: true, openAtLogin: !!settings.openAtLogin };
+  } catch (err) {
+    return { success: false, message: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('set-launch-on-startup', (_event, enable) => {
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!enable });
+    return { success: true };
+  } catch (err) {
     return { success: false, message: err?.message || String(err) };
   }
 });

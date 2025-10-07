@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
-import { supabase, initializeSupabase, SupabaseUpdate } from '../lib/supabase';
+import { supabase, initializeSupabase } from '../lib/supabase';
+import { TablesUpdate } from '../types/supabase-mcp';
 import { useAuth } from './useAuth';
 
 const defaultSettings: SettingsType = {
   reminderDays: 3,
   notificationsEnabled: true,
   autoUpdateEnabled: true,
+  launchOnStartup: false,
   dailyNotificationEnabled: true,
   dailyNotificationTime: '09:00',
   lastNotificationCheck: '',
+  autoDeleteAfterDays: 0,
   telegramBotEnabled: false,
   telegramBotToken: '',
   telegramChatId: '',
@@ -35,9 +38,11 @@ export function useSupabaseSettings() {
     reminderDays: row.reminder_days as number,
     notificationsEnabled: row.notifications_enabled as boolean,
     autoUpdateEnabled: row.auto_update_enabled as boolean,
+    launchOnStartup: (row.launch_on_startup as boolean | null) ?? false,
     dailyNotificationEnabled: row.daily_notification_enabled as boolean,
     dailyNotificationTime: row.daily_notification_time as string,
     lastNotificationCheck: row.last_notification_check as string,
+    autoDeleteAfterDays: (row.auto_delete_after_days as number | null) ?? 0,
     telegramBotEnabled: row.telegram_bot_enabled as boolean,
     telegramBotToken: row.telegram_bot_token as string,
     telegramChatId: row.telegram_chat_id as string,
@@ -49,13 +54,15 @@ export function useSupabaseSettings() {
   }), []);
 
   // Convert Settings to Supabase update format
-  const convertSettingsToUpdate = useCallback((settings: SettingsType): SupabaseUpdate<'app_user_settings'> => ({
+  const convertSettingsToUpdate = useCallback((settings: SettingsType): TablesUpdate<'app_user_settings'> => ({
     reminder_days: settings.reminderDays,
     notifications_enabled: settings.notificationsEnabled,
     auto_update_enabled: settings.autoUpdateEnabled,
+    launch_on_startup: settings.launchOnStartup ?? false,
     daily_notification_enabled: settings.dailyNotificationEnabled,
     daily_notification_time: settings.dailyNotificationTime,
     last_notification_check: settings.lastNotificationCheck,
+    auto_delete_after_days: settings.autoDeleteAfterDays,
     telegram_bot_enabled: settings.telegramBotEnabled,
     telegram_bot_token: settings.telegramBotToken,
     telegram_chat_id: settings.telegramChatId,
@@ -156,11 +163,11 @@ export function useSupabaseSettings() {
     setError(null);
 
     try {
-      const updateData: SupabaseUpdate<'app_user_settings'> = convertSettingsToUpdate(newSettings);
+      const updateData: TablesUpdate<'app_user_settings'> = convertSettingsToUpdate(newSettings);
 
       const { data, error } = await supabase
         .from('app_user_settings')
-        .update(updateData as never)
+        .update(updateData as any)
         .eq('user_id', user.id)
         .select()
         .single();

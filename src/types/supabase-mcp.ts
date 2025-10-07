@@ -17,11 +17,13 @@ export type Database = {
       app_user_settings: {
         Row: {
           auto_update_enabled: boolean | null
+          auto_delete_after_days: number | null
           created_at: string | null
           daily_notification_enabled: boolean | null
           daily_notification_time: string | null
           id: string
           last_notification_check: string | null
+          launch_on_startup: boolean | null
           medication_notifications_enabled: boolean | null
           medication_reminder_minutes: number | null
           medication_sound_enabled: boolean | null
@@ -37,11 +39,13 @@ export type Database = {
         }
         Insert: {
           auto_update_enabled?: boolean | null
+          auto_delete_after_days?: number | null
           created_at?: string | null
           daily_notification_enabled?: boolean | null
           daily_notification_time?: string | null
           id?: string
           last_notification_check?: string | null
+          launch_on_startup?: boolean | null
           medication_notifications_enabled?: boolean | null
           medication_reminder_minutes?: number | null
           medication_sound_enabled?: boolean | null
@@ -57,11 +61,13 @@ export type Database = {
         }
         Update: {
           auto_update_enabled?: boolean | null
+          auto_delete_after_days?: number | null
           created_at?: string | null
           daily_notification_enabled?: boolean | null
           daily_notification_time?: string | null
           id?: string
           last_notification_check?: string | null
+          launch_on_startup?: boolean | null
           medication_notifications_enabled?: boolean | null
           medication_reminder_minutes?: number | null
           medication_sound_enabled?: boolean | null

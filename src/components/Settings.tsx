@@ -2,6 +2,21 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType, ThemeType } from '../types';
 import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, AlertCircle, ArrowDownCircle, Pill } from 'lucide-react';
 
+type UpdateStatus =
+  | 'idle'
+  | 'checking-for-update'
+  | 'update-available'
+  | 'download-progress'
+  | 'update-downloaded'
+  | 'update-not-available'
+  | 'error';
+
+type UpdateInfo = {
+  version?: string;
+  percent?: number;
+  message?: string;
+} | null;
+
 const themeOptions: { value: ThemeType; label: string; color: string }[] = [
   { value: 'light', label: 'Açık', color: '#F8FAFC' },
   { value: 'dark', label: 'Koyu', color: '#0F172A' },
@@ -21,8 +36,8 @@ interface SettingsProps {
 
 export default function Settings({ settings, onSave, onExportData, onImportData }: SettingsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [updateStatus, setUpdateStatus] = useState<string>('idle');
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [currentVersion, setCurrentVersion] = useState<string>('');
   const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
@@ -42,14 +57,14 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
 
     // Update status event listener
     if (window.ipcRenderer) {
-      const handleUpdateStatus = (...args: any[]) => {
-        const status = args[1] as string;
-        const info = args[2];
+      const handleUpdateStatus = (...args: unknown[]) => {
+        const status = String(args[1]) as UpdateStatus;
+        const info = (args[2] as UpdateInfo) ?? null;
         console.log('🔄 Update status received:', status, info);
         setUpdateStatus(status);
         setUpdateInfo(info);
         
-        if (status === 'download-progress' && info?.percent) {
+        if (status === 'download-progress' && info && info.percent) {
           setDownloadProgress(info.percent);
         }
       };
@@ -60,6 +75,23 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         window.ipcRenderer?.removeAllListeners('update-status');
       };
     }
+  }, []);
+
+  // Sistem başlangıcı: OS durumunu oku ve UI'yi senkronize et
+  useEffect(() => {
+    const syncLaunchState = async () => {
+      try {
+        if (window.electronAPI?.getLaunchOnStartup) {
+          const result: { success: boolean; openAtLogin?: boolean } | undefined = await window.electronAPI.getLaunchOnStartup();
+          if (result?.success && typeof result.openAtLogin === 'boolean') {
+            setLocalSettings(prev => ({ ...prev, launchOnStartup: result.openAtLogin }));
+          }
+        }
+      } catch {
+        // sessizce geç
+      }
+    };
+    syncLaunchState();
   }, []);
 
   const handleSettingChange = (key: keyof SettingsType, value: any) => {
@@ -473,6 +505,27 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         </h2>
         
         <div className="space-y-4">
+          {/* Auto Delete Settings */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="theme-text text-sm font-medium block mb-2">
+                Otomatik Silme (Gün)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={localSettings.autoDeleteAfterDays ?? 0}
+                onChange={(e) => handleSettingChange('autoDeleteAfterDays', Math.max(0, parseInt(e.target.value || '0', 10)))}
+                className="theme-input w-full text-sm"
+              />
+              <p className="text-xs theme-text-muted mt-1">
+                Ödeme <strong>ödenmiş</strong> olarak işaretlendikten sonra, ödeme tarihinden
+                belirtilen gün sayısı geçtiğinde otomatik olarak silinir. Devre dışı bırakmak için 0 yazın.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
               onClick={onExportData}
@@ -509,6 +562,41 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 <strong>Geri Yükleme:</strong> Daha önce yedeklediğiniz verileri geri yükler.
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sistem ve Başlangıç */}
+      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
+        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
+          <Bell className="w-4 h-4" />
+          Sistem ve Başlangıç
+        </h2>
+
+        <div className="space-y-4">
+          {/* Windows açılışında otomatik başlat */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="theme-text font-medium">Başlangıçta Otomatik Başlat</div>
+              <div className="theme-text-muted text-sm">Bilgisayar açıldığında uygulamayı otomatik başlat</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!localSettings.launchOnStartup}
+                onChange={async (e) => {
+                  const enabled = e.target.checked;
+                  handleSettingChange('launchOnStartup', enabled);
+                  try {
+                    if (window.electronAPI?.setLaunchOnStartup) {
+                      await window.electronAPI.setLaunchOnStartup(enabled);
+                    }
+                  } catch {}
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
           </div>
         </div>
       </div>

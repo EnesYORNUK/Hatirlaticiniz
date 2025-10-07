@@ -36,9 +36,11 @@ export interface Settings {
   dailyNotificationEnabled: boolean;
   dailyNotificationTime: string;
   lastNotificationCheck: string;
+  autoDeleteAfterDays?: number;
   telegramBotEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
+  launchOnStartup?: boolean;
   theme: ThemeType; // 🎨 Yeni tema seçeneği
   // 💊 Hap sistemi ayarları
   medicationNotificationsEnabled: boolean;
