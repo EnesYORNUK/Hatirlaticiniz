@@ -42,21 +42,13 @@ jobs:
         shell: pwsh
         run: Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder\Cache" -ErrorAction SilentlyContinue
 
-      - name: Bump version
-        id: bump_version
+      - name: Read version from package.json
+        id: read_version
         shell: pwsh
         run: |
-          $oldVersion = (Get-Content package.json | ConvertFrom-Json).version
-          npm version patch --no-git-tag-version
-          $newVersion = (Get-Content package.json | ConvertFrom-Json).version
-          # Ensure unique tag; keep bumping until remote tag doesn't exist
-          while ((git ls-remote --tags origin "v$($newVersion)") -ne $null) {
-            Write-Host "Tag v$($newVersion) already exists on remote. Bumping again..."
-            npm version patch --no-git-tag-version
-            $newVersion = (Get-Content package.json | ConvertFrom-Json).version
-          }
-          echo "old_version=$oldVersion" >> $env:GITHUB_OUTPUT
-          echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $currentVersion = $pkg.version
+          echo "current_version=$currentVersion" >> $env:GITHUB_OUTPUT
 
       - name: Validate Supabase config
         shell: pwsh
@@ -99,7 +91,7 @@ jobs:
         if: ${{ hashFiles('electron-dist/*.exe') != '' }}
         shell: pwsh
         run: |
-          $tag = "v${{ steps.bump_version.outputs.new_version }}"
+          $tag = "v${{ steps.read_version.outputs.current_version }}"
           $exists = git ls-remote --tags origin $tag
           if ($exists) {
             Write-Host "Tag $tag already exists on remote. Skipping tag creation."
@@ -116,8 +108,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.bump_version.outputs.new_version }}
-          name: Release v${{ steps.bump_version.outputs.new_version }}
+          tag_name: v${{ steps.read_version.outputs.current_version }}
+          name: Release v${{ steps.read_version.outputs.current_version }}
           files: |
             electron-dist/*.exe
             electron-dist/latest.yml
