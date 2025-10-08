@@ -14,6 +14,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [timeFilter, setTimeFilter] = useState<string>('all');
   const [sortOption, setSortOption] = useState<string>('closest'); // New state for sorting
+  const [statusFilter, setStatusFilter] = useState<'unpaid' | 'paid' | 'overdue' | null>(null);
+
+  const toggleStatusFilter = (filter: 'unpaid' | 'paid' | 'overdue') => {
+    setStatusFilter(prev => (prev === filter ? null : filter));
+  };
 
   // Zaman filtresi seçenekleri
   const timeFilterOptions = [
@@ -48,9 +53,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         ? new Date(check.nextPaymentDate) 
         : new Date(check.paymentDate);
 
+      let timeMatches = true;
       switch (timeFilter) {
         case 'today':
-          return checkDate.toDateString() === now.toDateString();
+          timeMatches = checkDate.toDateString() === now.toDateString();
+          break;
         case 'thisWeek':
           const startOfWeek = new Date(now);
           startOfWeek.setDate(now.getDate() - now.getDay() + 1);
@@ -58,14 +65,29 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           const endOfWeek = new Date(startOfWeek);
           endOfWeek.setDate(startOfWeek.getDate() + 6);
           endOfWeek.setHours(23, 59, 59, 999);
-          return checkDate >= startOfWeek && checkDate <= endOfWeek;
+          timeMatches = checkDate >= startOfWeek && checkDate <= endOfWeek;
+          break;
         case 'thisMonth':
-          return checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear();
+          timeMatches = checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear();
+          break;
         case 'thisYear':
-          return checkDate.getFullYear() === now.getFullYear();
+          timeMatches = checkDate.getFullYear() === now.getFullYear();
+          break;
         default:
-          return true;
+          timeMatches = true;
       }
+
+      if (!timeMatches) return false;
+
+      const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
+      const isOverdue = !check.isPaid && daysUntil < 0;
+
+      const statusMatches = !statusFilter ||
+        (statusFilter === 'unpaid' && !check.isPaid) ||
+        (statusFilter === 'paid' && check.isPaid) ||
+        (statusFilter === 'overdue' && isOverdue);
+
+      return statusMatches;
     });
   };
 
@@ -184,26 +206,26 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Sol - Toplam İstatistikler (3/5 oranında) */}
         <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-center">
+          <button onClick={() => toggleStatusFilter('unpaid')} title="Ödenecek ile filtrele" className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-center">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {stats.totalUnpaidAmount.toLocaleString('tr-TR')} ₺
             </div>
             <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">Ödenecek</div>
-          </div>
+          </button>
           
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
+          <button onClick={() => toggleStatusFilter('paid')} title="Ödenen ile filtrele" className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {stats.totalPaidAmount.toLocaleString('tr-TR')} ₺
             </div>
             <div className="text-sm text-green-700 dark:text-green-300 mt-1">Ödenen</div>
-          </div>
+          </button>
           
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center">
+          <button onClick={() => toggleStatusFilter('overdue')} title="Geciken ile filtrele" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center">
             <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {stats.totalOverdueAmount.toLocaleString('tr-TR')} ₺
             </div>
             <div className="text-sm text-red-700 dark:text-red-300 mt-1">Geciken</div>
-          </div>
+          </button>
           
           {/* Search - İstatistiklerin altına taşındı */}
           <div className="sm:col-span-3 relative mt-3">
