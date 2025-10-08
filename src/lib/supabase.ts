@@ -39,16 +39,16 @@ export interface Database {
           amount: number
           created_by: string
           signed_to: string
-          is_paid: boolean
+          is_paid: boolean | null
           type: 'check' | 'bill'
           bill_type?: string
           custom_bill_type?: string
           is_recurring: boolean
-          recurring_type?: 'monthly' | 'weekly' | 'yearly'
+          recurring_type?: 'daily' | 'monthly' | 'weekly' | 'yearly'
           recurring_day?: number
           next_payment_date?: string
-          created_at: string
-          updated_at: string
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
           id?: string
@@ -58,16 +58,16 @@ export interface Database {
           amount: number
           created_by: string
           signed_to: string
-          is_paid?: boolean
+          is_paid?: boolean | null
           type: 'check' | 'bill'
           bill_type?: string
           custom_bill_type?: string
           is_recurring?: boolean
-          recurring_type?: 'monthly' | 'weekly' | 'yearly'
+          recurring_type?: 'daily' | 'monthly' | 'weekly' | 'yearly'
           recurring_day?: number
           next_payment_date?: string
-          created_at?: string
-          updated_at?: string
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_date?: string
@@ -75,15 +75,15 @@ export interface Database {
           amount?: number
           created_by?: string
           signed_to?: string
-          is_paid?: boolean
+          is_paid?: boolean | null
           type?: 'check' | 'bill'
           bill_type?: string
           custom_bill_type?: string
           is_recurring?: boolean
-          recurring_type?: 'monthly' | 'weekly' | 'yearly'
+          recurring_type?: 'daily' | 'monthly' | 'weekly' | 'yearly'
           recurring_day?: number
           next_payment_date?: string
-          updated_at?: string
+          updated_at?: string | null
         }
       }
       medications: {

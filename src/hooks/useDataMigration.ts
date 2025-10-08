@@ -6,9 +6,9 @@ import { useSupabaseMedications } from './useSupabaseMedications';
 
 export function useDataMigration() {
   const { user, isAuthenticated } = useAuth();
-  const { migrateFromLocalStorage: migrateChecks, checks } = useSupabaseChecks();
-  const { migrateFromLocalStorage: migrateSettings, settings } = useSupabaseSettings();
-  const { migrateFromLocalStorage: migrateMedications, medications } = useSupabaseMedications();
+  const { migrateFromLocalStorage: migrateChecks, checks, isLoading: checksLoading } = useSupabaseChecks();
+  const { migrateFromLocalStorage: migrateSettings, settings, isLoading: settingsLoading } = useSupabaseSettings();
+  const { migrateFromLocalStorage: migrateMedications, medications, isLoading: medicationsLoading } = useSupabaseMedications();
   
   const [migrationStatus, setMigrationStatus] = useState<{
     isNeeded: boolean;
@@ -27,6 +27,10 @@ export function useDataMigration() {
   // Check if migration is needed
   const checkMigrationNeeded = (): boolean => {
     if (!isAuthenticated) return false;
+
+    // Supabase verileri yüklenirken uyarıyı göstermeyelim (aksi halde overlay tüm tıklamaları bloklar)
+    const isHooksLoading = checksLoading || settingsLoading || medicationsLoading;
+    if (isHooksLoading) return false;
 
     const hasLocalChecks = localStorage.getItem('checks');
     const hasLocalSettings = localStorage.getItem('settings');
@@ -49,7 +53,7 @@ export function useDataMigration() {
     return needsMigration;
   };
 
-  // Check migration status when user state changes
+  // Check migration status when user state or supabase data changes
   useEffect(() => {
     if (isAuthenticated && user) {
       const isNeeded = checkMigrationNeeded();
@@ -73,7 +77,7 @@ export function useDataMigration() {
         progress: ''
       });
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, checks, medications, settings, checksLoading, medicationsLoading, settingsLoading]);
 
   // Run migration
   const runMigration = async (): Promise<boolean> => {

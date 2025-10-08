@@ -12,9 +12,14 @@ export interface Check {
   billType?: 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger'; // Fatura türü
   customBillType?: string; // Özel fatura türü (kullanıcı girer)
   isRecurring: boolean; // Tekrarlayan mı
-  recurringType?: 'monthly' | 'weekly' | 'yearly'; // Tekrar türü
-  recurringDay?: number; // Hangi gün tekrarlanacak (1-31 ay için, 1-7 hafta için)
+  recurringType?: 'daily' | 'weekly' | 'monthly' | 'yearly'; // Tekrar türü (günlük eklendi)
+  recurringDay?: number; // Tek gün seçimi (geri uyumluluk)
+  recurringDays?: number[]; // Haftalık için birden fazla gün seçimi (1-7)
   nextPaymentDate?: string; // Bir sonraki ödeme tarihi (tekrarlayan için)
+  // Opsiyonel bitiş koşulları
+  recurringEndCount?: number; // Kaç kez tekrarlanacağı
+  recurringEndMonths?: number; // Kaç ay sonra biteceği
+  recurringEndDate?: string; // Belirli bir tarihten sonra biteceği (ISO)
 }
 
 export type ThemeType = 

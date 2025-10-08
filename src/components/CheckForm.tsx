@@ -20,9 +20,13 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
     type: (forceType || initialData?.type || 'check') as 'check' | 'bill',
     billType: initialData?.billType || 'elektrik' as 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger',
     customBillType: initialData?.customBillType || '',
-    isRecurring: initialData?.isRecurring || false,
-    recurringType: initialData?.recurringType || 'monthly' as 'monthly' | 'weekly' | 'yearly',
+    isRecurring: (forceType === 'bill') ? true : (initialData?.isRecurring || false),
+    recurringType: (initialData?.recurringType || 'monthly') as 'daily' | 'weekly' | 'monthly' | 'yearly',
     recurringDay: initialData?.recurringDay || 1,
+    recurringDays: initialData?.recurringDays || [],
+    recurringEndCount: initialData?.recurringEndCount || undefined,
+    recurringEndMonths: initialData?.recurringEndMonths || undefined,
+    recurringEndDate: initialData?.recurringEndDate || undefined,
     nextPaymentDate: initialData?.nextPaymentDate || undefined,
   });
 
@@ -79,21 +83,29 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
     let nextDate = new Date(baseDate);
 
     switch (formData.recurringType) {
-      case 'weekly':
-        // Haftalık: Bu haftanın recurringDay gününü bulalım
-        const dayOfWeek = now.getDay(); // 0=Pazar, 1=Pazartesi...
-        const targetDay = formData.recurringDay; // 1=Pazartesi, 7=Pazar
-        
-        // JavaScript'te 0=Pazar, 1=Pazartesi... o yüzden convert edelim
-        const jsTargetDay = targetDay === 7 ? 0 : targetDay; // 7=Pazar -> 0
-        
-        let daysUntilTarget = jsTargetDay - dayOfWeek;
-        if (daysUntilTarget <= 0) {
-          daysUntilTarget += 7; // Sonraki haftaya geç
-        }
-        
+      case 'daily':
         nextDate = new Date(now);
-        nextDate.setDate(now.getDate() + daysUntilTarget);
+        nextDate.setDate(now.getDate() + 1);
+        break;
+      case 'weekly':
+        // Haftalık: bir veya birden fazla gün seçilebilir
+        const selectedDays = (formData.recurringDays && formData.recurringDays.length > 0)
+          ? formData.recurringDays
+          : [formData.recurringDay];
+
+        const dayOfWeek = now.getDay(); // 0=Pazar, 1=Pazartesi...
+        // Map selected days (1-7, Pazartesi=1 ... Pazar=7) to JS days (1-6,0)
+        const jsDays = selectedDays.map(d => (d === 7 ? 0 : d));
+
+        // Find the soonest upcoming selected day
+        const daysUntilList = jsDays.map(jsTarget => {
+          let diff = jsTarget - dayOfWeek;
+          if (diff <= 0) diff += 7;
+          return diff;
+        });
+        const minDiff = Math.min(...daysUntilList);
+        nextDate = new Date(now);
+        nextDate.setDate(now.getDate() + minDiff);
         break;
 
       case 'monthly':
@@ -164,6 +176,10 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
       isRecurring: formData.isRecurring,
       recurringType: formData.recurringType,
       recurringDay: formData.recurringDay,
+      recurringDays: formData.recurringDays,
+      recurringEndCount: formData.recurringEndCount,
+      recurringEndMonths: formData.recurringEndMonths,
+      recurringEndDate: formData.recurringEndDate,
       nextPaymentDate: finalNextPaymentDate,
     };
 
@@ -204,6 +220,35 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Bill Type Selection moved to top for bills */}
+            {displayType === 'bill' && (
+              <div>
+                <label className="theme-text block text-sm font-medium mb-2">
+                  Fatura Türü
+                </label>
+                <select
+                  value={formData.billType}
+                  onChange={(e) => handleChange('billType', e.target.value)}
+                  className="theme-input w-full"
+                >
+                  <option value="elektrik">Elektrik</option>
+                  <option value="su">Su</option>
+                  <option value="dogalgaz">Doğalgaz</option>
+                  <option value="telefon">Telefon</option>
+                  <option value="internet">İnternet</option>
+                  <option value="diger">Diğer</option>
+                </select>
+                {formData.billType === 'diger' && (
+                  <input
+                    type="text"
+                    placeholder="Fatura türünü belirtiniz"
+                    value={formData.customBillType}
+                    onChange={(e) => handleChange('customBillType', e.target.value)}
+                    className="theme-input w-full mt-2"
+                  />
+                )}
+              </div>
+            )}
             
             {/* Type Selection */}
             {!forceType && (
@@ -343,19 +388,21 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
 
             {/* Recurring Payment Settings */}
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 theme-bg-secondary rounded-lg">
-                <input
-                  type="checkbox"
-                  id="isRecurring"
-                  checked={formData.isRecurring}
-                  onChange={(e) => handleChange('isRecurring', e.target.checked)}
-                  className="theme-checkbox"
-                />
-                <label htmlFor="isRecurring" className="theme-text text-sm font-medium flex items-center gap-2">
-                  <Repeat className="w-4 h-4" />
-                  Tekrarlayan ödeme (düzenli olarak tekrarlanır)
-                </label>
-              </div>
+              {displayType !== 'bill' && (
+                <div className="flex items-center gap-3 p-3 theme-bg-secondary rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="isRecurring"
+                    checked={formData.isRecurring}
+                    onChange={(e) => handleChange('isRecurring', e.target.checked)}
+                    className="theme-checkbox"
+                  />
+                  <label htmlFor="isRecurring" className="theme-text text-sm font-medium flex items-center gap-2">
+                    <Repeat className="w-4 h-4" />
+                    Tekrarlayan ödeme (düzenli olarak tekrarlanır)
+                  </label>
+                </div>
+              )}
 
               {formData.isRecurring && (
                 <div className="pl-4 border-l-2 border-green-200 space-y-4">
@@ -369,6 +416,7 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
                       onChange={(e) => handleChange('recurringType', e.target.value)}
                       className="theme-input w-full"
                     >
+                      <option value="daily">Her gün</option>
                       <option value="weekly">Her hafta</option>
                       <option value="monthly">Her ay</option>
                       <option value="yearly">Her yıl</option>
@@ -398,30 +446,80 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
                     </div>
                   )}
 
-                  {/* Haftalık için gün seçimi */}
+                  {/* Haftalık için gün seçimi (birden fazla gün) */}
                   {formData.recurringType === 'weekly' && (
                     <div>
                       <label className="theme-text block text-sm font-medium mb-2">
-                        Haftanın hangi günü?
+                        Haftanın hangi günleri?
                       </label>
-                      <select
-                        value={formData.recurringDay}
-                        onChange={(e) => handleChange('recurringDay', parseInt(e.target.value))}
-                        className="theme-input w-full"
-                      >
-                        <option value={1}>Pazartesi</option>
-                        <option value={2}>Salı</option>
-                        <option value={3}>Çarşamba</option>
-                        <option value={4}>Perşembe</option>
-                        <option value={5}>Cuma</option>
-                        <option value={6}>Cumartesi</option>
-                        <option value={7}>Pazar</option>
-                      </select>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { id: 1, label: 'Pazartesi' },
+                          { id: 2, label: 'Salı' },
+                          { id: 3, label: 'Çarşamba' },
+                          { id: 4, label: 'Perşembe' },
+                          { id: 5, label: 'Cuma' },
+                          { id: 6, label: 'Cumartesi' },
+                          { id: 7, label: 'Pazar' },
+                        ].map(day => (
+                          <label key={day.id} className="flex items-center gap-2 p-2 rounded-md theme-bg-secondary">
+                            <input
+                              type="checkbox"
+                              checked={formData.recurringDays.includes(day.id) || formData.recurringDay === day.id}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                if (checked) {
+                                  const nextDays = Array.from(new Set([...(formData.recurringDays || []), day.id]));
+                                  handleChange('recurringDays', nextDays);
+                                  // İlk seçimi recurringDay'a yansıt
+                                  if (!formData.recurringDay) handleChange('recurringDay', day.id);
+                                } else {
+                                  const nextDays = (formData.recurringDays || []).filter(d => d !== day.id);
+                                  handleChange('recurringDays', nextDays);
+                                  // Hiç kalmadıysa recurringDay'ı temizle
+                                  if (nextDays.length === 0) handleChange('recurringDay', 1);
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{day.label}</span>
+                          </label>
+                        ))}
+                      </div>
                       <p className="text-xs theme-text-muted mt-1">
-                        Her haftanın bu günü ödeme yapılacak
+                        Seçilen günlerden en yakını bir sonraki ödeme tarihi olarak hesaplanır.
                       </p>
                     </div>
                   )}
+
+                  {/* Opsiyonel bitiş koşulları */}
+                  <div>
+                    <label className="theme-text block text-sm font-medium mb-2">
+                      Bitiş (opsiyonel)
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        type="number"
+                        placeholder="Kaç kez tekrarlansın?"
+                        value={formData.recurringEndCount ?? ''}
+                        onChange={(e) => handleChange('recurringEndCount', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="theme-input w-full"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Kaç ay sonra bitsin?"
+                        value={formData.recurringEndMonths ?? ''}
+                        onChange={(e) => handleChange('recurringEndMonths', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="theme-input w-full"
+                      />
+                      <input
+                        type="date"
+                        placeholder="Bitiş tarihi"
+                        value={formData.recurringEndDate ?? ''}
+                        onChange={(e) => handleChange('recurringEndDate', e.target.value || undefined)}
+                        className="theme-input w-full"
+                      />
+                    </div>
+                  </div>
 
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <div className="flex items-start gap-2">
@@ -437,9 +535,19 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
                             <br />
                             <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'Hesaplanıyor...'}
                           </>
+                        ) : formData.recurringType === 'weekly' ? (
+                          <>
+                            <strong>Tekrar:</strong> Her {(
+                              (formData.recurringDays && formData.recurringDays.length > 0 ? formData.recurringDays : [formData.recurringDay])
+                                .map(d => ['','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'][d])
+                                .join(', ')
+                            )}
+                            <br />
+                            <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'Hesaplanıyor...'}
+                          </>
                         ) : (
                           <>
-                            <strong>Tekrar:</strong> Her {['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][formData.recurringDay]}
+                            <strong>Tekrar:</strong> Her gün
                             <br />
                             <strong>Sonraki ödeme:</strong> {calculateNextPaymentDate() ? new Date(calculateNextPaymentDate()!).toLocaleDateString('tr-TR') : 'Hesaplanıyor...'}
                           </>
@@ -451,36 +559,7 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
               )}
             </div>
 
-            {/* Bill Type Selection (only for bills) */}
-            {displayType === 'bill' && (
-              <div>
-                <label className="theme-text block text-sm font-medium mb-2">
-                  Fatura Türü
-                </label>
-                <select
-                  value={formData.billType}
-                  onChange={(e) => handleChange('billType', e.target.value)}
-                  className="theme-input w-full"
-                >
-                  <option value="elektrik">Elektrik</option>
-                  <option value="su">Su</option>
-                  <option value="dogalgaz">Doğalgaz</option>
-                  <option value="telefon">Telefon</option>
-                  <option value="internet">İnternet</option>
-                  <option value="diger">Diğer</option>
-                </select>
-                
-                {formData.billType === 'diger' && (
-                  <input
-                    type="text"
-                    placeholder="Fatura türünü belirtiniz"
-                    value={formData.customBillType}
-                    onChange={(e) => handleChange('customBillType', e.target.value)}
-                    className="theme-input w-full mt-2"
-                  />
-                )}
-              </div>
-            )}
+            {/* Bill Type Selection removed from bottom (moved to top) */}
 
             {/* Payment Status */}
             <div className="flex items-center gap-3 p-3 theme-bg-secondary rounded-lg">

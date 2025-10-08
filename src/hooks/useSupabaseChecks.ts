@@ -27,7 +27,7 @@ export function useSupabaseChecks() {
     billType: row.bill_type as 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger' | undefined,
     customBillType: row.custom_bill_type as string | undefined,
     isRecurring: row.is_recurring as boolean,
-    recurringType: row.recurring_type as 'monthly' | 'weekly' | 'yearly' | undefined,
+    recurringType: row.recurring_type as 'daily' | 'monthly' | 'weekly' | 'yearly' | undefined,
     recurringDay: row.recurring_day as number | undefined,
     nextPaymentDate: row.next_payment_date as string | undefined
   }), []);

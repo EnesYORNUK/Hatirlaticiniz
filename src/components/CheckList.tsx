@@ -327,14 +327,25 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-4 text-sm theme-text-muted">
-                          <span className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <span className="flex items-center gap-1 theme-text-muted">
                             <User className="h-3 w-3" />
                             {check.createdBy}
                           </span>
-                          <span className="flex items-center gap-1">
+                          {/* Emphasized Date Badge */}
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm font-semibold ${
+                              check.isPaid
+                                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300'
+                                : isOverdue
+                                  ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300'
+                                  : isToday
+                                    ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300'
+                                    : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-200'
+                            }`}
+                          >
                             <Calendar className="h-3 w-3" />
-                            {formatDate(displayDate)}
+                            {check.type === 'bill' || check.isRecurring ? 'Sonraki:' : 'Tarih:'} {formatDate(displayDate)}
                           </span>
                           {!check.isPaid && (
                             <span className={`font-medium ${
