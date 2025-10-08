@@ -31,6 +31,37 @@ export function useElectronNotifications(
     }
   }, []);
 
+  // BUGFIX: Tekrarlayan bildirimleri sınırla
+  const shouldSendNotification = useCallback((
+    check: Check | null,
+    notificationType: 'daily' | 'reminder' | 'due-today' | 'medication',
+    medicationId?: string
+  ): boolean => {
+    const history = getNotificationHistory();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Çek bildirimleri: aynı gün aynı tip için bir kez
+    if (check && (notificationType === 'reminder' || notificationType === 'due-today')) {
+      const alreadySent = history.some(h =>
+        h.checkId === check.id && h.notificationType === notificationType && h.sentAt.startsWith(todayStr)
+      );
+      return !alreadySent;
+    }
+
+    // Günlük özet: zaten ayrı kontrol var, default true
+    if (notificationType === 'daily') return true;
+
+    // İlaç bildirimleri: aynı gün, aynı ilaç için en fazla 2 kez
+    if (notificationType === 'medication' && medicationId) {
+      const countToday = history.filter(h =>
+        h.notificationType === 'medication' && h.medicationId === medicationId && h.sentAt.startsWith(todayStr)
+      ).length;
+      return countToday < 2;
+    }
+
+    return true;
+  }, [getNotificationHistory]);
+
   // Bildirim gönderme fonksiyonu (Telegram entegrasyonu electron.cjs'te yapıldı)
   const showNotification = useCallback(async (title: string, body: string) => {
     try {
@@ -66,6 +97,11 @@ export function useElectronNotifications(
     body: string,
     medicationId?: string
   ) => {
+    // Tekrarlamayı kontrol et
+    if (!shouldSendNotification(check, notificationType, medicationId)) {
+      return; // Atla
+    }
+
     showNotification(title, body);
 
     // Geçmişe kaydet
@@ -89,7 +125,7 @@ export function useElectronNotifications(
     );
     
     saveNotificationHistory(cleanHistory);
-  }, [getNotificationHistory, saveNotificationHistory, showNotification]);
+  }, [getNotificationHistory, saveNotificationHistory, showNotification, shouldSendNotification]);
 
   // Günlük bildirim saati geldi mi kontrol et
   const isDailyNotificationTime = (): boolean => {

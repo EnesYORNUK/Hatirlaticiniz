@@ -163,23 +163,40 @@ export function useSupabaseSettings() {
     setError(null);
 
     try {
-      const updateData: TablesUpdate<'app_user_settings'> = convertSettingsToUpdate(newSettings);
+      // Dinamik kolon uyumu: eksik kolon hatasında payload'ı daraltıp yeniden dene
+      let updateData: Record<string, any> = { ...convertSettingsToUpdate(newSettings) };
+      let attempts = 0;
+      let lastError: any = null;
+      while (attempts < 5) {
+        const { data, error } = await supabase
+          .from('app_user_settings')
+          .update(updateData as any)
+          .eq('user_id', user.id)
+          .select()
+          .single();
 
-      const { data, error } = await supabase
-        .from('app_user_settings')
-        .update(updateData as any)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        if (!error) {
+          const updatedSettings = convertRowToSettings(data);
+          setSettings(updatedSettings);
+          console.log('✅ Ayarlar güncellendi');
+          return true;
+        }
 
-      if (error) {
-        throw error;
+        lastError = error;
+        // PGRST204: Kolon bulunamadı -> mesajdan kolonu çıkar ve yeniden dene
+        if (error.code === 'PGRST204' && typeof error.message === 'string') {
+          const match = error.message.match(/'([^']+)'/);
+          const missingColumn = match && match[1];
+          if (missingColumn && missingColumn in updateData) {
+            delete updateData[missingColumn];
+            attempts += 1;
+            continue;
+          }
+        }
+        break; // Başka hata: döngüden çık
       }
 
-      const updatedSettings = convertRowToSettings(data);
-      setSettings(updatedSettings);
-      console.log('✅ Ayarlar güncellendi');
-      return true;
+      throw lastError || new Error('Ayar güncelleme başarısız');
     } catch (err: unknown) {
       console.error('❌ Ayarlar güncellenemedi:', err);
       setError((err as Error).message);

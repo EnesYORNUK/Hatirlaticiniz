@@ -6,9 +6,9 @@ import { useSupabaseMedications } from './useSupabaseMedications';
 
 export function useDataMigration() {
   const { user, isAuthenticated } = useAuth();
-  const { migrateFromLocalStorage: migrateChecks } = useSupabaseChecks();
-  const { migrateFromLocalStorage: migrateSettings } = useSupabaseSettings();
-  const { migrateFromLocalStorage: migrateMedications } = useSupabaseMedications();
+  const { migrateFromLocalStorage: migrateChecks, checks } = useSupabaseChecks();
+  const { migrateFromLocalStorage: migrateSettings, settings } = useSupabaseSettings();
+  const { migrateFromLocalStorage: migrateMedications, medications } = useSupabaseMedications();
   
   const [migrationStatus, setMigrationStatus] = useState<{
     isNeeded: boolean;
@@ -34,7 +34,12 @@ export function useDataMigration() {
     const hasLocalMedicationLogs = localStorage.getItem('medication-logs');
     const migrationCompleted = localStorage.getItem('migration-completed') === 'true';
 
-    const needsMigration = !migrationCompleted && Boolean(
+    // Eğer Supabase tarafında zaten veri varsa migration uyarısını gösterme
+    const supabaseHasData = (checks && checks.length > 0)
+      || (medications && medications.length > 0)
+      || (settings && Object.keys(settings).length > 2);
+
+    const needsMigration = !migrationCompleted && !supabaseHasData && Boolean(
       hasLocalChecks || 
       hasLocalSettings || 
       hasLocalMedications || 
