@@ -82,8 +82,10 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
       const isOverdue = !check.isPaid && daysUntil < 0;
 
+      // Durum filtresi: sadece bir filtre seçili olmalı veya hiçbiri.
+      // "Ödenecek" => ödenmemiş ve gecikmemiş olanlar (bugün ve ilerisi)
       const statusMatches = !statusFilter ||
-        (statusFilter === 'unpaid' && !check.isPaid) ||
+        (statusFilter === 'unpaid' && !check.isPaid && !isOverdue) ||
         (statusFilter === 'paid' && check.isPaid) ||
         (statusFilter === 'overdue' && isOverdue);
 
@@ -206,26 +208,63 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Sol - Toplam İstatistikler (3/5 oranında) */}
         <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button onClick={() => toggleStatusFilter('unpaid')} title="Ödenecek ile filtrele" className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-center">
+          <button
+            onClick={() => toggleStatusFilter('unpaid')}
+            title="Ödenecek (gecikmeyen) ile filtrele"
+            aria-pressed={statusFilter === 'unpaid'}
+            className={`bg-blue-50 dark:bg-blue-900/20 border rounded-xl p-4 text-center transition-all ${
+              statusFilter === 'unpaid' ? 'border-blue-500 ring-2 ring-blue-400' : 'border-blue-200 dark:border-blue-800'
+            }`}
+          >
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {stats.totalUnpaidAmount.toLocaleString('tr-TR')} ₺
             </div>
-            <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">Ödenecek</div>
+            <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">Ödenecek (gecikmeyen)</div>
           </button>
           
-          <button onClick={() => toggleStatusFilter('paid')} title="Ödenen ile filtrele" className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
+          <button
+            onClick={() => toggleStatusFilter('paid')}
+            title="Ödenen ile filtrele"
+            aria-pressed={statusFilter === 'paid'}
+            className={`bg-green-50 dark:bg-green-900/20 border rounded-xl p-4 text-center transition-all ${
+              statusFilter === 'paid' ? 'border-green-500 ring-2 ring-green-400' : 'border-green-200 dark:border-green-800'
+            }`}
+          >
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {stats.totalPaidAmount.toLocaleString('tr-TR')} ₺
             </div>
             <div className="text-sm text-green-700 dark:text-green-300 mt-1">Ödenen</div>
           </button>
           
-          <button onClick={() => toggleStatusFilter('overdue')} title="Geciken ile filtrele" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center">
+          <button
+            onClick={() => toggleStatusFilter('overdue')}
+            title="Geciken ile filtrele"
+            aria-pressed={statusFilter === 'overdue'}
+            className={`bg-red-50 dark:bg-red-900/20 border rounded-xl p-4 text-center transition-all ${
+              statusFilter === 'overdue' ? 'border-red-500 ring-2 ring-red-400' : 'border-red-200 dark:border-red-800'
+            }`}
+          >
             <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {stats.totalOverdueAmount.toLocaleString('tr-TR')} ₺
             </div>
             <div className="text-sm text-red-700 dark:text-red-300 mt-1">Geciken</div>
           </button>
+
+          {/* Seçili filtre göstergesi ve temizleme */}
+          {statusFilter && (
+            <div className="sm:col-span-3 flex items-center justify-between mt-2">
+              <span className="text-sm theme-text">
+                Seçili filtre: {statusFilter === 'unpaid' ? 'Ödenecek (gecikmeyen)' : statusFilter === 'paid' ? 'Ödenen' : 'Geciken'}
+              </span>
+              <button
+                onClick={() => setStatusFilter(null)}
+                className="text-sm theme-text-muted hover:theme-text underline"
+                title="Filtreyi temizle ve tümünü göster"
+              >
+                Tümünü göster
+              </button>
+            </div>
+          )}
           
           {/* Search - İstatistiklerin altına taşındı */}
           <div className="sm:col-span-3 relative mt-3">

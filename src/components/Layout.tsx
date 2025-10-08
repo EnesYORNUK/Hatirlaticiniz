@@ -62,7 +62,7 @@ export default function Layout({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="/icon.ico"
+                src="/icon-256x256.png"
                 alt="Hatırlatıcınız Logo"
                 className="w-8 h-8 rounded-md shadow-sm"
               />
