@@ -73,13 +73,11 @@ function createWindow(supabaseConfig) {
   if (VITE_DEV_SERVER_URL) {
     console.log('Loading dev server URL:', VITE_DEV_SERVER_URL);
     win.loadURL(VITE_DEV_SERVER_URL);
-    win.webContents.openDevTools();
   } else {
     const indexPath = path.join(__dirname, '../dist/index.html');
     console.log('Loading file:', indexPath);
     console.log('File exists:', fs.existsSync(indexPath));
     win.loadFile(indexPath);
-    win.webContents.openDevTools();
   }
 
   // Hide to tray on close/minimize

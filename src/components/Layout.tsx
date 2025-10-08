@@ -61,11 +61,13 @@ export default function Layout({
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="theme-primary rounded-lg p-2.5 shadow-sm">
-                <LayoutGrid className="w-5 h-5 text-white" />
-              </div>
+              <img
+                src="/icon-256x256.png"
+                alt="Hatırlatıcınız Logo"
+                className="w-8 h-8 rounded-md shadow-sm"
+              />
               <div>
-                <h1 className="theme-text text-lg font-semibold">Hatırlatıcınım</h1>
+                <h1 className="theme-text text-lg font-semibold">Hatırlatıcınız</h1>
                 <p className="theme-text-muted text-sm">Çek ve Fatura Takip</p>
               </div>
             </div>
@@ -109,7 +111,7 @@ export default function Layout({
                   to={item.id}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-2 ${
                     isActive
-                      ? 'border-current theme-primary text-white bg-opacity-10'
+                      ? 'theme-primary-border theme-primary-text'
                       : 'border-transparent theme-text-secondary hover:theme-text hover:bg-white hover:bg-opacity-50'
                   }`}
                 >
