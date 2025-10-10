@@ -19,6 +19,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Partial<RegisterData>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (field: keyof RegisterData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -63,10 +64,14 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      onRegister(formData);
+    if (!validateForm()) return;
+    setIsSubmitting(true);
+    try {
+      await Promise.resolve(onRegister(formData));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -106,7 +111,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
                   value={formData.fullName}
                   onChange={(e) => handleChange('fullName', e.target.value)}
                   placeholder="Ad Soyad"
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                   className="flex-1 theme-input"
                   required
                 />
@@ -129,7 +134,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="ornek@eposta.com"
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                   className="flex-1 theme-input"
                   required
                 />
@@ -153,7 +158,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
                     value={formData.password}
                     onChange={(e) => handleChange('password', e.target.value)}
                     placeholder="••••••••"
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                     className="w-full theme-input pr-10"
                     required
                   />
@@ -161,7 +166,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -186,7 +191,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
                     value={formData.confirmPassword}
                     onChange={(e) => handleChange('confirmPassword', e.target.value)}
                     placeholder="••••••••"
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                     className="w-full theme-input pr-10"
                     required
                   />
@@ -194,7 +199,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -207,10 +212,10 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
             {/* Kayıt ol butonu */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full theme-primary text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <div className="flex items-center justify-center gap-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                   <span>Kayıt olunuyor...</span>
@@ -238,7 +243,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
           <div className="mt-6">
             <button
               onClick={onSwitchToLogin}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors disabled:opacity-50"
             >
               Zaten hesabınız var mı? <span className="underline">Giriş yapın</span>
