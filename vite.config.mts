@@ -63,6 +63,11 @@ export default defineConfig(({ mode }) => {
       renderer(),
     ],
     base: './',
+    server: {
+      host: true,
+      port: 5173,
+      strictPort: true,
+    },
     build: {
       target: 'esnext', // Top-level await desteği için
       outDir: 'dist',
