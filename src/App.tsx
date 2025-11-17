@@ -122,6 +122,77 @@ export default function App() {
 
   useElectronNotifications(activeChecks, activeSettings, handleDailyNotificationChecked);
 
+  // Tekrarlayan (aylık) ödemeler için vade sonrası otomatik ileri alma (günde 1 kez)
+  useEffect(() => {
+    // Yardımcı: Bir sonraki ayın aynı gününü hesapla
+    const nextMonthSameDay = (baseIso: string, recurringDay?: number): string => {
+      const base = new Date(baseIso);
+      // Gün belirleme: varsa recurringDay, yoksa base'in günü
+      const targetDay = recurringDay ?? base.getDate();
+      const next = new Date(base);
+      next.setMonth(next.getMonth() + 1);
+      next.setDate(targetDay);
+      next.setHours(0, 0, 0, 0);
+      return next.toISOString().split('T')[0];
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Hangi tarih gösteriliyor? Tekrarlayan için nextPaymentDate, değilse paymentDate
+    const getDisplayDate = (c: Check): string =>
+      (c.isRecurring && c.nextPaymentDate) ? c.nextPaymentDate! : c.paymentDate;
+
+    const needsAdvance = (c: Check): boolean => {
+      if (!c.isRecurring) return false;
+      if (c.recurringType !== 'monthly') return false; // Talep aylık için
+      if (!c.isPaid) return false; // Sadece ödenmiş kayıtları ileri al
+      const due = new Date(getDisplayDate(c));
+      due.setHours(0, 0, 0, 0);
+      // Vade gününden SONRA (ör. 11'inde) ileri al
+      return today.getTime() > due.getTime();
+    };
+
+    // Günlük çalışma koruması: aynı günde ikinci kez çalışmayı engelle
+    const todayIso = new Date().toISOString().split('T')[0];
+    const lastRun = localStorage.getItem('lastRecurringAdvance');
+    if (lastRun === todayIso) {
+      return; // bugün zaten çalıştı
+    }
+
+    const candidates = activeChecks.filter(needsAdvance);
+    if (candidates.length === 0) {
+      // Yine de lastRun'ı güncelle, boş çalışmayı not et
+      localStorage.setItem('lastRecurringAdvance', todayIso);
+      return;
+    }
+
+    // Toplu olarak ileri al: isPaid=false ve tarihi bir sonraki ayın aynı günü
+    const applyAdvance = async (c: Check) => {
+      const baseIso = getDisplayDate(c);
+      const nextIso = nextMonthSameDay(baseIso, c.recurringDay);
+      const updates: Partial<Check> = { isPaid: false, nextPaymentDate: nextIso };
+      if (isAuthenticated) {
+        await updateSupabaseCheck(c.id, updates);
+      } else {
+        await setRawChecks(
+          activeChecks.map((x) => (x.id === c.id ? { ...x, ...updates } : x))
+        );
+      }
+    };
+
+    // Her aday için bir kez uygula ve tamamlandığında günü işaretle
+    (async () => {
+      try {
+        for (const c of candidates) {
+          await applyAdvance(c);
+        }
+      } finally {
+        localStorage.setItem('lastRecurringAdvance', todayIso);
+      }
+    })();
+  }, [activeChecks, isAuthenticated]);
+
   // Otomatik silme: ödenmiş ödemeleri ödeme tarihinden X gün sonra temizle
   useEffect(() => {
     const days = activeSettings.autoDeleteAfterDays ?? 0;
