@@ -6,9 +6,7 @@ import {
   Edit2, 
   Trash2, 
   CheckCircle, 
-  Circle, 
   Calendar, 
-  User, 
   Search, 
   CreditCard, 
   Receipt, 
@@ -126,62 +124,54 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header & Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button
+      {/* Simple Summary Strip */}
+      <div className="flex flex-wrap gap-4 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <button 
           onClick={() => toggleStatusFilter('unpaid')}
-          className={`relative p-6 rounded-2xl border transition-all duration-300 text-left ${
-            statusFilter === 'unpaid'
-              ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-[1.02]'
-              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
-          }`}
+          className={`flex-1 flex items-center justify-between p-3 rounded-xl transition-colors ${statusFilter === 'unpaid' ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}
         >
-          <div className={`flex items-center gap-3 mb-3 ${statusFilter === 'unpaid' ? 'text-blue-100' : 'text-blue-600 dark:text-blue-400'}`}>
-            <div className={`p-2 rounded-lg ${statusFilter === 'unpaid' ? 'bg-blue-500/30' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
-              <Clock className="w-6 h-6" />
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg">
+              <Clock className="w-5 h-5" />
             </div>
-            <span className="font-medium">Ödenecek</span>
-          </div>
-          <div className={`text-2xl font-bold ${statusFilter === 'unpaid' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-            {formatCurrency(stats.unpaid)}
+            <div className="text-left">
+              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Ödenecek</div>
+              <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(stats.unpaid)}</div>
+            </div>
           </div>
         </button>
 
-        <button
+        <div className="w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
+
+        <button 
           onClick={() => toggleStatusFilter('paid')}
-          className={`relative p-6 rounded-2xl border transition-all duration-300 text-left ${
-            statusFilter === 'paid'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg scale-[1.02]'
-              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700'
-          }`}
+          className={`flex-1 flex items-center justify-between p-3 rounded-xl transition-colors ${statusFilter === 'paid' ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}
         >
-          <div className={`flex items-center gap-3 mb-3 ${statusFilter === 'paid' ? 'text-emerald-100' : 'text-emerald-600 dark:text-emerald-400'}`}>
-            <div className={`p-2 rounded-lg ${statusFilter === 'paid' ? 'bg-emerald-500/30' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
-              <CheckCircle className="w-6 h-6" />
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg">
+              <CheckCircle className="w-5 h-5" />
             </div>
-            <span className="font-medium">Ödenen</span>
-          </div>
-          <div className={`text-2xl font-bold ${statusFilter === 'paid' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-            {formatCurrency(stats.paid)}
+            <div className="text-left">
+              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Ödenen</div>
+              <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(stats.paid)}</div>
+            </div>
           </div>
         </button>
 
-        <button
+        <div className="w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
+
+        <button 
           onClick={() => toggleStatusFilter('overdue')}
-          className={`relative p-6 rounded-2xl border transition-all duration-300 text-left ${
-            statusFilter === 'overdue'
-              ? 'bg-rose-600 text-white border-rose-600 shadow-lg scale-[1.02]'
-              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-700'
-          }`}
+          className={`flex-1 flex items-center justify-between p-3 rounded-xl transition-colors ${statusFilter === 'overdue' ? 'bg-rose-50 dark:bg-rose-900/20 ring-1 ring-rose-500' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}
         >
-          <div className={`flex items-center gap-3 mb-3 ${statusFilter === 'overdue' ? 'text-rose-100' : 'text-rose-600 dark:text-rose-400'}`}>
-            <div className={`p-2 rounded-lg ${statusFilter === 'overdue' ? 'bg-rose-500/30' : 'bg-rose-50 dark:bg-rose-900/20'}`}>
-              <AlertCircle className="w-6 h-6" />
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-lg">
+              <AlertCircle className="w-5 h-5" />
             </div>
-            <span className="font-medium">Geciken</span>
-          </div>
-          <div className={`text-2xl font-bold ${statusFilter === 'overdue' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-            {formatCurrency(stats.overdue)}
+            <div className="text-left">
+              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Geciken</div>
+              <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(stats.overdue)}</div>
+            </div>
           </div>
         </button>
       </div>
@@ -235,7 +225,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           <p className="text-slate-500">Arama kriterlerinize uygun kayıt bulunmamaktadır.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedChecks.map((check) => {
             const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
             const isOverdue = !check.isPaid && daysUntil < 0;
@@ -245,103 +235,95 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
             return (
               <div
                 key={check.id}
-                className={`group relative bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-300 hover:shadow-lg ${
-                  check.isPaid
-                    ? 'border-emerald-100 dark:border-emerald-900/30'
-                    : isOverdue
-                    ? 'border-rose-100 dark:border-rose-900/30'
-                    : 'border-slate-200 dark:border-slate-700'
-                }`}
+                className="group relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-300 hover:shadow-md"
               >
-                {/* Status Stripe */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${
-                  check.isPaid ? 'bg-emerald-500' : isOverdue ? 'bg-rose-500' : 'bg-blue-500'
-                }`} />
-
-                <div className="p-5 pl-7">
-                  {/* Top Row: Type & Actions */}
+                <div className="p-5">
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                      check.type === 'check' 
-                        ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
-                        : 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
-                    }`}>
-                      {check.type === 'check' ? <CreditCard className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
-                      {check.type === 'check' ? 'Çek' : 'Fatura'}
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-xl ${
+                        check.type === 'check' 
+                          ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                          : 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
+                      }`}>
+                        {check.type === 'check' ? <CreditCard className="w-5 h-5" /> : <Receipt className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          {check.type === 'check' ? 'Çek' : 'Fatura'}
+                        </div>
+                        <div className="font-semibold text-slate-900 dark:text-white truncate max-w-[120px]">
+                          {check.signedTo}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={() => onEdit(check)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => onDelete(check.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Amount & Title */}
                   <div className="mb-4">
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
                       {formatCurrency(check.amount)}
-                    </h3>
-                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
-                      <User className="w-4 h-4" />
-                      <span className="truncate">{check.signedTo}</span>
                     </div>
-                  </div>
-
-                  {/* Details */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-700/50">
-                      <span className="text-slate-500">Tarih</span>
-                      <span className={`font-medium flex items-center gap-1.5 ${
-                        isOverdue ? 'text-rose-600' : isToday ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'
-                      }`}>
-                        <Calendar className="w-4 h-4" />
+                    <div className="flex items-center gap-2 mt-1 text-sm">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <span className={isOverdue ? 'text-rose-600 font-medium' : 'text-slate-600 dark:text-slate-400'}>
                         {formatDate(displayDate)}
                       </span>
-                    </div>
-                    
-                    {!check.isPaid && (
-                      <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-700/50">
-                        <span className="text-slate-500">Durum</span>
-                        <span className={`font-medium ${
-                          isOverdue ? 'text-rose-600' : isToday ? 'text-orange-600' : 'text-blue-600'
-                        }`}>
-                          {daysUntil === 0 ? 'Bugün' : daysUntil > 0 ? `${daysUntil} gün kaldı` : `${Math.abs(daysUntil)} gün geçti`}
+                      {check.isRecurring && (
+                        <span className="text-xs bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                          Tekrar eden
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
-                  {/* Toggle Button */}
-                  <button
-                    onClick={() => onTogglePaid(check.id)}
-                    className={`w-full mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-all ${
-                      check.isPaid
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 hover:bg-emerald-100'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    {check.isPaid ? (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Ödendi
-                      </>
-                    ) : (
-                      <>
-                        <Circle className="w-4 h-4" />
-                        Ödenmedi
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                    <div className={`text-sm font-medium ${
+                      check.isPaid 
+                        ? 'text-emerald-600' 
+                        : isOverdue 
+                        ? 'text-rose-600' 
+                        : isToday 
+                        ? 'text-orange-600' 
+                        : 'text-slate-500'
+                    }`}>
+                      {check.isPaid ? (
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4" />
+                          Ödendi
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4" />
+                          {daysUntil === 0 ? 'Bugün son gün' : daysUntil > 0 ? `${daysUntil} gün kaldı` : `${Math.abs(daysUntil)} gün geçti`}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => onTogglePaid(check.id)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        check.isPaid
+                          ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:shadow'
+                      }`}
+                    >
+                      {check.isPaid ? 'Geri Al' : 'Öde'}
+                    </button>
+                  </div>
                 </div>
               </div>
             );

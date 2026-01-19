@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings as SettingsType, ThemeType } from '../types';
+import { Settings as SettingsType } from '../types';
 import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, AlertCircle, ArrowDownCircle, Pill } from 'lucide-react';
 
 type UpdateStatus =
@@ -16,16 +16,6 @@ type UpdateInfo = {
   percent?: number;
   message?: string;
 } | null;
-
-const themeOptions: { value: ThemeType; label: string; color: string }[] = [
-  { value: 'light', label: 'Açık', color: '#F8FAFC' },
-  { value: 'dark', label: 'Koyu', color: '#0F172A' },
-  { value: 'gray', label: 'Gri', color: '#F9FAFB' },
-  { value: 'blue', label: 'Mavi', color: '#EFF6FF' },
-  { value: 'green', label: 'Yeşil', color: '#F0FDF4' },
-  { value: 'orange', label: 'Turuncu', color: '#FFF7ED' },
-  { value: 'purple', label: 'Mor', color: '#FAF5FF' },
-];
 
 interface SettingsProps {
   settings: SettingsType;
@@ -209,40 +199,6 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
             Kaydet
           </button>
         </div>
-      </div>
-
-      {/* Theme Settings */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <Palette className="w-4 h-4" />
-          Tema
-        </h2>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {themeOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleSettingChange('theme', option.value)}
-              className={`p-3 rounded-lg border transition-all text-sm ${
-                localSettings.theme === option.value
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'theme-border theme-text hover:theme-bg-secondary'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <div 
-                  className="w-4 h-4 rounded-full border-2 border-gray-300"
-                  style={{ backgroundColor: option.color }}
-                />
-                <span className="font-medium">{option.label}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-        
-        <p className="text-sm theme-text-muted mt-3">
-          Seçtiğiniz tema tüm uygulamaya uygulanır
-        </p>
       </div>
 
       {/* Notification Settings */}

@@ -24,15 +24,7 @@ export interface Check {
 
 export type ThemeType = 
   | 'light'      // 🌅 Açık Tema
-  | 'dark'       // 🌙 Koyu Tema
-  | 'blue'       // 🔵 Mavi Tema
-  | 'green'      // 🟢 Yeşil Tema
-  | 'orange'     // 🟠 Turuncu Tema
-  | 'purple'     // 🟣 Mor Tema
-  | 'gray'       // ⚫ Gri Tema
-  | 'red'        // 🔴 Kırmızı Tema
-  | 'teal'       // 🟦 Turkuaz Tema
-  | 'pink';      // 🌸 Pembe Tema
+  | 'dark';      // 🌙 Koyu Tema
 
 export interface Settings {
   reminderDays: number;
