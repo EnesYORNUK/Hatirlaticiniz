@@ -218,7 +218,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               onClick={() => handleSettingChange('theme', 'light')}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                 localSettings.theme === 'light'
-                  ? 'bg-white text-indigo-600 shadow-sm'
+                  ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
@@ -228,7 +228,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
               onClick={() => handleSettingChange('theme', 'dark')}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                 localSettings.theme === 'dark'
-                  ? 'bg-slate-800 text-indigo-400 shadow-sm'
+                  ? 'bg-slate-800 text-blue-400 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
@@ -260,13 +260,13 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 onChange={(e) => handleSettingChange('notificationsEnabled', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
           {/* Kaç Gün Önceden Hatırlat */}
           {localSettings.notificationsEnabled && (
-            <div className="pl-4 border-l-2 border-blue-200 space-y-3">
+            <div className="pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-3">
               <div>
                 <label className="theme-text text-sm font-medium block mb-2">
                   Kaç gün önceden hatırlat?
@@ -309,13 +309,13 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 onChange={(e) => handleSettingChange('dailyNotificationEnabled', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
           {/* Günlük Bildirim Saati */}
           {localSettings.dailyNotificationEnabled && (
-            <div className="pl-4 border-l-2 border-green-200">
+            <div className="pl-4 border-l-2 border-green-200 dark:border-green-800">
               <label className="theme-text text-sm font-medium block mb-2">
                 Günlük bildirim saati
               </label>
@@ -352,13 +352,13 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 onChange={(e) => handleSettingChange('medicationNotificationsEnabled', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
           {/* İlaç Hatırlatma Süresi */}
           {(localSettings.medicationNotificationsEnabled || false) && (
-            <div className="pl-4 border-l-2 border-blue-200 space-y-3">
+            <div className="pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-3">
               <div>
                 <label className="theme-text text-sm font-medium block mb-2">
                   Kaç dakika önceden hatırlat?
@@ -394,7 +394,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 onChange={(e) => handleSettingChange('showMedicationsInDashboard', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
@@ -411,7 +411,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 onChange={(e) => handleSettingChange('medicationSoundEnabled', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
         </div>
@@ -588,7 +588,7 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
                 }}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
         </div>

@@ -20,7 +20,7 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
     type: (forceType || initialData?.type || 'check') as 'check' | 'bill',
     billType: initialData?.billType || 'elektrik' as 'elektrik' | 'su' | 'dogalgaz' | 'telefon' | 'internet' | 'diger',
     customBillType: initialData?.customBillType || '',
-    isRecurring: (forceType === 'bill') ? true : (initialData?.isRecurring || false),
+    isRecurring: (forceType === 'bill' || initialData?.type === 'bill') ? true : (initialData?.isRecurring || false),
     recurringType: (initialData?.recurringType || 'monthly') as 'daily' | 'weekly' | 'monthly' | 'yearly',
     recurringDay: initialData?.recurringDay || 1,
     recurringDays: initialData?.recurringDays || [],
@@ -393,8 +393,9 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
 
             {/* Recurring Payment Settings */}
             <div className="space-y-4">
+              {/* Tekrarlayan Ödeme Seçeneği - Fatura ise gizle (otomatik aktif) */}
               {displayType !== 'bill' && (
-                <div className="flex items-center gap-3 p-3 theme-bg-secondary rounded-lg">
+                <div className="flex items-center gap-2 p-4 rounded-lg theme-bg-secondary border theme-border">
                   <input
                     type="checkbox"
                     id="isRecurring"
@@ -402,14 +403,24 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
                     onChange={(e) => handleChange('isRecurring', e.target.checked)}
                     className="theme-checkbox"
                   />
-                  <label htmlFor="isRecurring" className="theme-text text-sm font-medium flex items-center gap-2">
+                  <label htmlFor="isRecurring" className="theme-text text-sm font-medium flex items-center gap-2 cursor-pointer">
                     <Repeat className="w-4 h-4" />
                     Tekrarlayan ödeme (düzenli olarak tekrarlanır)
                   </label>
                 </div>
               )}
 
-              {formData.isRecurring && (
+              {/* Fatura için bilgilendirme */}
+              {displayType === 'bill' && (
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                  <Repeat className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    Faturalar otomatik olarak tekrarlayan ödeme olarak ayarlanır.
+                  </span>
+                </div>
+              )}
+
+              {(formData.isRecurring || displayType === 'bill') && (
                 <div className="pl-4 border-l-2 border-green-200 space-y-4">
                   
                   <div>
