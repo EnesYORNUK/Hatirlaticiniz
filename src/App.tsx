@@ -241,8 +241,11 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    if (window.confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
+    try {
       await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
       navigate('/login');
     }
   };
