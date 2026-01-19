@@ -3,7 +3,8 @@ import { Settings as SettingsType } from '../types';
 import { 
   Bell, Download, Save, Upload, Moon, Sun, 
   Smartphone, Monitor, Volume2, Shield, Database, 
-  Info, ChevronRight, MessageCircle, Clock, CheckCircle, XCircle 
+  Info, ChevronRight, MessageCircle, Clock, CheckCircle, XCircle,
+  RefreshCw, AlertTriangle, Loader2
 } from 'lucide-react';
 
 type UpdateStatus =
@@ -33,6 +34,8 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
   const [currentVersion, setCurrentVersion] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'data'>('general');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo>(null);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -46,7 +49,54 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         setCurrentVersion('1.0.0');
       });
     }
+
+    if (window.electronAPI?.onUpdateStatus) {
+      window.electronAPI.onUpdateStatus((status, details) => {
+        setUpdateStatus(status as UpdateStatus);
+        if (details) {
+          setUpdateInfo(details as UpdateInfo);
+        }
+      });
+    }
+
+    return () => {
+      if (window.electronAPI?.removeUpdateStatusListener) {
+        window.electronAPI.removeUpdateStatusListener();
+      }
+    };
   }, []);
+
+  const checkForUpdates = async () => {
+    if (window.electronAPI?.checkForUpdates) {
+      setUpdateStatus('checking-for-update');
+      try {
+        await window.electronAPI.checkForUpdates();
+      } catch (error) {
+        setUpdateStatus('error');
+        console.error('Update check failed:', error);
+      }
+    }
+  };
+
+  const downloadUpdate = async () => {
+    if (window.electronAPI?.downloadUpdate) {
+      try {
+        await window.electronAPI.downloadUpdate();
+      } catch (error) {
+        setUpdateStatus('error');
+      }
+    }
+  };
+
+  const installUpdate = async () => {
+    if (window.electronAPI?.installUpdate) {
+      try {
+        await window.electronAPI.installUpdate();
+      } catch (error) {
+        setUpdateStatus('error');
+      }
+    }
+  };
 
   const handleSettingChange = (key: keyof SettingsType, value: any) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
@@ -55,12 +105,17 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
   const testNotification = async () => {
     if (window.electronAPI?.showNotification) {
       try {
-        await window.electronAPI.showNotification(
+        const result = await window.electronAPI.showNotification(
           'Test Bildirimi',
           'Bildirimler düzgün çalışıyor!'
         );
+        
+        if (result && result.success === false) {
+           alert('Bildirim hatası: ' + result.message);
+        }
       } catch (error) {
         console.error('Bildirim test hatası:', error);
+        alert('Bildirim gönderilirken hata oluştu: ' + error);
       }
     } else {
       alert('Bu özellik sadece masaüstü uygulamasında çalışır.');
@@ -330,6 +385,79 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
           {/* Data Settings */}
           {activeTab === 'data' && (
             <div className="space-y-6 animate-fade-in">
+              
+              {/* Update Section */}
+              <div className="theme-surface p-6 rounded-2xl border theme-border shadow-sm">
+                <h2 className="text-lg font-semibold theme-text mb-4 flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5 text-blue-500" />
+                  Yazılım Güncellemesi
+                </h2>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl theme-bg-secondary border theme-border gap-4">
+                  <div className="flex-1 w-full">
+                    <h3 className="font-medium theme-text">
+                      {updateStatus === 'idle' && 'Güncel kalın'}
+                      {updateStatus === 'checking-for-update' && 'Kontrol ediliyor...'}
+                      {updateStatus === 'update-available' && 'Yeni güncelleme mevcut!'}
+                      {updateStatus === 'update-not-available' && 'Sürümünüz güncel'}
+                      {updateStatus === 'download-progress' && 'İndiriliyor...'}
+                      {updateStatus === 'update-downloaded' && 'Güncelleme hazır'}
+                      {updateStatus === 'error' && 'Güncelleme hatası'}
+                    </h3>
+                    <p className="text-sm theme-text-muted mt-1">
+                      {updateStatus === 'idle' && `Mevcut sürüm: ${currentVersion}`}
+                      {updateStatus === 'checking-for-update' && 'Lütfen bekleyin'}
+                      {updateStatus === 'update-available' && `Yeni sürüm: ${updateInfo?.version || 'Bilinmiyor'}`}
+                      {updateStatus === 'update-not-available' && `En son sürümü kullanıyorsunuz (${currentVersion})`}
+                      {updateStatus === 'download-progress' && `%${Math.round(updateInfo?.percent || 0)} tamamlandı`}
+                      {updateStatus === 'update-downloaded' && 'Yüklemek için uygulamayı yeniden başlatın'}
+                      {updateStatus === 'error' && 'Lütfen internet bağlantınızı kontrol edin'}
+                    </p>
+                    
+                    {updateStatus === 'download-progress' && (
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3 dark:bg-gray-700 overflow-hidden">
+                        <div 
+                          className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" 
+                          style={{ width: `${updateInfo?.percent || 0}%` }}
+                        ></div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    {updateStatus === 'checking-for-update' || updateStatus === 'download-progress' ? (
+                      <div className="p-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                      </div>
+                    ) : updateStatus === 'update-available' ? (
+                      <button
+                        onClick={downloadUpdate}
+                        className="theme-button px-4 py-2 text-sm flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        İndir
+                      </button>
+                    ) : updateStatus === 'update-downloaded' ? (
+                      <button
+                        onClick={installUpdate}
+                        className="theme-button px-4 py-2 text-sm flex items-center gap-2 bg-green-600 hover:bg-green-700 border-transparent text-white"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Yükle ve Yeniden Başlat
+                      </button>
+                    ) : (
+                      <button
+                        onClick={checkForUpdates}
+                        className="theme-button-secondary px-4 py-2 text-sm flex items-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Kontrol Et
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="theme-surface p-6 rounded-2xl border theme-border shadow-sm">
                 <h2 className="text-lg font-semibold theme-text mb-4 flex items-center gap-2">
                   <Database className="w-5 h-5 text-blue-500" />

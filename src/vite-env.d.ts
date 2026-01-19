@@ -3,7 +3,7 @@
 interface Window {
   electronAPI: {
     supabaseConfig: Record<string, unknown>;
-    showNotification: (title: string, body: string) => Promise<void>;
+    showNotification: (title: string, body: string) => Promise<{ success: boolean; message?: string }>;
     getVersion: () => Promise<string>;
     onMenuAction: (callback: () => void) => void;
     removeMenuListener: (callback: () => void) => void;

@@ -15,6 +15,12 @@ let tray;
 
 // Ensure single instance across launches
 const gotTheLock = app.requestSingleInstanceLock();
+
+// Set App User Model ID for Windows Notifications
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.hatirlaticiniz.app');
+}
+
 if (!gotTheLock) {
   app.quit();
 } else {
