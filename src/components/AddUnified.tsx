@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, CreditCard, Pill, Info, Receipt } from 'lucide-react';
+import { Plus, CreditCard, Pill, Receipt } from 'lucide-react';
 import CheckForm from './CheckForm';
 import MedicationForm from './MedicationForm';
 import { Check } from '../types';
