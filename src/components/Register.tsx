@@ -80,8 +80,12 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
       <div className="w-full max-w-md">
         {/* Logo ve başlık */}
         <div className="text-center mb-8">
-          <div className="theme-primary rounded-2xl p-4 w-16 h-16 mx-auto mb-4 shadow-lg">
-            <UserPlus className="w-8 h-8 text-white mx-auto" />
+          <div className="mx-auto mb-6 w-24 h-24">
+            <img 
+              src="/icon-256x256.png" 
+              alt="Hatırlatıcınız Logo" 
+              className="w-full h-full object-contain drop-shadow-xl rounded-2xl"
+            />
           </div>
           <h1 className="text-2xl font-bold theme-text mb-2">Hesap Oluşturun</h1>
           <p className="theme-text-muted text-sm">Hatırlatıcınız'a kayıt olun</p>
