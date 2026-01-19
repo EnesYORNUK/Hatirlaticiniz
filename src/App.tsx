@@ -9,7 +9,6 @@ import Profile from './components/Profile';
 import ErrorBoundary from './components/ErrorBoundary';
 import MedicationForm from './components/MedicationForm';
 import MedicationList from './components/MedicationList';
-import Dashboard from './components/Dashboard';
 import DailySchedule from './components/DailySchedule';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -563,9 +562,8 @@ export default function App() {
             )
           }
         >
-          <Route index element={<Dashboard />} />
           <Route
-            path="checks"
+            index
             element={
               <div className="max-w-6xl mx-auto p-6 space-y-6 animate-fade-in">
                 <CheckList
@@ -576,6 +574,10 @@ export default function App() {
                 />
               </div>
             }
+          />
+          <Route
+            path="checks"
+            element={<Navigate to="/" replace />}
           />
           <Route
             path="add"

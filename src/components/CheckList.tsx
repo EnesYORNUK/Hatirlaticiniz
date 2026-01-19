@@ -124,6 +124,33 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Search and Sort Toolbar */}
+      <div className="flex flex-col md:flex-row gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="İsim veya tutar ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white placeholder:text-slate-400"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+           <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
+            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          >
+            <option value="closest">En Yakın</option>
+            <option value="farthest">En Uzak</option>
+            <option value="lowest">En Düşük Tutar</option>
+            <option value="highest">En Yüksek Tutar</option>
+          </select>
+        </div>
+      </div>
+
       {/* Top Controls Container - Compact */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-4 max-w-4xl mx-auto">
         
@@ -188,7 +215,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
         </div>
 
         {/* Time Filters (Buttons) */}
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-5 gap-2 w-full">
           {[
             { id: 'all', label: 'Tümü' },
             { id: 'today', label: 'Bugün' },
@@ -199,7 +226,7 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
             <button
               key={filter.id}
               onClick={() => setTimeFilter(filter.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 timeFilter === filter.id
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none'
                   : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
@@ -208,33 +235,6 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
               {filter.label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Search and Sort Toolbar */}
-      <div className="flex flex-col md:flex-row gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="İsim veya tutar ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 dark:text-white placeholder:text-slate-400"
-          />
-        </div>
-        
-        <div className="flex gap-2">
-           <select
-            value={sortOption}
-            onChange={(e) => setSortOption(e.target.value)}
-            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            <option value="closest">En Yakın</option>
-            <option value="farthest">En Uzak</option>
-            <option value="lowest">En Düşük Tutar</option>
-            <option value="highest">En Yüksek Tutar</option>
-          </select>
         </div>
       </div>
 

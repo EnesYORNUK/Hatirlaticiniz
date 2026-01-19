@@ -1,7 +1,7 @@
 {
   "name": "hatirlaticiniz",
   "private": false,
-  "version": "5.0.25",
+  "version": "5.0.26",
   "main": "dist-electron/electron.js",
   "scripts": {
     "dev": "vite",

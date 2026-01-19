@@ -16,14 +16,8 @@ export default function Layout({
   const location = useLocation();
 
   const menuItems = [
-    {
-      id: '/',
-      label: 'Anasayfa',
-      icon: LayoutGrid,
-      description: 'Genel bakış ve özetler'
-    },
       {
-        id: '/checks',
+        id: '/',
         label: 'Çek & Fatura',
         icon: Calendar,
         description: 'Tüm ödemeleri yönet'
