@@ -297,8 +297,17 @@ export default function App() {
   // 🎨 Tema uygulama hook'u
   useEffect(() => {
     const applyTheme = (theme: ThemeType) => {
-      // HTML element'ine data-theme attribute'u ekle
-      document.documentElement.setAttribute('data-theme', theme);
+      const root = document.documentElement;
+      
+      // HTML element'ine data-theme attribute'u ekle (CSS değişkenleri için)
+      root.setAttribute('data-theme', theme);
+      
+      // Tailwind dark mode için class ekle/çıkar
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
       
       // Body'ye tema class'ı ekle
       document.body.className = 'theme-bg min-h-screen';

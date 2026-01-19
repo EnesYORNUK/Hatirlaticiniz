@@ -48,7 +48,7 @@ export const useSupabaseMedications = () => {
   const { user, isAuthenticated } = useAuth();
   const [medications, setMedications] = useState<Medication[]>([]);
   const [medicationLogs, setMedicationLogs] = useState<MedicationLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [medicationsError, setMedicationsError] = useState<string | null>(null);
 
   useEffect(() => {

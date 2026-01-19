@@ -201,6 +201,43 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         </div>
       </div>
 
+      {/* Appearance Settings - Restored Light/Dark Mode */}
+      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
+        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
+          <Palette className="w-4 h-4" />
+          Görünüm
+        </h2>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="theme-text font-medium">Tema Tercihi</div>
+            <div className="theme-text-muted text-sm">Aydınlık veya karanlık mod seçin</div>
+          </div>
+          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+            <button
+              onClick={() => handleSettingChange('theme', 'light')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                localSettings.theme === 'light'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              Aydınlık
+            </button>
+            <button
+              onClick={() => handleSettingChange('theme', 'dark')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                localSettings.theme === 'dark'
+                  ? 'bg-slate-800 text-indigo-400 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              Karanlık
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Notification Settings */}
       <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
         <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">

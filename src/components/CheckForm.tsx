@@ -144,7 +144,12 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      // Kullanıcıya görsel geri bildirim ver
+      const firstError = Object.values(errors)[0] || 'Lütfen zorunlu alanları doldurunuz';
+      alert(`Kaydedilemedi: ${firstError}`);
+      return;
+    }
 
     // Tekrarlayan ödeme için paymentDate'i ayarla
     let finalPaymentDate = formData.paymentDate;

@@ -17,11 +17,11 @@ export default function Layout({
 
   const menuItems = [
     {
-        id: '/',
-        label: 'Dashboard',
-        icon: LayoutGrid,
-        description: 'Genel bakış ve özetler'
-      },
+      id: '/',
+      label: 'Anasayfa',
+      icon: LayoutGrid,
+      description: 'Genel bakış ve özetler'
+    },
       {
         id: '/checks',
         label: 'Çek & Fatura',
