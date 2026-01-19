@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { LayoutGrid, Settings, Pill, Calendar, PlusCircle, LogOut, UserCircle, User } from 'lucide-react';
 import { User as UserType } from '../types';
+import logo from '../assets/logo.png';
 
 interface LayoutProps {
   children?: React.ReactNode; // Outlet will handle rendering, but keep for flexibility
@@ -56,7 +57,7 @@ export default function Layout({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="/icon-256x256.png"
+                src={logo}
                 alt="Hatırlatıcınız Logo"
                 className="w-8 h-8 rounded-md shadow-sm"
               />

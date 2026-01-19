@@ -82,7 +82,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
         <div className="text-center mb-8">
           <div className="mx-auto mb-6 w-24 h-24">
             <img 
-              src="/icon-256x256.png" 
+              src={logo}
               alt="Hatırlatıcınız Logo" 
               className="w-full h-full object-contain drop-shadow-xl rounded-2xl"
             />

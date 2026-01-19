@@ -43,9 +43,18 @@ function createWindow(supabaseConfig) {
     ? path.join(__dirname, '../dist-electron/preload.cjs')
     : path.join(__dirname, 'preload.cjs');
 
-  const iconPath = VITE_DEV_SERVER_URL
-    ? path.join(__dirname, '../public/icon.ico')
-    : path.join(process.resourcesPath || __dirname, 'icon.ico');
+  // Icon path logic
+  let iconPath;
+  if (VITE_DEV_SERVER_URL) {
+    iconPath = path.join(__dirname, '../public/icon.ico');
+  } else {
+    // Production: try resources path first
+    iconPath = path.join(process.resourcesPath, 'icon.ico');
+    // Fallback if not found (e.g. if not in resources)
+    if (!fs.existsSync(iconPath)) {
+       iconPath = path.join(__dirname, '../../icon.ico');
+    }
+  }
 
   win = new BrowserWindow({
     width: 1200,

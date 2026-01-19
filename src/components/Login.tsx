@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
 import { LoginData } from '../types';
+import logo from '../assets/logo.png';
 
 interface LoginProps {
   onLogin: (data: LoginData) => Promise<void> | void;
@@ -48,7 +49,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, error
         <div className="text-center mb-8">
           <div className="mx-auto mb-6 w-24 h-24">
             <img 
-              src="/icon-256x256.png" 
+              src={logo}
               alt="Hatırlatıcınız Logo" 
               className="w-full h-full object-contain drop-shadow-xl rounded-2xl"
             />
