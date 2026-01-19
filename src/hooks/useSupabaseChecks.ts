@@ -57,8 +57,9 @@ export function useSupabaseChecks() {
       return;
     }
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init to avoid race conditions
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
       setIsLoading(false);
       return;
@@ -68,7 +69,7 @@ export function useSupabaseChecks() {
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('checks')
         .select('*')
         .eq('user_id', user.id)
@@ -102,9 +103,22 @@ export function useSupabaseChecks() {
   const addCheck = useCallback(async (checkData: Omit<Check, 'id' | 'createdAt'>): Promise<boolean> => {
     if (!user) return false;
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
+    // Oturum hazır mı kontrol et
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      if (!sessionData?.session) {
+        setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+        return false;
+      }
+    } catch (e) {
+      setError('Oturum doğrulanamadı. Lütfen tekrar deneyin.');
       return false;
     }
 
@@ -113,7 +127,7 @@ export function useSupabaseChecks() {
 
     try {
       const insertData = convertCheckToInsert(checkData);
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('checks')
         .insert(insertData as any)
         .select()
@@ -140,9 +154,22 @@ export function useSupabaseChecks() {
   const updateCheck = useCallback(async (id: string, updates: Partial<Check>): Promise<boolean> => {
     if (!user) return false;
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
+    // Oturum hazır mı kontrol et
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      if (!sessionData?.session) {
+        setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+        return false;
+      }
+    } catch (e) {
+      setError('Oturum doğrulanamadı. Lütfen tekrar deneyin.');
       return false;
     }
 
@@ -166,7 +193,7 @@ export function useSupabaseChecks() {
       if (updates.recurringDay !== undefined) updateData.recurring_day = updates.recurringDay;
       if (updates.nextPaymentDate !== undefined) updateData.next_payment_date = updates.nextPaymentDate;
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('checks')
         .update(updateData as never)
         .eq('id', id)
@@ -195,9 +222,22 @@ export function useSupabaseChecks() {
   const deleteCheck = useCallback(async (id: string): Promise<boolean> => {
     if (!user) return false;
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
+    // Oturum hazır mı kontrol et
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      if (!sessionData?.session) {
+        setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+        return false;
+      }
+    } catch (e) {
+      setError('Oturum doğrulanamadı. Lütfen tekrar deneyin.');
       return false;
     }
 
@@ -205,7 +245,7 @@ export function useSupabaseChecks() {
     setError(null);
 
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('checks')
         .delete()
         .eq('id', id)
@@ -231,9 +271,22 @@ export function useSupabaseChecks() {
   const togglePaid = useCallback(async (id: string): Promise<boolean> => {
     if (!user) return false;
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
+      return false;
+    }
+
+    // Oturum hazır mı kontrol et
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      if (!sessionData?.session) {
+        setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+        return false;
+      }
+    } catch (e) {
+      setError('Oturum doğrulanamadı. Lütfen tekrar deneyin.');
       return false;
     }
 
@@ -241,7 +294,7 @@ export function useSupabaseChecks() {
       const check = checks.find(c => c.id === id);
       if (!check) return false;
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('checks')
         .update({ is_paid: !check.isPaid } as never)
         .eq('id', id)
@@ -276,10 +329,17 @@ export function useSupabaseChecks() {
       console.log(`🔄 ${parsedChecks.length} çek localStorage'dan migrate ediliyor...`);
 
       let successCount = 0;
+      // Ensure client is ready before migration loop
+      const client = supabase ?? await initializeSupabase();
+      if (!client) {
+        setError('Veri servisi kullanılamıyor');
+        return false;
+      }
+
       for (const check of parsedChecks) {
         try {
           const insertData = convertCheckToInsert(check);
-          await supabase!.from('checks').insert(insertData as any);
+          await client.from('checks').insert(insertData as any);
           successCount++;
         } catch (error) {
           console.error('❌ Çek migrate edilemedi:', check.id, error);

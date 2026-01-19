@@ -1,7 +1,20 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Check } from '../types';
 import { formatDate, getDaysUntilPayment } from '../utils/dateUtils';
-import { Edit2, Trash2, CheckCircle, Circle, Calendar, User, Banknote, Search, CreditCard, Receipt, TrendingUp, TrendingDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { formatCurrency } from '../utils/accountUtils';
+import { 
+  Edit2, 
+  Trash2, 
+  CheckCircle, 
+  Circle, 
+  Calendar, 
+  User, 
+  Search, 
+  CreditCard, 
+  Receipt, 
+  AlertCircle,
+  Clock
+} from 'lucide-react';
 
 interface CheckListProps {
   checks: Check[];
@@ -13,31 +26,15 @@ interface CheckListProps {
 export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: CheckListProps) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [timeFilter, setTimeFilter] = useState<string>('all');
-  const [sortOption, setSortOption] = useState<string>('closest'); // New state for sorting
+  const [sortOption, setSortOption] = useState<string>('closest');
   const [statusFilter, setStatusFilter] = useState<'unpaid' | 'paid' | 'overdue' | null>(null);
 
+  // Filter toggle
   const toggleStatusFilter = (filter: 'unpaid' | 'paid' | 'overdue') => {
     setStatusFilter(prev => (prev === filter ? null : filter));
   };
 
-  // Zaman filtresi seçenekleri
-  const timeFilterOptions = [
-    { id: 'all', label: 'Tüm Zamanlar' },
-    { id: 'today', label: 'Bugün' },
-    { id: 'thisWeek', label: 'Bu Hafta' },
-    { id: 'thisMonth', label: 'Bu Ay' },
-    { id: 'thisYear', label: 'Bu Yıl' },
-  ];
-
-  // Sıralama seçenekleri
-  const sortOptions = [
-    { id: 'closest', label: 'En Yakın Ödeme', icon: TrendingUp },
-    { id: 'farthest', label: 'En Uzak Ödeme', icon: TrendingDown },
-    { id: 'lowest', label: 'En Az Ödeme', icon: ArrowDown },
-    { id: 'highest', label: 'En Çok Ödeme', icon: ArrowUp },
-  ];
-
-  // Filtreleme fonksiyonu
+  // Filter logic
   const getFilteredChecks = () => {
     return checks.filter(check => {
       const searchLower = searchTerm.toLowerCase();
@@ -82,8 +79,6 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
       const isOverdue = !check.isPaid && daysUntil < 0;
 
-      // Durum filtresi: sadece bir filtre seçili olmalı veya hiçbiri.
-      // "Ödenecek" => ödenmemiş ve gecikmemiş olanlar (bugün ve ilerisi)
       const statusMatches = !statusFilter ||
         (statusFilter === 'unpaid' && !check.isPaid && !isOverdue) ||
         (statusFilter === 'paid' && check.isPaid) ||
@@ -93,67 +88,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
     });
   };
 
-  // Filtrelenmiş çekleri al
   const filteredChecks = getFilteredChecks();
 
-  // İstatistikleri hesapla
-  const getStats = () => {
-    const now = Date.now();
-    const unpaidChecks = filteredChecks.filter(c => !c.isPaid);
-    const paidChecks = filteredChecks.filter(c => c.isPaid);
-    const overdueChecks = unpaidChecks.filter(c => {
-      const daysUntil = getDaysUntilPayment(c.paymentDate, c.nextPaymentDate, c.isRecurring);
-      return daysUntil < 0;
-    });
-
-    // En yakın ödeme
-    const closestPayment = unpaidChecks.length > 0 
-      ? [...unpaidChecks].sort((a, b) => {
-          const getDateForSorting = (check: Check) => {
-            if (check.isRecurring && check.nextPaymentDate) {
-              return new Date(check.nextPaymentDate).getTime();
-            }
-            return new Date(check.paymentDate).getTime();
-          };
-          
-          const dateA = getDateForSorting(a);
-          const dateB = getDateForSorting(b);
-          return Math.abs(dateA - now) - Math.abs(dateB - now);
-        })[0]
-      : null;
-
-    // En uzak ödeme
-    const farthestPayment = unpaidChecks.length > 0 
-      ? [...unpaidChecks].sort((a, b) => {
-          const getDateForSorting = (check: Check) => {
-            if (check.isRecurring && check.nextPaymentDate) {
-              return new Date(check.nextPaymentDate).getTime();
-            }
-            return new Date(check.paymentDate).getTime();
-          };
-          
-          const dateA = getDateForSorting(a);
-          const dateB = getDateForSorting(b);
-          return Math.abs(dateB - now) - Math.abs(dateA - now);
-        })[0]
-      : null;
-
-    return {
-      totalUnpaidAmount: unpaidChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
-      totalPaidAmount: paidChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
-      totalOverdueAmount: overdueChecks.reduce((sum, c) => sum + (c.amount || 0), 0),
-      closestPayment,
-      farthestPayment,
-      lowestPayment: filteredChecks.length > 0 ? [...filteredChecks].sort((a, b) => a.amount - b.amount)[0] : null,
-      highestPayment: filteredChecks.length > 0 ? [...filteredChecks].sort((a, b) => b.amount - a.amount)[0] : null,
-    };
-  };
-
-  const stats = getStats();
-
-  // Sıralama fonksiyonu
+  // Sorting logic
   const getSortedChecks = () => {
-    const sorted = [...filteredChecks].sort((a, b) => {
+    return [...filteredChecks].sort((a, b) => {
       const getDateForSorting = (check: Check) => {
         if (check.isRecurring && check.nextPaymentDate) {
           return new Date(check.nextPaymentDate).getTime();
@@ -163,330 +102,252 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
       
       switch (sortOption) {
         case 'closest':
-          // En yakın tarihe göre sırala
           return Math.abs(getDateForSorting(a) - Date.now()) - Math.abs(getDateForSorting(b) - Date.now());
         case 'farthest':
-          // En uzak tarihe göre sırala
           return Math.abs(getDateForSorting(b) - Date.now()) - Math.abs(getDateForSorting(a) - Date.now());
         case 'lowest':
-          // En düşük miktara göre sırala
           return a.amount - b.amount;
         case 'highest':
-          // En yüksek miktara göre sırala
           return b.amount - a.amount;
         default:
-          // Varsayılan olarak tarihe göre sırala
           return getDateForSorting(a) - getDateForSorting(b);
       }
     });
-    
-    return sorted;
   };
 
   const sortedChecks = getSortedChecks();
 
+  // Calculate stats for top cards
+  const stats = {
+    unpaid: checks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate, c.nextPaymentDate, c.isRecurring) >= 0).reduce((sum, c) => sum + Number(c.amount), 0),
+    paid: checks.filter(c => c.isPaid).reduce((sum, c) => sum + Number(c.amount), 0),
+    overdue: checks.filter(c => !c.isPaid && getDaysUntilPayment(c.paymentDate, c.nextPaymentDate, c.isRecurring) < 0).reduce((sum, c) => sum + Number(c.amount), 0),
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Time Filters - En Üstteki Büyük Kareler */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        {timeFilterOptions.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => setTimeFilter(option.id)}
-            className={`p-4 rounded-xl text-base font-semibold transition-all text-center shadow-sm ${
-              timeFilter === option.id
-                ? 'theme-primary text-white shadow-md transform scale-105'
-                : 'theme-surface theme-border theme-text hover:theme-bg-secondary border'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
+    <div className="space-y-6 animate-fade-in">
+      {/* Header & Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button
+          onClick={() => toggleStatusFilter('unpaid')}
+          className={`relative p-6 rounded-2xl border transition-all duration-300 text-left ${
+            statusFilter === 'unpaid'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-[1.02]'
+              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
+          }`}
+        >
+          <div className={`flex items-center gap-3 mb-3 ${statusFilter === 'unpaid' ? 'text-blue-100' : 'text-blue-600 dark:text-blue-400'}`}>
+            <div className={`p-2 rounded-lg ${statusFilter === 'unpaid' ? 'bg-blue-500/30' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
+              <Clock className="w-6 h-6" />
+            </div>
+            <span className="font-medium">Ödenecek</span>
+          </div>
+          <div className={`text-2xl font-bold ${statusFilter === 'unpaid' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+            {formatCurrency(stats.unpaid)}
+          </div>
+        </button>
+
+        <button
+          onClick={() => toggleStatusFilter('paid')}
+          className={`relative p-6 rounded-2xl border transition-all duration-300 text-left ${
+            statusFilter === 'paid'
+              ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg scale-[1.02]'
+              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700'
+          }`}
+        >
+          <div className={`flex items-center gap-3 mb-3 ${statusFilter === 'paid' ? 'text-emerald-100' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            <div className={`p-2 rounded-lg ${statusFilter === 'paid' ? 'bg-emerald-500/30' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
+              <CheckCircle className="w-6 h-6" />
+            </div>
+            <span className="font-medium">Ödenen</span>
+          </div>
+          <div className={`text-2xl font-bold ${statusFilter === 'paid' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+            {formatCurrency(stats.paid)}
+          </div>
+        </button>
+
+        <button
+          onClick={() => toggleStatusFilter('overdue')}
+          className={`relative p-6 rounded-2xl border transition-all duration-300 text-left ${
+            statusFilter === 'overdue'
+              ? 'bg-rose-600 text-white border-rose-600 shadow-lg scale-[1.02]'
+              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-700'
+          }`}
+        >
+          <div className={`flex items-center gap-3 mb-3 ${statusFilter === 'overdue' ? 'text-rose-100' : 'text-rose-600 dark:text-rose-400'}`}>
+            <div className={`p-2 rounded-lg ${statusFilter === 'overdue' ? 'bg-rose-500/30' : 'bg-rose-50 dark:bg-rose-900/20'}`}>
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <span className="font-medium">Geciken</span>
+          </div>
+          <div className={`text-2xl font-bold ${statusFilter === 'overdue' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+            {formatCurrency(stats.overdue)}
+          </div>
+        </button>
       </div>
 
-      {/* Stats Grid - Orta Bölüm */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Sol - Toplam İstatistikler (3/5 oranında) */}
-        <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            onClick={() => toggleStatusFilter('unpaid')}
-            title="Ödenecek (gecikmeyen) ile filtrele"
-            aria-pressed={statusFilter === 'unpaid'}
-            className={`bg-blue-50 dark:bg-blue-900/20 border rounded-xl p-4 text-center transition-all ${
-              statusFilter === 'unpaid' ? 'border-blue-500 ring-2 ring-blue-400' : 'border-blue-200 dark:border-blue-800'
-            }`}
-          >
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.totalUnpaidAmount.toLocaleString('tr-TR')} ₺
-            </div>
-            <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">Ödenecek (gecikmeyen)</div>
-          </button>
-          
-          <button
-            onClick={() => toggleStatusFilter('paid')}
-            title="Ödenen ile filtrele"
-            aria-pressed={statusFilter === 'paid'}
-            className={`bg-green-50 dark:bg-green-900/20 border rounded-xl p-4 text-center transition-all ${
-              statusFilter === 'paid' ? 'border-green-500 ring-2 ring-green-400' : 'border-green-200 dark:border-green-800'
-            }`}
-          >
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.totalPaidAmount.toLocaleString('tr-TR')} ₺
-            </div>
-            <div className="text-sm text-green-700 dark:text-green-300 mt-1">Ödenen</div>
-          </button>
-          
-          <button
-            onClick={() => toggleStatusFilter('overdue')}
-            title="Geciken ile filtrele"
-            aria-pressed={statusFilter === 'overdue'}
-            className={`bg-red-50 dark:bg-red-900/20 border rounded-xl p-4 text-center transition-all ${
-              statusFilter === 'overdue' ? 'border-red-500 ring-2 ring-red-400' : 'border-red-200 dark:border-red-800'
-            }`}
-          >
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              {stats.totalOverdueAmount.toLocaleString('tr-TR')} ₺
-            </div>
-            <div className="text-sm text-red-700 dark:text-red-300 mt-1">Geciken</div>
-          </button>
-
-          {/* Seçili filtre göstergesi ve temizleme */}
-          {statusFilter && (
-            <div className="sm:col-span-3 flex items-center justify-between mt-2">
-              <span className="text-sm theme-text">
-                Seçili filtre: {statusFilter === 'unpaid' ? 'Ödenecek (gecikmeyen)' : statusFilter === 'paid' ? 'Ödenen' : 'Geciken'}
-              </span>
-              <button
-                onClick={() => setStatusFilter(null)}
-                className="text-sm theme-text-muted hover:theme-text underline"
-                title="Filtreyi temizle ve tümünü göster"
-              >
-                Tümünü göster
-              </button>
-            </div>
-          )}
-          
-          {/* Search - İstatistiklerin altına taşındı */}
-          <div className="sm:col-span-3 relative mt-3">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 theme-text-muted" />
-            </div>
-            <input
-              type="text"
-              placeholder="Kişi adı, firma adı veya tutar ile ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="theme-input w-full pl-12 pr-12 py-3 rounded-lg"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center theme-text-muted hover:theme-text text-xl font-bold"
-              >
-                ×
-              </button>
-            )}
-          </div>
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white"
+          />
         </div>
+        
+        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value)}
+            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          >
+            <option value="all">Tüm Zamanlar</option>
+            <option value="today">Bugün</option>
+            <option value="thisWeek">Bu Hafta</option>
+            <option value="thisMonth">Bu Ay</option>
+            <option value="thisYear">Bu Yıl</option>
+          </select>
 
-        {/* Sağ - Sıralama Seçenekleri (2/5 oranında) */}
-        <div className="lg:col-span-2 grid grid-cols-2 gap-3">
-          {sortOptions.map((option) => {
-            const IconComponent = option.icon;
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
+            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          >
+            <option value="closest">En Yakın</option>
+            <option value="farthest">En Uzak</option>
+            <option value="lowest">En Düşük Tutar</option>
+            <option value="highest">En Yüksek Tutar</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Check Grid */}
+      {sortedChecks.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+          <div className="inline-flex p-4 rounded-full bg-slate-50 dark:bg-slate-900 mb-4">
+            <Search className="w-8 h-8 text-slate-400" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900 dark:text-white">Sonuç Bulunamadı</h3>
+          <p className="text-slate-500">Arama kriterlerinize uygun kayıt bulunmamaktadır.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedChecks.map((check) => {
+            const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
+            const isOverdue = !check.isPaid && daysUntil < 0;
+            const isToday = daysUntil === 0;
+            const displayDate = check.isRecurring && check.nextPaymentDate ? check.nextPaymentDate : check.paymentDate;
+
             return (
-              <button
-                key={option.id}
-                onClick={() => setSortOption(option.id)}
-                className={`theme-surface rounded-xl p-4 border theme-border text-left transition-all ${
-                  sortOption === option.id
-                    ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : ''
+              <div
+                key={check.id}
+                className={`group relative bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-300 hover:shadow-lg ${
+                  check.isPaid
+                    ? 'border-emerald-100 dark:border-emerald-900/30'
+                    : isOverdue
+                    ? 'border-rose-100 dark:border-rose-900/30'
+                    : 'border-slate-200 dark:border-slate-700'
                 }`}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <IconComponent className="w-4 h-4" />
-                  <span className="text-sm font-medium theme-text">{option.label}</span>
+                {/* Status Stripe */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${
+                  check.isPaid ? 'bg-emerald-500' : isOverdue ? 'bg-rose-500' : 'bg-blue-500'
+                }`} />
+
+                <div className="p-5 pl-7">
+                  {/* Top Row: Type & Actions */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                      check.type === 'check' 
+                        ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
+                        : 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
+                    }`}>
+                      {check.type === 'check' ? <CreditCard className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
+                      {check.type === 'check' ? 'Çek' : 'Fatura'}
+                    </div>
+
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onEdit(check)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(check.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Amount & Title */}
+                  <div className="mb-4">
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                      {formatCurrency(check.amount)}
+                    </h3>
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
+                      <User className="w-4 h-4" />
+                      <span className="truncate">{check.signedTo}</span>
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-700/50">
+                      <span className="text-slate-500">Tarih</span>
+                      <span className={`font-medium flex items-center gap-1.5 ${
+                        isOverdue ? 'text-rose-600' : isToday ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'
+                      }`}>
+                        <Calendar className="w-4 h-4" />
+                        {formatDate(displayDate)}
+                      </span>
+                    </div>
+                    
+                    {!check.isPaid && (
+                      <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-700/50">
+                        <span className="text-slate-500">Durum</span>
+                        <span className={`font-medium ${
+                          isOverdue ? 'text-rose-600' : isToday ? 'text-orange-600' : 'text-blue-600'
+                        }`}>
+                          {daysUntil === 0 ? 'Bugün' : daysUntil > 0 ? `${daysUntil} gün kaldı` : `${Math.abs(daysUntil)} gün geçti`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Toggle Button */}
+                  <button
+                    onClick={() => onTogglePaid(check.id)}
+                    className={`w-full mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-all ${
+                      check.isPaid
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 hover:bg-emerald-100'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {check.isPaid ? (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Ödendi
+                      </>
+                    ) : (
+                      <>
+                        <Circle className="w-4 h-4" />
+                        Ödenmedi
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div className="text-xs theme-text-muted">
-                  {option.id === 'closest' && stats.closestPayment ? `${stats.closestPayment.amount.toLocaleString('tr-TR')} ₺` : 
-                   option.id === 'farthest' && stats.farthestPayment ? `${stats.farthestPayment.amount.toLocaleString('tr-TR')} ₺` :
-                   option.id === 'lowest' && stats.lowestPayment ? `${stats.lowestPayment.amount.toLocaleString('tr-TR')} ₺` :
-                   option.id === 'highest' && stats.highestPayment ? `${stats.highestPayment.amount.toLocaleString('tr-TR')} ₺` : '-'}
-                </div>
-              </button>
+              </div>
             );
           })}
         </div>
-      </div>
-
-      {/* Payment List */}
-      <div className="theme-surface rounded-lg shadow-sm p-6 border theme-border">
-        <h2 className="text-lg font-semibold theme-text mb-4">Ödemeler</h2>
-        
-        {sortedChecks.length > 0 ? (
-          <div className="space-y-4">
-            {sortedChecks.map(check => {
-              const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
-              const isOverdue = !check.isPaid && daysUntil < 0;
-              const isToday = daysUntil === 0;
-              
-              const displayDate = (check.isRecurring && check.nextPaymentDate) 
-                ? check.nextPaymentDate 
-                : check.paymentDate;
-              
-              return (
-                <div 
-                  key={check.id} 
-                  className={`rounded-xl border p-4 transition-all hover:shadow-md ${
-                    check.isPaid 
-                      ? 'border-green-200 bg-green-50 dark:bg-green-900/10' 
-                      : isOverdue 
-                        ? 'border-red-200 bg-red-50 dark:bg-red-900/10' 
-                        : isToday
-                          ? 'border-orange-200 bg-orange-50 dark:bg-orange-900/10'
-                          : 'theme-border theme-bg'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    
-                    {/* Left Side */}
-                    <div className="flex items-center gap-4 flex-1">
-                      
-                      {/* Status Toggle */}
-                      <button
-                        onClick={() => onTogglePaid(check.id)}
-                        className={`p-2 rounded-full transition-all ${
-                          check.isPaid 
-                            ? 'text-green-600 hover:text-green-700 bg-green-100 dark:bg-green-900/20' 
-                            : 'theme-text-muted hover:theme-text bg-gray-100 dark:bg-gray-700'
-                        }`}
-                      >
-                        {check.isPaid ? <CheckCircle className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-                      </button>
-                      
-                      {/* Type Icon */}
-                      <div className={`p-3 rounded-lg ${
-                        check.type === 'check' ? 'bg-purple-100 dark:bg-purple-900/20' : 'bg-orange-100 dark:bg-orange-900/20'
-                      }`}>
-                        {check.type === 'check' ? (
-                          <CreditCard className="h-5 w-5 text-purple-600" />
-                        ) : (
-                          <Receipt className="h-5 w-5 text-orange-600" />
-                        )}
-                      </div>
-                      
-                      {/* Main Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="theme-text font-semibold text-base truncate">
-                            {check.signedTo}
-                          </span>
-                          {check.isRecurring && (
-                            <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                              🔄 Tekrarlayan
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-wrap items-center gap-4 text-sm">
-                          <span className="flex items-center gap-1 theme-text-muted">
-                            <User className="h-3 w-3" />
-                            {check.createdBy}
-                          </span>
-                          {/* Emphasized Date Badge */}
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm font-semibold ${
-                              check.isPaid
-                                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300'
-                                : isOverdue
-                                  ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300'
-                                  : isToday
-                                    ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300'
-                                    : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-200'
-                            }`}
-                          >
-                            <Calendar className="h-3 w-3" />
-                            {check.type === 'bill' || check.isRecurring ? 'Sonraki:' : 'Tarih:'} {formatDate(displayDate)}
-                          </span>
-                          {!check.isPaid && (
-                            <span className={`font-medium ${
-                              isOverdue ? 'text-red-600' : isToday ? 'text-orange-600' : 'text-blue-600'
-                            }`}>
-                              {daysUntil === 0 
-                                ? 'Bugün ödenecek' 
-                                : daysUntil > 0 
-                                  ? `${daysUntil} gün kaldı`
-                                  : `${Math.abs(daysUntil)} gün geçti`
-                              }
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side */}
-                    <div className="flex items-center gap-4">
-                      
-                      {/* Amount */}
-                      <div className="text-right">
-                        <div className="text-xl font-bold theme-text">
-                          {check.amount.toLocaleString('tr-TR')} ₺
-                        </div>
-                        {check.type === 'bill' && check.billType && (
-                          <div className="text-xs theme-text-muted capitalize">
-                            {check.billType === 'diger' ? check.customBillType : check.billType}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => onEdit(check)}
-                          className="p-2 theme-text-muted hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                          title="Düzenle"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(check.id)}
-                          className="p-2 theme-text-muted hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-                          title="Sil"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* No Results */
-          <div className="text-center py-12">
-            <div className="w-16 h-16 theme-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
-              <Banknote className="h-8 w-8 theme-text-muted" />
-            </div>
-            {checks.length > 0 ? (
-              <>
-                <h3 className="text-lg font-semibold theme-text mb-2">Arama sonucu bulunamadı</h3>
-                <p className="theme-text-muted">
-                  "{searchTerm}" aramanız için uygun ödeme bulunamadı.<br/>
-                  Farklı anahtar kelimeler deneyin veya filtreleri değiştirin.
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold theme-text mb-2">Henüz ödeme eklenmemiş</h3>
-                <p className="theme-text-muted mb-4">
-                  İlk çek veya faturanızı ekleyerek başlayın.
-                </p>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

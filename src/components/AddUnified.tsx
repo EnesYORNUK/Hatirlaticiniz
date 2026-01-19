@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, CreditCard, Pill, Info, Receipt } from 'lucide-react';
 import CheckForm from './CheckForm';
@@ -31,22 +31,22 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
         <div className="flex items-center gap-3 mb-2">
-          <div className="theme-primary rounded-lg p-2.5">
+          <div className="bg-indigo-600 rounded-xl p-2.5">
             <Plus className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold theme-text">Yeni Ekle</h1>
-            <p className="theme-text-muted text-sm">Ödeme veya ilaç ekleyin</p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Yeni Ekle</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Ödeme veya ilaç ekleyin</p>
           </div>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
-          <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-blue-600 mt-0.5" />
-            <div className="text-sm text-blue-700">
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4 mt-4">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5" />
+            <div className="text-sm text-indigo-700 dark:text-indigo-300">
               <strong>İpucu:</strong> Sekmeler arası geçiş yaparak çek/fatura veya ilaç ekleyebilirsiniz.
             </div>
           </div>
@@ -54,15 +54,15 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
       </div>
 
       {/* Tabs */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border">
-        <div className="p-4 border-b theme-border">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex gap-2">
             <button
               onClick={() => switchTab('check')}
-              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
                 activeTab === 'check'
-                  ? 'theme-primary text-white'
-                  : 'theme-button-secondary'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               <CreditCard className="w-4 h-4" />
@@ -70,10 +70,10 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
             </button>
             <button
               onClick={() => switchTab('bill')}
-              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
                 activeTab === 'bill'
-                  ? 'theme-primary text-white'
-                  : 'theme-button-secondary'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               <Receipt className="w-4 h-4" />
@@ -81,10 +81,10 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
             </button>
             <button
               onClick={() => switchTab('medication')}
-              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
                 activeTab === 'medication'
-                  ? 'theme-primary text-white'
-                  : 'theme-button-secondary'
+                  ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               <Pill className="w-4 h-4" />
@@ -93,7 +93,7 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
           </div>
         </div>
 
-        <div className="p-4">
+        <div className="p-6">
           {activeTab === 'check' && (
             <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="check" />
           )}
@@ -101,7 +101,7 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
             <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="bill" />
           )}
           {activeTab === 'medication' && (
-            <MedicationForm onSave={onAddMedication} onCancel={() => navigate('/medications')} />
+            <MedicationForm onSave={onAddMedication} onCancel={onCancel} />
           )}
         </div>
       </div>

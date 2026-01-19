@@ -9,6 +9,7 @@ import Profile from './components/Profile';
 import ErrorBoundary from './components/ErrorBoundary';
 import MedicationForm from './components/MedicationForm';
 import MedicationList from './components/MedicationList';
+import Dashboard from './components/Dashboard';
 import DailySchedule from './components/DailySchedule';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -80,7 +81,6 @@ export default function App() {
     getDailySchedule,
     addMedication,
     updateMedication,
-    deleteMedication,
     markMedicationTaken
   } = useSupabaseMedications();
 
@@ -100,9 +100,9 @@ export default function App() {
   const [fallbackChecks, setFallbackChecks] = useLocalStorage<Check[]>('checks', []);
   const [fallbackSettings, setFallbackSettings] = useLocalStorage<SettingsType>('settings', defaultSettings);
   
-  // Use Supabase data if available, otherwise fallback to localStorage
-  const activeChecks = checks.length > 0 || !fallbackChecks.length ? checks : fallbackChecks;
-  const activeSettings = Object.keys(settings).length > 2 ? settings : fallbackSettings;
+  // Use Supabase data if authenticated, otherwise fallback to localStorage
+  const activeChecks = isAuthenticated ? checks : fallbackChecks;
+  const activeSettings = isAuthenticated && Object.keys(settings).length > 2 ? settings : fallbackSettings;
   
   const medicationSchedule = isAuthenticated
     ? getDailySchedule(new Date())
@@ -175,7 +175,7 @@ export default function App() {
       if (isAuthenticated) {
         await updateSupabaseCheck(c.id, updates);
       } else {
-        await setRawChecks(
+        await setFallbackChecks(
           activeChecks.map((x) => (x.id === c.id ? { ...x, ...updates } : x))
         );
       }
@@ -357,7 +357,22 @@ export default function App() {
 
   const handleAddCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
     if (isAuthenticated && user) {
-      await addSupabaseCheck({ ...checkData, createdBy: user.id });
+      const ok = await addSupabaseCheck({ ...checkData, createdBy: user.id });
+      if (ok) {
+        navigate('/');
+        return;
+      }
+      // Supabase başarısızsa yerel fallback dene
+      const newCheck: Check = {
+        ...checkData,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        isPaid: false,
+        isRecurring: false,
+      };
+      await setRawChecks([newCheck, ...activeChecks]);
+      navigate('/');
+      return;
     } else {
       // Fallback for non-authenticated users (if needed)
       const newCheck: Check = {
@@ -368,8 +383,8 @@ export default function App() {
         isRecurring: false,
       };
       await setRawChecks([newCheck, ...activeChecks]);
+      navigate('/');
     }
-    navigate('/');
   };
 
   const handleUpdateCheck = async (checkData: Omit<Check, 'id' | 'createdAt'>) => {
@@ -382,7 +397,16 @@ export default function App() {
     };
     
     if (isAuthenticated) {
-      await updateSupabaseCheck(updatedCheck.id, updatedCheck);
+      const ok = await updateSupabaseCheck(updatedCheck.id, updatedCheck);
+      if (!ok) {
+        // Supabase başarısızsa yerel fallback
+        await setRawChecks(
+          activeChecks.map((c) => (c.id === updatedCheck.id ? updatedCheck : c))
+        );
+        setEditingCheck(null);
+        navigate('/');
+        return;
+      }
     } else {
       await setRawChecks(
         activeChecks.map((c) => (c.id === updatedCheck.id ? updatedCheck : c))
@@ -404,7 +428,13 @@ export default function App() {
 
   const handleTogglePaid = async (id: string) => {
     if (isAuthenticated) {
-      await toggleSupabasePaid(id);
+      const ok = await toggleSupabasePaid(id);
+      if (!ok) {
+        // Supabase başarısızsa yerel fallback
+        await setRawChecks(
+          activeChecks.map((c) => (c.id === id ? { ...c, isPaid: !c.isPaid } : c))
+        );
+      }
     } else {
       await setRawChecks(
         activeChecks.map((c) => (c.id === id ? { ...c, isPaid: !c.isPaid } : c))
@@ -444,17 +474,6 @@ export default function App() {
       await updateMedication(updatedMedication.id, updatedMedication);
       setEditingMedication(null);
       navigate('/medications');
-    }
-  };
-
-  const handleEditMedication = (medication: Medication) => {
-    setEditingMedication(medication);
-    navigate(`/medications/edit/${medication.id}`);
-  };
-
-  const handleDeleteMedication = async (id: string) => {
-    if (window.confirm('Bu ilacı silmek istediğinizden emin misiniz?')) {
-      await deleteMedication(id);
     }
   };
 
@@ -535,15 +554,18 @@ export default function App() {
             )
           }
         >
+          <Route index element={<Dashboard />} />
           <Route
-            index
+            path="checks"
             element={
-              <CheckList
-                checks={activeChecks}
-                onEdit={handleEditCheck}
-                onDelete={handleDeleteCheck}
-                onTogglePaid={handleTogglePaid}
-              />
+              <div className="max-w-6xl mx-auto p-6 space-y-6 animate-fade-in">
+                <CheckList
+                  checks={activeChecks}
+                  onEdit={handleEditCheck}
+                  onDelete={handleDeleteCheck}
+                  onTogglePaid={handleTogglePaid}
+                />
+              </div>
             }
           />
           <Route
@@ -586,17 +608,7 @@ export default function App() {
             <Route
               index
               element={
-                <MedicationList
-                  medications={medications}
-                  onEdit={handleEditMedication}
-                  onDelete={handleDeleteMedication}
-                  onToggleActive={(id, isActive) => {
-                    const medication = medications.find(m => m.id === id);
-                    if (medication) {
-                      updateMedication(id, { ...medication, isActive });
-                    }
-                  }}
-                />
+                <MedicationList />
               }
             />
             <Route

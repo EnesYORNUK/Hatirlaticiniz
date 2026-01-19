@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { LayoutGrid, Plus, Settings, Pill, Calendar, PlusCircle, LogOut, User, UserCircle } from 'lucide-react';
+import { LayoutGrid, Settings, Pill, Calendar, PlusCircle, LogOut, UserCircle, User } from 'lucide-react';
 import { User as UserType } from '../types';
 
 interface LayoutProps {
@@ -18,33 +18,33 @@ export default function Layout({
   const menuItems = [
     {
         id: '/',
-        label: 'Anasayfa',
+        label: 'Dashboard',
         icon: LayoutGrid,
-        description: 'Tüm çek ve faturaları görüntüle'
+        description: 'Genel bakış ve özetler'
       },
       {
-        id: '/schedule',
-        label: 'Günlük Program',
+        id: '/checks',
+        label: 'Çek & Fatura',
         icon: Calendar,
-        description: 'Bugünün ilaç ve ödeme programı'
+        description: 'Tüm ödemeleri yönet'
       },
       {
         id: '/medications',
-        label: 'İlaçlarım',
+        label: 'İlaç Takibi',
         icon: Pill,
-        description: 'İlaç takip sistemi'
+        description: 'İlaçlarınızı yönetin'
       },
       {
         id: '/add',
-        label: 'Yeni Ekle',
+        label: 'Hızlı Ekle',
         icon: PlusCircle,
-        description: 'Çek/Fatura veya İlaç ekle'
+        description: 'Yeni kayıt oluştur'
       },
       {
         id: '/profile',
         label: 'Profil',
         icon: UserCircle,
-        description: 'Hesap ayarları ve profil yönetimi'
+        description: 'Hesap ayarları'
       },
       {
         id: '/settings',

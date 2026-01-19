@@ -12,7 +12,7 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister, error, isLoading }) => {
   const [formData, setFormData] = useState<LoginData>({
     email: 'demo@hatirlaticiniz.com', // Demo için pre-fill
-    password: 'demo123' // Demo için pre-fill
+    password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
 

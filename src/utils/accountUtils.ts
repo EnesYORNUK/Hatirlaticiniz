@@ -1,5 +1,14 @@
 import { supabase, initializeSupabase } from '../lib/supabase';
 
+export const formatCurrency = (amount: number | string): string => {
+  const num = Number(amount);
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    minimumFractionDigits: 2
+  }).format(num);
+};
+
 export const deleteUserAccount = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
     await initializeSupabase(); // Ensure Supabase is initialized

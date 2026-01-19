@@ -1,38 +1,46 @@
-import React, { useState } from 'react';
-import { Medication } from '../types/medication';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Pill, 
-  Edit, 
+  Edit2, 
   Trash2, 
   Clock, 
   Calendar, 
-  User, 
-  MoreVertical,
+  Pill,
   Play,
   Pause,
-  CheckCircle,
-  AlertCircle 
+  Activity
 } from 'lucide-react';
-
-interface MedicationListProps {
-  medications: Medication[];
-  onEdit: (medication: Medication) => void;
-  onDelete: (id: string) => void;
-  onToggleActive: (id: string, isActive: boolean) => void;
-}
+import { Medication } from '../types/medication';
+import { useSupabaseMedications } from '../hooks/useSupabaseMedications';
 
 const weekDayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
-export default function MedicationList({ medications, onEdit, onDelete, onToggleActive }: MedicationListProps) {
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+export default function MedicationList() {
+  const navigate = useNavigate();
+  const { medications, deleteMedication, updateMedication } = useSupabaseMedications();
+
+  const handleToggleActive = async (id: string, isActive: boolean) => {
+    await updateMedication(id, { isActive });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Bu ilacı silmek istediğinizden emin misiniz?')) {
+      await deleteMedication(id);
+    }
+  };
+
+  const handleEdit = (medication: Medication) => {
+    navigate(`/medications/edit/${medication.id}`);
+  };
 
   if (medications.length === 0) {
     return (
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-8 text-center">
-        <Pill className="w-12 h-12 theme-text-muted mx-auto mb-3" />
-        <h3 className="theme-text text-lg font-medium mb-2">Henüz hap eklenmemiş</h3>
-        <p className="theme-text-muted text-sm mb-4">
-          Hap takibinizi başlatmak için ilk hapınızı ekleyin
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-full mb-4">
+          <Pill className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">İlaç Listeniz Boş</h3>
+        <p className="text-slate-500 text-center max-w-sm">
+          Düzenli takip etmek istediğiniz ilaçları ekleyerek başlayın.
         </p>
       </div>
     );
@@ -51,150 +59,114 @@ export default function MedicationList({ medications, onEdit, onDelete, onToggle
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR');
-  };
-
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`"${name}" hapını silmek istediğinizden emin misiniz?`)) {
-      onDelete(id);
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      
-      {/* Header */}
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="theme-text text-lg font-semibold">Hap Listesi</h2>
-          <p className="theme-text-muted text-sm">
-            {medications.length} hap • {medications.filter(m => m.isActive).length} aktif
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Activity className="w-6 h-6 text-teal-600" />
+            İlaçlarım
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Toplam {medications.length} kayıt, {medications.filter(m => m.isActive).length} aktif
           </p>
         </div>
       </div>
 
-      {/* Medication Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {medications.map((medication) => (
           <div
             key={medication.id}
-            className={`theme-surface rounded-lg shadow-sm border theme-border transition-all duration-200 ${
-              expandedCard === medication.id ? 'ring-2 ring-blue-200' : ''
-            } ${!medication.isActive ? 'opacity-60' : ''}`}
+            className={`group relative bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-300 ${
+              medication.isActive 
+                ? 'border-slate-200 dark:border-slate-700 hover:shadow-lg hover:border-teal-200 dark:hover:border-teal-800' 
+                : 'border-slate-100 dark:border-slate-800 opacity-75 grayscale-[0.5]'
+            }`}
           >
-            
-            {/* Card Header */}
-            <div className="p-4 border-b theme-border">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${medication.isActive ? 'theme-primary' : 'bg-gray-400'}`}>
-                    <Pill className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="theme-text font-semibold">{medication.name}</h3>
-                      {!medication.isActive && (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                          Pasif
-                        </span>
-                      )}
-                    </div>
-                    <p className="theme-text-muted text-sm">{medication.dosage}</p>
-                  </div>
+            {/* Durum Badge */}
+            <div className="absolute top-4 right-4">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                medication.isActive
+                  ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+              }`}>
+                {medication.isActive ? 'Aktif' : 'Pasif'}
+              </span>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-start gap-4 mb-4">
+                <div className={`p-3 rounded-xl ${
+                  medication.isActive 
+                    ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400' 
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                }`}>
+                  <Pill className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-lg leading-tight mb-1">
+                    {medication.name}
+                  </h3>
+                  <p className="text-slate-500 text-sm font-medium">
+                    {medication.dosage}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/30 p-2 rounded-lg">
+                  <Clock className="w-4 h-4 text-indigo-500" />
+                  <span className="font-medium">{medication.time}</span>
                 </div>
                 
+                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/30 p-2 rounded-lg">
+                  <Calendar className="w-4 h-4 text-orange-500" />
+                  <span>{getFrequencyText(medication)}</span>
+                </div>
+
+                {medication.notes && (
+                  <p className="text-xs text-slate-400 mt-2 line-clamp-2 italic">
+                    "{medication.notes}"
+                  </p>
+                )}
+              </div>
+
+              {/* Aksiyonlar - Hover ile görünür veya mobilde her zaman görünür */}
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
                 <button
-                  onClick={() => setExpandedCard(expandedCard === medication.id ? null : medication.id)}
-                  className="p-1 theme-text-muted hover:theme-text transition-colors"
+                  onClick={() => handleToggleActive(medication.id, !medication.isActive)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    medication.isActive
+                      ? 'hover:bg-orange-50 text-slate-500 hover:text-orange-600'
+                      : 'hover:bg-teal-50 text-slate-500 hover:text-teal-600'
+                  }`}
+                  title={medication.isActive ? "Pasife Al" : "Aktifleştir"}
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  {medication.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {medication.isActive ? 'Durdur' : 'Başlat'}
+                </button>
+
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
+
+                <button
+                  onClick={() => handleEdit(medication)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Düzenle
+                </button>
+
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
+
+                <button
+                  onClick={() => handleDelete(medication.id)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Sil
                 </button>
               </div>
             </div>
-
-            {/* Card Content */}
-            <div className="p-4 space-y-3">
-              
-              {/* Zaman ve Sıklık */}
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1 theme-text-muted">
-                  <Clock className="w-3 h-3" />
-                  <span>{medication.time}</span>
-                </div>
-                <div className="flex items-center gap-1 theme-text-muted">
-                  <Calendar className="w-3 h-3" />
-                  <span>{getFrequencyText(medication)}</span>
-                </div>
-              </div>
-
-              {/* Kullanıcı */}
-              <div className="flex items-center gap-1 text-sm theme-text-muted">
-                <User className="w-3 h-3" />
-                <span>{medication.createdBy}</span>
-              </div>
-
-              {/* Tarih Aralığı */}
-              <div className="text-xs theme-text-muted">
-                {formatDate(medication.startDate)}
-                {medication.endDate && ` - ${formatDate(medication.endDate)}`}
-              </div>
-
-              {/* Notlar */}
-              {medication.notes && (
-                <div className="text-sm theme-text theme-bg-secondary p-2 rounded border theme-border">
-                  <strong className="theme-text-secondary">Not:</strong> {medication.notes}
-                </div>
-              )}
-            </div>
-
-            {/* Expanded Actions */}
-            {expandedCard === medication.id && (
-              <div className="border-t theme-border p-3 bg-gray-50">
-                <div className="grid grid-cols-2 gap-2">
-                  
-                  {/* Aktif/Pasif Toggle */}
-                  <button
-                    onClick={() => onToggleActive(medication.id, !medication.isActive)}
-                    className={`flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      medication.isActive
-                        ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                    }`}
-                  >
-                    {medication.isActive ? (
-                      <>
-                        <Pause className="w-3 h-3" />
-                        Pasif Yap
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3 h-3" />
-                        Aktif Yap
-                      </>
-                    )}
-                  </button>
-
-                  {/* Düzenle */}
-                  <button
-                    onClick={() => onEdit(medication)}
-                    className="flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                  >
-                    <Edit className="w-3 h-3" />
-                    Düzenle
-                  </button>
-
-                  {/* Sil */}
-                  <button
-                    onClick={() => handleDelete(medication.id, medication.name)}
-                    className="flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors col-span-2"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Sil
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>

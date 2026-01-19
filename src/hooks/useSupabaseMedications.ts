@@ -56,16 +56,19 @@ export const useSupabaseMedications = () => {
   }, []);
 
   const fetchMedications = useCallback(async () => {
-    if (!isAuthenticated || !user || !supabase) return;
+    if (!isAuthenticated || !user) return;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return;
 
     setIsLoading(true);
     try {
       // Oturum hazır mı kontrol et
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData?.session) {
         throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('medications')
         .select('*')
         .order('created_at', { ascending: true })
@@ -85,16 +88,19 @@ export const useSupabaseMedications = () => {
   }, [isAuthenticated, user]);
 
   const loadMedicationLogs = useCallback(async () => {
-    if (!isAuthenticated || !user || !supabase) return;
+    if (!isAuthenticated || !user) return;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return;
 
     setIsLoading(true);
     try {
       // Oturum hazır mı kontrol et
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData?.session) {
         throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('medication_logs')
         .select('*')
         .eq('user_id', user.id);
@@ -117,7 +123,10 @@ export const useSupabaseMedications = () => {
   }, [isAuthenticated, user, fetchMedications, loadMedicationLogs]);
 
   const addMedication = async (medication: Omit<Medication, 'id' | 'userId' | 'createdBy' | 'createdAt'>) => {
-    if (!user || !supabase) return null;
+    if (!user) return null;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return null;
 
     const newMedication: TablesInsert<'medications'> = {
       user_id: user.id,
@@ -136,11 +145,11 @@ export const useSupabaseMedications = () => {
 
     try {
       setIsLoading(true);
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData?.session) {
         throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('medications')
         .insert(newMedication as never)
         .select()
@@ -161,7 +170,10 @@ export const useSupabaseMedications = () => {
   };
 
   const updateMedication = async (id: string, updates: Partial<Omit<Medication, 'id' | 'userId' | 'createdBy' | 'createdAt'>>): Promise<void> => {
-    if (!user || !supabase) return;
+    if (!user) return;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return;
 
     const supabaseUpdates: TablesUpdate<'medications'> = {};
 
@@ -183,11 +195,11 @@ export const useSupabaseMedications = () => {
 
     try {
       setIsLoading(true);
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData?.session) {
         throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('medications')
         .update(supabaseUpdates as never)
         .eq('id', id)
@@ -207,17 +219,20 @@ export const useSupabaseMedications = () => {
   };
 
   const deleteMedication = async (id: string): Promise<void> => {
-    if (!user || !supabase) return;
+    if (!user) return;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return;
 
     try {
       setIsLoading(true);
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData?.session) {
         throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
 
       // Önce ilacı sil (FK CASCADE zaten tanımlı)
-      const { error: medError } = await supabase
+      const { error: medError } = await client
         .from('medications')
         .delete()
         .eq('id', id)
@@ -225,14 +240,14 @@ export const useSupabaseMedications = () => {
 
       if (medError) {
         // FK hatası veya başka bir durum olursa logları silmeyi dene, sonra ilacı sil
-        const { error: logError } = await supabase
+        const { error: logError } = await client
           .from('medication_logs')
           .delete()
           .eq('medication_id', id)
           .eq('user_id', user.id);
         if (logError) throw logError;
 
-        const { error: medError2 } = await supabase
+        const { error: medError2 } = await client
           .from('medications')
           .delete()
           .eq('id', id)
@@ -253,7 +268,10 @@ export const useSupabaseMedications = () => {
 
 
   const markMedicationTaken = async (medicationId: string, scheduledTime: string, status: 'taken' | 'missed' | 'skipped', notes?: string) => {
-    if (!user || !supabase) return false;
+    if (!user) return false;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return false;
 
     const logEntry: TablesInsert<'medication_logs'> = {
       medication_id: medicationId,
@@ -266,11 +284,11 @@ export const useSupabaseMedications = () => {
 
     try {
       setIsLoading(true);
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData?.session) {
         throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('medication_logs')
         .insert(logEntry as never)
         .select()
@@ -291,13 +309,15 @@ export const useSupabaseMedications = () => {
   };
 
   const migrateFromLocalStorage = async (localStorageData: { medications: Medication[], medicationLogs: MedicationLog[] }): Promise<boolean> => {
-    if (!user || !supabase) return false;
+    if (!user) return false;
 
     try {
       const { medications: localMeds, medicationLogs: localLogs } = localStorageData;
 
       // Medications
       if (localMeds.length > 0) {
+          const client = supabase ?? await initializeSupabase();
+          if (!client) return false;
           const newMedications: TablesInsert<'medications'>[] = localMeds.map(m => ({
               user_id: user.id,
               created_by: m.createdBy || user.email || 'unknown',
@@ -313,7 +333,7 @@ export const useSupabaseMedications = () => {
               notes: m.notes,
           }));
 
-          const { error: medError } = await supabase
+          const { error: medError } = await client
               .from('medications')
               .insert(newMedications as never[]);
           if (medError) {
@@ -324,6 +344,8 @@ export const useSupabaseMedications = () => {
 
       // Medication Logs
       if (localLogs.length > 0) {
+          const client = supabase ?? await initializeSupabase();
+          if (!client) return false;
           const newLogs: TablesInsert<'medication_logs'>[] = localLogs.map(l => ({
               user_id: user.id,
               medication_id: l.medicationId,
@@ -332,7 +354,7 @@ export const useSupabaseMedications = () => {
               status: l.status,
               notes: l.notes,
           }));
-          const { error: logError } = await supabase
+          const { error: logError } = await client
               .from('medication_logs')
               .insert(newLogs as never[]);
           if (logError) {

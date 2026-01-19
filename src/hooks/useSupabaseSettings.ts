@@ -75,7 +75,10 @@ export function useSupabaseSettings() {
 
   // Create default settings in Supabase
   const createDefaultSettings = useCallback(async () => {
-    if (!user || !supabase) return;
+    if (!user) return;
+
+    const client = supabase ?? await initializeSupabase();
+    if (!client) return;
 
     try {
       const settingsData = {
@@ -83,7 +86,7 @@ export function useSupabaseSettings() {
         ...convertSettingsToUpdate(defaultSettings)
       };
 
-      const { error } = await supabase
+      const { error } = await client
         .from('app_user_settings')
         .insert(settingsData as any);
 
@@ -103,8 +106,9 @@ export function useSupabaseSettings() {
       return;
     }
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
       setIsLoading(false);
       return;
@@ -114,7 +118,7 @@ export function useSupabaseSettings() {
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('app_user_settings')
         .select('*')
         .eq('user_id', user.id)
@@ -153,8 +157,9 @@ export function useSupabaseSettings() {
   const updateSettings = async (newSettings: SettingsType): Promise<boolean> => {
     if (!user) return false;
 
-    // Supabase guard
-    if (!supabase) {
+    // Supabase guard with lazy init
+    const client = supabase ?? await initializeSupabase();
+    if (!client) {
       setError('Veri servisi kullanılamıyor');
       return false;
     }
@@ -168,7 +173,7 @@ export function useSupabaseSettings() {
       let attempts = 0;
       let lastError: any = null;
       while (attempts < 5) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('app_user_settings')
           .update(updateData as any)
           .eq('user_id', user.id)
