@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, CreditCard, Pill, Receipt } from 'lucide-react';
+import { CreditCard, Receipt, Pill } from 'lucide-react';
 import CheckForm from './CheckForm';
 import MedicationForm from './MedicationForm';
 import { Check } from '../types';
@@ -32,70 +32,55 @@ export default function AddUnified({ onAddCheck, onAddMedication, onCancel }: Ad
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <div className="flex items-center gap-3">
-          <div className="theme-primary rounded-lg p-2.5">
-            <Plus className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold theme-text">Yeni Ekle</h1>
-            <p className="theme-text-muted text-sm">Ödeme veya ilaç ekleyin</p>
-          </div>
+      {/* Tabs */}
+      <div className="flex justify-center w-full">
+        <div className="theme-surface p-1.5 rounded-xl shadow-sm border theme-border inline-flex gap-1">
+          <button
+            onClick={() => switchTab('check')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'check'
+                ? 'theme-primary text-white shadow-sm'
+                : 'theme-text-muted hover:theme-bg-secondary hover:theme-text'
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            Çek
+          </button>
+          <button
+            onClick={() => switchTab('bill')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'bill'
+                ? 'theme-primary text-white shadow-sm'
+                : 'theme-text-muted hover:theme-bg-secondary hover:theme-text'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            Fatura
+          </button>
+          <button
+            onClick={() => switchTab('medication')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 ${
+              activeTab === 'medication'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'theme-text-muted hover:theme-bg-secondary hover:theme-text'
+            }`}
+          >
+            <Pill className="w-4 h-4" />
+            İlaç
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border overflow-hidden">
-        <div className="p-4 border-b theme-border">
-          <div className="flex gap-2">
-            <button
-              onClick={() => switchTab('check')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
-                activeTab === 'check'
-                  ? 'theme-primary text-white shadow-md'
-                  : 'theme-text-muted hover:theme-bg-secondary'
-              }`}
-            >
-              <CreditCard className="w-4 h-4" />
-              Çek
-            </button>
-            <button
-              onClick={() => switchTab('bill')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
-                activeTab === 'bill'
-                  ? 'theme-primary text-white shadow-md'
-                  : 'theme-text-muted hover:theme-bg-secondary'
-              }`}
-            >
-              <Receipt className="w-4 h-4" />
-              Fatura
-            </button>
-            <button
-              onClick={() => switchTab('medication')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
-                activeTab === 'medication'
-                  ? 'bg-teal-600 text-white shadow-md'
-                  : 'theme-text-muted hover:theme-bg-secondary'
-              }`}
-            >
-              <Pill className="w-4 h-4" />
-              İlaç
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6">
-          {activeTab === 'check' && (
-            <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="check" />
-          )}
-          {activeTab === 'bill' && (
-            <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="bill" />
-          )}
-          {activeTab === 'medication' && (
-            <MedicationForm onSave={onAddMedication} onCancel={onCancel} />
-          )}
-        </div>
+      <div className="animate-fade-in">
+        {activeTab === 'check' && (
+          <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="check" />
+        )}
+        {activeTab === 'bill' && (
+          <CheckForm onSave={onAddCheck} onCancel={onCancel} forceType="bill" />
+        )}
+        {activeTab === 'medication' && (
+          <MedicationForm onSave={onAddMedication} onCancel={onCancel} />
+        )}
       </div>
     </div>
   );

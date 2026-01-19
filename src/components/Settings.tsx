@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType } from '../types';
-import { Bell, Download, Save, Upload, CheckCircle, RefreshCw, Palette, Info, MessageCircle, AlertCircle, ArrowDownCircle, Pill } from 'lucide-react';
+import { 
+  Bell, Download, Save, Upload, Moon, Sun, 
+  Smartphone, Monitor, Volume2, Shield, Database, 
+  Info, ChevronRight, MessageCircle, Clock, CheckCircle, XCircle 
+} from 'lucide-react';
 
 type UpdateStatus =
   | 'idle'
@@ -26,11 +30,9 @@ interface SettingsProps {
 
 export default function Settings({ settings, onSave, onExportData, onImportData }: SettingsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo>(null);
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [currentVersion, setCurrentVersion] = useState<string>('');
   const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'data'>('general');
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -41,98 +43,13 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       window.electronAPI.getVersion().then(version => {
         setCurrentVersion(version);
       }).catch(() => {
-        setCurrentVersion('Bilinmiyor');
+        setCurrentVersion('1.0.0');
       });
     }
-
-    // Update status event listener
-    if (window.ipcRenderer) {
-      const handleUpdateStatus = (...args: unknown[]) => {
-        const status = String(args[1]) as UpdateStatus;
-        const info = (args[2] as UpdateInfo) ?? null;
-        console.log('🔄 Update status received:', status, info);
-        setUpdateStatus(status);
-        setUpdateInfo(info);
-        
-        if (status === 'download-progress' && info && info.percent) {
-          setDownloadProgress(info.percent);
-        }
-      };
-
-      window.ipcRenderer.on('update-status', handleUpdateStatus);
-
-      return () => {
-        window.ipcRenderer?.removeAllListeners('update-status');
-      };
-    }
-  }, []);
-
-  // Sistem başlangıcı: OS durumunu oku ve UI'yi senkronize et
-  useEffect(() => {
-    const syncLaunchState = async () => {
-      try {
-        if (window.electronAPI?.getLaunchOnStartup) {
-          const result: { success: boolean; openAtLogin?: boolean } | undefined = await window.electronAPI.getLaunchOnStartup();
-          if (result?.success && typeof result.openAtLogin === 'boolean') {
-            setLocalSettings(prev => ({ ...prev, launchOnStartup: result.openAtLogin }));
-          }
-        }
-      } catch {
-        // sessizce geç
-      }
-    };
-    syncLaunchState();
   }, []);
 
   const handleSettingChange = (key: keyof SettingsType, value: any) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleCheckForUpdates = async () => {
-    if (window.electronAPI?.checkForUpdates) {
-      try {
-        setUpdateStatus('checking-for-update');
-        setUpdateInfo(null);
-        setDownloadProgress(0);
-        
-        const result = await window.electronAPI.checkForUpdates();
-        console.log('🔍 Check for updates result:', result);
-      } catch (error) {
-        console.error('❌ Check for updates error:', error);
-        setUpdateStatus('error');
-        setUpdateInfo({ message: 'Güncelleme kontrolü başarısız' });
-      }
-    }
-  };
-
-  const handleDownloadUpdate = async () => {
-    if (window.electronAPI?.downloadUpdate) {
-      try {
-        setUpdateStatus('download-progress');
-        setDownloadProgress(0);
-        
-        const result = await window.electronAPI.downloadUpdate();
-        console.log('📥 Download update result:', result);
-      } catch (error) {
-        console.error('❌ Download update error:', error);
-        setUpdateStatus('error');
-        setUpdateInfo({ message: 'Güncelleme indirme başarısız' });
-      }
-    }
-  };
-
-  const handleInstallUpdate = async () => {
-    if (window.electronAPI?.installUpdate) {
-      try {
-        const result = await window.electronAPI.installUpdate();
-        console.log('🔄 Install update result:', result);
-        // Program yeniden başlayacak, bu noktaya gelmeyebilir
-      } catch (error) {
-        console.error('❌ Install update error:', error);
-        setUpdateStatus('error');
-        setUpdateInfo({ message: 'Güncelleme kurulumu başarısız' });
-      }
-    }
   };
 
   const testNotification = async () => {
@@ -145,567 +62,319 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       } catch (error) {
         console.error('Bildirim test hatası:', error);
       }
+    } else {
+      alert('Bu özellik sadece masaüstü uygulamasında çalışır.');
     }
   };
 
   const testTelegramBot = async () => {
-    if (!settings.telegramBotToken || !settings.telegramChatId) {
+    if (!localSettings.telegramBotToken || !localSettings.telegramChatId) {
       alert('Önce Telegram Bot Token ve Chat ID\'yi giriniz');
       return;
     }
 
     try {
-      const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
+      const response = await fetch(`https://api.telegram.org/bot${localSettings.telegramBotToken}/sendMessage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chat_id: settings.telegramChatId,
-          text: '🎉 Telegram Bot Test Mesajı\n\nBot düzgün çalışıyor! Ödeme hatırlatmaları bu şekilde gelecek.',
+          chat_id: localSettings.telegramChatId,
+          text: '🎉 Hatırlatıcınız: Test Mesajı\n\nBot bağlantısı başarılı! Bildirimleri buradan alacaksınız.',
         }),
       });
 
       if (response.ok) {
-        alert('✅ Telegram bot testi başarılı! Mesajı kontrol edin.');
+        alert('✅ Başarılı! Telegram mesajınızı kontrol edin.');
       } else {
-        alert('❌ Telegram bot testi başarısız. Token ve Chat ID\'yi kontrol edin.');
+        alert('❌ Başarısız. Token ve Chat ID\'yi kontrol edin.');
       }
     } catch (error) {
-      alert('❌ Telegram bot test hatası: ' + error);
+      alert('❌ Bağlantı hatası: ' + error);
     }
   };
 
+  const tabs = [
+    { id: 'general', label: 'Genel', icon: Monitor },
+    { id: 'notifications', label: 'Bildirimler', icon: Bell },
+    { id: 'data', label: 'Veri ve Sistem', icon: Database },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-5xl mx-auto animate-fade-in pb-12">
       
-      {/* Header */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="theme-primary rounded-lg p-2.5">
-              <Palette className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold theme-text">Ayarlar</h1>
-              <p className="theme-text-muted text-sm">Uygulamanızı özelleştirin</p>
-            </div>
-          </div>
-          <button
-            onClick={() => onSave(localSettings)}
-            className="theme-button px-4 py-2 text-sm"
-            title="Değişiklikleri kaydet"
-          >
-            Kaydet
-          </button>
+      {/* Top Bar */}
+      <div className="flex items-center justify-between mb-8 sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md py-4 border-b theme-border">
+        <div>
+          <h1 className="text-2xl font-bold theme-text">Ayarlar</h1>
+          <p className="theme-text-muted text-sm">Uygulama tercihlerinizi yönetin</p>
         </div>
-      </div>
-
-      {/* Appearance Settings - Restored Light/Dark Mode */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <Palette className="w-4 h-4" />
-          Görünüm
-        </h2>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="theme-text font-medium">Tema Tercihi</div>
-            <div className="theme-text-muted text-sm">Aydınlık veya karanlık mod seçin</div>
-          </div>
-          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-            <button
-              onClick={() => handleSettingChange('theme', 'light')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                localSettings.theme === 'light'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Aydınlık
-            </button>
-            <button
-              onClick={() => handleSettingChange('theme', 'dark')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                localSettings.theme === 'dark'
-                  ? 'bg-slate-800 text-blue-400 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Karanlık
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Notification Settings */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <Bell className="w-4 h-4" />
-          Bildirimler
-        </h2>
-        
-        <div className="space-y-4">
-          
-          {/* Masaüstü Bildirimleri */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Masaüstü Bildirimleri</div>
-              <div className="theme-text-muted text-sm">Ödeme tarihleri yaklaştığında bildirim al</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localSettings.notificationsEnabled}
-                onChange={(e) => handleSettingChange('notificationsEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          {/* Kaç Gün Önceden Hatırlat */}
-          {localSettings.notificationsEnabled && (
-            <div className="pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-3">
-              <div>
-                <label className="theme-text text-sm font-medium block mb-2">
-                  Kaç gün önceden hatırlat?
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={localSettings.reminderDays}
-                    onChange={(e) => handleSettingChange('reminderDays', parseInt(e.target.value) || 1)}
-                    className="theme-input w-20 text-center"
-                  />
-                  <span className="theme-text text-sm">gün önceden</span>
-                </div>
-                <p className="text-xs theme-text-muted mt-1">
-                  1-30 gün arasında bir değer girebilirsiniz
-                </p>
-              </div>
-              
-              <button
-                onClick={testNotification}
-                className="theme-button-secondary px-4 py-2 text-sm"
-              >
-                Bildirim Testi
-              </button>
-            </div>
-          )}
-
-          {/* Günlük Bildiri */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Günlük Özet</div>
-              <div className="theme-text-muted text-sm">Her gün bugünün ödemelerini hatırlat</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localSettings.dailyNotificationEnabled}
-                onChange={(e) => handleSettingChange('dailyNotificationEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          {/* Günlük Bildirim Saati */}
-          {localSettings.dailyNotificationEnabled && (
-            <div className="pl-4 border-l-2 border-green-200 dark:border-green-800">
-              <label className="theme-text text-sm font-medium block mb-2">
-                Günlük bildirim saati
-              </label>
-              <input
-                type="time"
-                value={localSettings.dailyNotificationTime}
-                onChange={(e) => handleSettingChange('dailyNotificationTime', e.target.value)}
-                className="theme-input w-32 text-sm"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Medication Notifications */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <Pill className="w-4 h-4" />
-          İlaç Bildirimleri
-        </h2>
-        
-        <div className="space-y-4">
-          
-          {/* İlaç Bildirimleri Aktif/Pasif */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">İlaç Hatırlatmaları</div>
-              <div className="theme-text-muted text-sm">İlaç zamanları geldiğinde bildirim al</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localSettings.medicationNotificationsEnabled || false}
-                onChange={(e) => handleSettingChange('medicationNotificationsEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          {/* İlaç Hatırlatma Süresi */}
-          {(localSettings.medicationNotificationsEnabled || false) && (
-            <div className="pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-3">
-              <div>
-                <label className="theme-text text-sm font-medium block mb-2">
-                  Kaç dakika önceden hatırlat?
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min={0}
-                    max={120}
-                    value={localSettings.medicationReminderMinutes || 15}
-                    onChange={(e) => handleSettingChange('medicationReminderMinutes', parseInt(e.target.value) || 15)}
-                    className="theme-input w-20 text-center"
-                  />
-                  <span className="theme-text text-sm">dakika önceden</span>
-                </div>
-                <p className="text-xs theme-text-muted mt-1">
-                  0-120 dakika arasında bir değer girebilirsiniz
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Dashboard'da İlaç Gösterimi */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Dashboard'da İlaç Widget'ları</div>
-              <div className="theme-text-muted text-sm">Ana sayfada ilaç bilgilerini göster</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localSettings.showMedicationsInDashboard !== false}
-                onChange={(e) => handleSettingChange('showMedicationsInDashboard', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          {/* İlaç Bildirimi Ses */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Bildirim Sesi</div>
-              <div className="theme-text-muted text-sm">İlaç hatırlatmalarında ses çal</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localSettings.medicationSoundEnabled !== false}
-                onChange={(e) => handleSettingChange('medicationSoundEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Telegram Bot Settings */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <MessageCircle className="w-4 h-4" />
-          Telegram Botu
-        </h2>
-        
-        <div className="space-y-4">
-          
-          {/* Telegram Bot Aktif/Pasif */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Telegram Bot</div>
-              <div className="theme-text-muted text-sm">Bildirimleri Telegram'dan al</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localSettings.telegramBotEnabled}
-                onChange={(e) => handleSettingChange('telegramBotEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          {/* Telegram Bot Ayarları */}
-          {localSettings.telegramBotEnabled && (
-            <div className="pl-4 border-l-2 border-blue-200 space-y-4">
-              
-              <div>
-                <label className="theme-text text-sm font-medium block mb-2">
-                  Bot Token
-                </label>
-                <input
-                  type="password"
-                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  value={localSettings.telegramBotToken}
-                  onChange={(e) => handleSettingChange('telegramBotToken', e.target.value)}
-                  className="theme-input w-full text-sm"
-                />
-                <p className="text-xs theme-text-muted mt-1">
-                  @BotFather'dan aldığınız bot token'ını girin
-                </p>
-              </div>
-
-              <div>
-                <label className="theme-text text-sm font-medium block mb-2">
-                  Chat ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="123456789"
-                  value={localSettings.telegramChatId}
-                  onChange={(e) => handleSettingChange('telegramChatId', e.target.value)}
-                  className="theme-input w-full text-sm"
-                />
-                <p className="text-xs theme-text-muted mt-1">
-                  Kendi Telegram chat ID'nizi girin
-                </p>
-              </div>
-
-              <button
-                onClick={testTelegramBot}
-                className="theme-button px-4 py-2 text-sm"
-              >
-                Telegram Bot Testi
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Data Management */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
+        <button
+          onClick={() => onSave(localSettings)}
+          className="theme-button px-6 py-2.5 shadow-lg shadow-blue-500/20 flex items-center gap-2"
+        >
           <Save className="w-4 h-4" />
-          Veri Yönetimi
-        </h2>
-        
-        <div className="space-y-4">
-          {/* Auto Delete Settings */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="theme-text text-sm font-medium block mb-2">
-                Otomatik Silme (Gün)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={localSettings.autoDeleteAfterDays ?? 0}
-                onChange={(e) => handleSettingChange('autoDeleteAfterDays', Math.max(0, parseInt(e.target.value || '0', 10)))}
-                className="theme-input w-full text-sm"
-              />
-              <p className="text-xs theme-text-muted mt-1">
-                Ödeme <strong>ödenmiş</strong> olarak işaretlendikten sonra, ödeme tarihinden
-                belirtilen gün sayısı geçtiğinde otomatik olarak silinir. Devre dışı bırakmak için 0 yazın.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button
-              onClick={onExportData}
-              className="theme-button-secondary flex items-center justify-center gap-2 py-3"
-            >
-              <Download className="w-4 h-4" />
-              Verileri Yedekle
-            </button>
-            
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={onImportData}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="theme-button-secondary w-full flex items-center justify-center gap-2 py-3"
-              >
-                <Upload className="w-4 h-4" />
-                Verileri Geri Yükle
-              </button>
-            </div>
-          </div>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <strong>Yedekleme:</strong> Tüm çek ve fatura verilerinizi JSON dosyası olarak indirir.
-                <br />
-                <strong>Geri Yükleme:</strong> Daha önce yedeklediğiniz verileri geri yükler.
-              </div>
-            </div>
-          </div>
-        </div>
+          Değişiklikleri Kaydet
+        </button>
       </div>
 
-      {/* Sistem ve Başlangıç */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <Bell className="w-4 h-4" />
-          Sistem ve Başlangıç
-        </h2>
-
-        <div className="space-y-4">
-          {/* Windows açılışında otomatik başlat */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Başlangıçta Otomatik Başlat</div>
-              <div className="theme-text-muted text-sm">Bilgisayar açıldığında uygulamayı otomatik başlat</div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!localSettings.launchOnStartup}
-                onChange={async (e) => {
-                  const enabled = e.target.checked;
-                  handleSettingChange('launchOnStartup', enabled);
-                  try {
-                    if (window.electronAPI?.setLaunchOnStartup) {
-                      await window.electronAPI.setLaunchOnStartup(enabled);
-                    }
-                  } catch {}
-                }}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* App Updates */}
-      <div className="theme-surface rounded-lg shadow-sm border theme-border p-6">
-        <h2 className="text-base font-semibold theme-text mb-4 flex items-center gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Uygulama Güncellemeleri
-        </h2>
-        
-        <div className="space-y-4">
-          
-          {/* Mevcut Sürüm */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="theme-text font-medium">Mevcut Sürüm</div>
-              <div className="theme-text-muted text-sm">v{currentVersion}</div>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        {/* Sidebar Navigation */}
+        <div className="md:col-span-3 space-y-2">
+          {tabs.map(tab => (
             <button
-              onClick={handleCheckForUpdates}
-              disabled={updateStatus === 'checking-for-update'}
-              className={`theme-button flex items-center gap-2 px-4 py-2 ${
-                updateStatus === 'checking-for-update' ? 'opacity-50 cursor-not-allowed' : ''
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'theme-primary text-white shadow-md'
+                  : 'theme-text-muted hover:theme-bg-secondary hover:theme-text'
               }`}
             >
-              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking-for-update' ? 'animate-spin' : ''}`} />
-              {updateStatus === 'checking-for-update' ? 'Kontrol Ediliyor...' : 'Güncelleme Kontrol Et'}
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
             </button>
-          </div>
+          ))}
           
-          {updateStatus === 'checking-for-update' && (
-            <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg">
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Güncelleme kontrolü yapılıyor...</span>
-            </div>
-          )}
-
-          {updateStatus === 'update-available' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-lg">
-                <ArrowDownCircle className="w-4 h-4" />
-                <span className="text-sm">
-                  Yeni güncelleme mevcut: v{updateInfo?.version || 'Bilinmiyor'}
-                </span>
-              </div>
-              <button
-                onClick={handleDownloadUpdate}
-                className="theme-button w-full flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Güncellemeyi İndir
-              </button>
-            </div>
-          )}
-
-          {updateStatus === 'download-progress' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg">
-                <ArrowDownCircle className="w-4 h-4" />
-                <span className="text-sm">Güncelleme indiriliyor... {Math.round(downloadProgress)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${downloadProgress}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
-
-          {updateStatus === 'update-downloaded' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
-                <CheckCircle className="w-4 h-4" />
-                <span className="text-sm">
-                  Güncelleme hazır! Şimdi yeniden başlatın.
-                </span>
-              </div>
-              <button
-                onClick={handleInstallUpdate}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Güncelle ve Yeniden Başlat
-              </button>
-            </div>
-          )}
-
-          {updateStatus === 'update-not-available' && (
-            <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-sm">Programınız güncel!</span>
-            </div>
-          )}
-
-          {updateStatus === 'error' && (
-            <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
-              <AlertCircle className="w-4 h-4" />
-              <span className="text-sm">Hata: {updateInfo?.message || 'Bilinmiyor'}</span>
-            </div>
-          )}
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <strong>Otomatik Güncelleme:</strong> Yeni sürümler GitHub'dan kontrol edilir.
-                <br />
-                <strong>Veri Güvenliği:</strong> Güncellemeler sırasında verileriniz korunur.
-              </div>
-            </div>
+          <div className="pt-4 mt-4 border-t theme-border px-4">
+            <p className="text-xs theme-text-muted">Sürüm {currentVersion || '1.0.0'}</p>
           </div>
         </div>
-      </div>
 
+        {/* Content Area */}
+        <div className="md:col-span-9 space-y-6">
+          
+          {/* General Settings */}
+          {activeTab === 'general' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="theme-surface p-6 rounded-2xl border theme-border shadow-sm">
+                <h2 className="text-lg font-semibold theme-text mb-4 flex items-center gap-2">
+                  <Monitor className="w-5 h-5 text-blue-500" />
+                  Görünüm
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleSettingChange('theme', 'light')}
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-3 ${
+                      localSettings.theme === 'light'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'theme-border theme-bg-secondary hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center">
+                      <Sun className="w-6 h-6 text-orange-500" />
+                    </div>
+                    <span className="font-medium theme-text">Aydınlık Mod</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSettingChange('theme', 'dark')}
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-3 ${
+                      localSettings.theme === 'dark'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'theme-border theme-bg-secondary hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-800 shadow-sm flex items-center justify-center">
+                      <Moon className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <span className="font-medium theme-text">Karanlık Mod</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notification Settings */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6 animate-fade-in">
+              
+              {/* Main Toggle */}
+              <div className="theme-surface p-6 rounded-2xl border theme-border shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <Bell className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold theme-text">Bildirimler</h2>
+                      <p className="theme-text-muted text-sm">Tüm hatırlatmaları buradan yönetin</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.notificationsEnabled}
+                      onChange={(e) => handleSettingChange('notificationsEnabled', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-12 h-7 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {localSettings.notificationsEnabled && (
+                  <div className="space-y-6 pl-2">
+                    {/* Reminder Days */}
+                    <div className="flex items-center justify-between py-3 border-b theme-border">
+                      <div>
+                        <span className="theme-text font-medium block">Hatırlatma Süresi</span>
+                        <span className="theme-text-muted text-xs">Son ödeme tarihinden kaç gün önce?</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={localSettings.reminderDays}
+                          onChange={(e) => handleSettingChange('reminderDays', parseInt(e.target.value) || 1)}
+                          className="theme-input w-16 text-center"
+                        />
+                        <span className="theme-text text-sm">gün</span>
+                      </div>
+                    </div>
+
+                    {/* Daily Summary */}
+                    <div className="flex items-center justify-between py-3 border-b theme-border">
+                      <div>
+                        <span className="theme-text font-medium block">Günlük Özet</span>
+                        <span className="theme-text-muted text-xs">Her gün belirlenen saatte özet bildirimi</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                         {localSettings.dailyNotificationEnabled && (
+                          <input
+                            type="time"
+                            value={localSettings.dailyNotificationTime}
+                            onChange={(e) => handleSettingChange('dailyNotificationTime', e.target.value)}
+                            className="theme-input text-sm"
+                          />
+                        )}
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={localSettings.dailyNotificationEnabled}
+                            onChange={(e) => handleSettingChange('dailyNotificationEnabled', e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Test Button */}
+                    <div className="pt-2">
+                      <button
+                        onClick={testNotification}
+                        className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline flex items-center gap-1"
+                      >
+                        <Bell className="w-3 h-3" />
+                        Bildirimleri test et
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Telegram Bot */}
+              <div className="theme-surface p-6 rounded-2xl border theme-border shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold theme-text flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5 text-blue-500" />
+                    Telegram Botu
+                  </h2>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.telegramBotEnabled}
+                      onChange={(e) => handleSettingChange('telegramBotEnabled', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-12 h-7 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {localSettings.telegramBotEnabled && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div>
+                      <label className="theme-text text-sm font-medium block mb-1">Bot Token</label>
+                      <input
+                        type="password"
+                        value={localSettings.telegramBotToken || ''}
+                        onChange={(e) => handleSettingChange('telegramBotToken', e.target.value)}
+                        placeholder="123456:ABC-DEF..."
+                        className="theme-input w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="theme-text text-sm font-medium block mb-1">Chat ID</label>
+                      <input
+                        type="text"
+                        value={localSettings.telegramChatId || ''}
+                        onChange={(e) => handleSettingChange('telegramChatId', e.target.value)}
+                        placeholder="12345678"
+                        className="theme-input w-full"
+                      />
+                    </div>
+                    <button
+                      onClick={testTelegramBot}
+                      className="theme-button-secondary w-full justify-center text-sm"
+                    >
+                      Bağlantıyı Test Et
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Data Settings */}
+          {activeTab === 'data' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="theme-surface p-6 rounded-2xl border theme-border shadow-sm">
+                <h2 className="text-lg font-semibold theme-text mb-4 flex items-center gap-2">
+                  <Database className="w-5 h-5 text-blue-500" />
+                  Veri Yönetimi
+                </h2>
+                
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl theme-bg-secondary border theme-border flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium theme-text">Yedekle</h3>
+                      <p className="text-sm theme-text-muted">Tüm verilerinizi dışa aktarın</p>
+                    </div>
+                    <button
+                      onClick={onExportData}
+                      className="theme-button-secondary flex items-center gap-2 text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      İndir
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-xl theme-bg-secondary border theme-border flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium theme-text">Geri Yükle</h3>
+                      <p className="text-sm theme-text-muted">Yedek dosyasından geri yükleyin</p>
+                    </div>
+                    <label className="theme-button-secondary flex items-center gap-2 text-sm cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      Yükle
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={onImportData}
+                        accept=".json"
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
     </div>
   );
 }
