@@ -252,7 +252,6 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
           {sortedChecks.map((check) => {
             const daysUntil = getDaysUntilPayment(check.paymentDate, check.nextPaymentDate, check.isRecurring);
             const isOverdue = !check.isPaid && daysUntil < 0;
-            const isToday = daysUntil === 0;
             const displayDate = check.isRecurring && check.nextPaymentDate ? check.nextPaymentDate : check.paymentDate;
 
             // Determine card styles based on status

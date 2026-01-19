@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { LayoutGrid, Settings, Pill, Calendar, PlusCircle, LogOut, UserCircle, User } from 'lucide-react';
+import { Settings, Pill, Calendar, PlusCircle, UserCircle, LogOut, User } from 'lucide-react';
 import { User as UserType } from '../types';
 import logo from '../assets/logo.png';
 

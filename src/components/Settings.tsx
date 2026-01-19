@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType } from '../types';
 import { 
   Bell, Download, Save, Upload, Moon, Sun, 
-  Smartphone, Monitor, Volume2, Shield, Database, 
-  Info, ChevronRight, MessageCircle, Clock, CheckCircle, XCircle,
-  RefreshCw, AlertTriangle, Loader2
+  Monitor, Database, 
+  MessageCircle,
+  RefreshCw, Loader2
 } from 'lucide-react';
 
 type UpdateStatus =

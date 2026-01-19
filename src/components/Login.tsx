@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, AlertCircle, Lock } from 'lucide-react';
 import { LoginData } from '../types';
 import logo from '../assets/logo.png';
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { RegisterData } from '../types';
+import logo from '../assets/logo.png';
 
 interface RegisterProps {
   onRegister: (data: RegisterData) => Promise<void> | void;
@@ -216,10 +217,10 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin,
             {/* Kayıt ol butonu */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoading}
               className="w-full theme-primary text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? (
+              {isSubmitting || isLoading ? (
                 <div className="flex items-center justify-center gap-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                   <span>Kayıt olunuyor...</span>
