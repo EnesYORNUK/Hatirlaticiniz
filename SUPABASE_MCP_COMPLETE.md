@@ -4,7 +4,7 @@
 
 ### 📊 Database Configuration
 - **Project ID**: `asbcteplixnkuqvytqce`
-- **Project Name**: `Hatirlaticinim`
+- **Project Name**: `Hatirlaticiniz`
 - **Region**: `eu-central-1`
 - **PostgreSQL Version**: `17.6.1`
 - **Status**: `ACTIVE_HEALTHY`

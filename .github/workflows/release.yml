@@ -90,6 +90,7 @@ jobs:
           Get-ChildItem -Path "." | Select-Object Name, Mode
 
       - name: Create Git Tag
+        id: create_tag
         if: ${{ hashFiles('electron-dist/*.exe') != '' }}
         shell: pwsh
         run: |
@@ -97,15 +98,17 @@ jobs:
           $exists = git ls-remote --tags origin $tag
           if ($exists) {
             Write-Host "Tag $tag already exists on remote. Skipping tag creation."
+            echo "tag_exists=true" >> $env:GITHUB_OUTPUT
           } else {
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
             git tag $tag
             git push origin $tag
+            echo "tag_exists=false" >> $env:GITHUB_OUTPUT
           }
 
       - name: Create GitHub Release
-        if: ${{ hashFiles('electron-dist/*.exe') != '' }}
+        if: ${{ hashFiles('electron-dist/*.exe') != '' && (startsWith(github.ref, 'refs/tags/') || steps.create_tag.outputs.tag_exists == 'false') }}
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -119,3 +122,4 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          fail_on_unmatched_files: true

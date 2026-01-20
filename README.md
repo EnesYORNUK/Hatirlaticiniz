@@ -49,9 +49,9 @@
 
 1. [GitHub Releases](https://github.com/EnesYORNUK/Hatirlaticiniz/releases) sayfasından en son sürümü indirin
 2. İşletim sisteminize uygun dosyayı seçin:
-   - **Windows**: `Hatirlaticinim-Setup-X.X.X.exe`
-   - **macOS**: `Hatirlaticinim-X.X.X.dmg`
-   - **Linux**: `Hatirlaticinim-X.X.X.AppImage`
+   - **Windows**: `Hatirlaticiniz-Setup-X.X.X.exe`
+   - **macOS**: `Hatirlaticiniz-X.X.X.dmg`
+   - **Linux**: `Hatirlaticiniz-X.X.X.AppImage`
 3. İndirilen dosyayı çalıştırın ve kurulum talimatlarını takip edin
 4. Uygulama otomatik olarak güncellemeleri kontrol edecektir
 

@@ -7,11 +7,11 @@ const getAppDataPath = () => {
   const platform = process.platform;
   switch (platform) {
     case 'win32':
-      return path.join(os.homedir(), 'AppData', 'Roaming', 'Hatirlaticinim');
+      return path.join(os.homedir(), 'AppData', 'Roaming', 'Hatirlaticiniz');
     case 'darwin':
-      return path.join(os.homedir(), 'Library', 'Application Support', 'Hatirlaticinim');
+      return path.join(os.homedir(), 'Library', 'Application Support', 'Hatirlaticiniz');
     default:
-      return path.join(os.homedir(), '.config', 'Hatirlaticinim');
+      return path.join(os.homedir(), '.config', 'Hatirlaticiniz');
   }
 };
 
