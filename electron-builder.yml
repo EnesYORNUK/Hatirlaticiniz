@@ -1,6 +1,6 @@
-appId: com.hatirlaticiniz.app
+appId: com.hatirlaticiniz.app.v2
 productName: Hatirlaticiniz
-copyright: Copyright © 2025 Hatirlaticinim
+copyright: Copyright © 2025 Hatirlaticiniz
 directories:
   output: electron-dist
 files:
