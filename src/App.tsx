@@ -67,7 +67,8 @@ export default function App() {
     addCheck: addSupabaseCheck,
     updateCheck: updateSupabaseCheck,
     deleteCheck: deleteSupabaseCheck,
-    togglePaid: toggleSupabasePaid
+    togglePaid: toggleSupabasePaid,
+    refreshChecks
   } = useSupabaseChecks();
   
   const {
@@ -80,7 +81,8 @@ export default function App() {
     getDailySchedule,
     addMedication,
     updateMedication,
-    markMedicationTaken
+    markMedicationTaken,
+    refreshMedications
   } = useSupabaseMedications();
 
   const {
@@ -120,6 +122,27 @@ export default function App() {
   };
 
   useElectronNotifications(activeChecks, activeSettings, handleDailyNotificationChecked);
+
+  // Pencere gösterildiğinde verileri yenile
+  useEffect(() => {
+    const handleWindowShown = () => {
+      console.log('Window shown, refreshing data...');
+      if (isAuthenticated) {
+        refreshChecks();
+        refreshMedications();
+      }
+    };
+
+    if (window.ipcRenderer) {
+      window.ipcRenderer.on('window-shown', handleWindowShown);
+    }
+
+    return () => {
+      if (window.ipcRenderer) {
+        window.ipcRenderer.removeAllListeners('window-shown');
+      }
+    };
+  }, [isAuthenticated, refreshChecks]);
 
   // Tekrarlayan (aylık) ödemeler için vade sonrası otomatik ileri alma (günde 1 kez)
   useEffect(() => {

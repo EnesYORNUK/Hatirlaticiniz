@@ -431,6 +431,9 @@ export const useSupabaseMedications = () => {
       return schedule.sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
     }, [medications, medicationLogs, isLoading, medicationsError]);
 
+  const refreshMedications = useCallback(async () => {
+    await Promise.all([fetchMedications(), loadMedicationLogs()]);
+  }, [fetchMedications, loadMedicationLogs]);
 
   return { 
     medications, 
@@ -442,6 +445,7 @@ export const useSupabaseMedications = () => {
     deleteMedication,
     markMedicationTaken, 
     getDailySchedule,
-    migrateFromLocalStorage
+    migrateFromLocalStorage,
+    refreshMedications
   };
 }

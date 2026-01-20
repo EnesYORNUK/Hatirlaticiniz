@@ -51,12 +51,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on: (channel: string, func: (...args: any[]) => void) => {
-    if (['update-status'].includes(channel)) {
+    if (['update-status', 'window-shown'].includes(channel)) {
       ipcRenderer.on(channel, func);
     }
   },
   removeAllListeners: (channel: string) => {
-    if (['update-status'].includes(channel)) {
+    if (['update-status', 'window-shown'].includes(channel)) {
       ipcRenderer.removeAllListeners(channel);
     }
   },

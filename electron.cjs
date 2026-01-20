@@ -107,6 +107,10 @@ function createWindow(supabaseConfig) {
     e.preventDefault();
     win.hide();
   });
+
+  win.on('show', () => {
+    win?.webContents.send('window-shown', (new Date).toLocaleString());
+  });
 }
 
 app.on('window-all-closed', () => {
