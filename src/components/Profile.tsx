@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User, LogOut, Trash2, AlertTriangle, Mail, Calendar, Shield, Settings as SettingsIcon } from 'lucide-react';
 import { User as UserType } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface ProfileProps {
   user: UserType | null;
@@ -9,6 +10,7 @@ interface ProfileProps {
 }
 
 export default function Profile({ user, onLogout, onDeleteAccount }: ProfileProps) {
+  const { showToast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -31,7 +33,7 @@ export default function Profile({ user, onLogout, onDeleteAccount }: ProfileProp
       await onDeleteAccount();
     } catch (error) {
       console.error('Account deletion failed:', error);
-      alert('Hesap silinirken bir hata oluştu. Lütfen tekrar deneyin.');
+      showToast('Hesap silinirken bir hata oluştu. Lütfen tekrar deneyin.', 'error');
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);

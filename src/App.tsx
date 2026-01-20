@@ -20,6 +20,7 @@ import { useSupabaseSettings } from './hooks/useSupabaseSettings';
 import { useSupabaseMedications } from './hooks/useSupabaseMedications';
 import { useMedications as useLocalMedications } from './hooks/useMedications';
 import { useDataMigration } from './hooks/useDataMigration';
+import { useToast } from './context/ToastContext';
 import MigrationPrompt from './components/MigrationPrompt';
 import { deleteUserAccount } from './utils/accountUtils';
 import { Check, Settings as SettingsType, ThemeType, LoginData, RegisterData } from './types';
@@ -97,6 +98,8 @@ export default function App() {
     skipMigration
   } = useDataMigration();
   
+  const { showToast } = useToast();
+
   // Fallback to localStorage for backward compatibility during transition
   const [fallbackChecks, setFallbackChecks] = useLocalStorage<Check[]>('checks', []);
   const [fallbackSettings, setFallbackSettings] = useLocalStorage<SettingsType>('settings', defaultSettings);
@@ -276,16 +279,10 @@ export default function App() {
   const handleDeleteAccount = async (): Promise<void> => {
     if (!user) return;
 
-    const confirmation = window.confirm(
-      'Hesabınızı kalkalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm verileriniz silinecektir.'
-    );
-
-    if (!confirmation) return;
-
     try {
       const result = await deleteUserAccount(user.id);
       if (result.success) {
-        alert('Hesabınız başarıyla silindi.');
+        showToast('Hesabınız başarıyla silindi.', 'success');
         navigate('/login');
         // User will be automatically logged out by the deleteUserAccount function
       } else {
@@ -294,7 +291,7 @@ export default function App() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('Account deletion error:', error);
-      alert(`Hesap silinirken bir hata oluştu: ${message}`);
+      showToast(`Hesap silinirken bir hata oluştu: ${message}`, 'error');
     }
   };
 
@@ -488,7 +485,7 @@ export default function App() {
       // Fallback to localStorage
       setFallbackSettings(newSettings);
     }
-    alert('Ayarlar kaydedildi!');
+    showToast('Ayarlar başarıyla kaydedildi!', 'success');
     navigate('/');
   };
 
@@ -554,9 +551,9 @@ export default function App() {
         const data = JSON.parse(e.target?.result as string);
         // Handle import logic here
         if (import.meta.env.DEV) console.log('Import data:', data);
-        alert('Veri içe aktarma özelliği henüz geliştirilmekte!');
+        showToast('Veri içe aktarma özelliği henüz geliştirilmekte!', 'warning');
       } catch (error) {
-        alert('Geçersiz dosya formatı!');
+        showToast('Geçersiz dosya formatı!', 'error');
       }
     };
     reader.readAsText(file);

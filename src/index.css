@@ -270,6 +270,7 @@ p {
   border-width: 1px;
   border-radius: 6px;
   transition: all 0.2s ease;
+  pointer-events: auto !important; /* Force enable pointer events */
 }
 
 .theme-input:focus {
@@ -295,6 +296,8 @@ select.theme-input option {
   accent-color: var(--color-primary);
   width: 16px;
   height: 16px;
+  cursor: pointer;
+  pointer-events: auto !important;
 }
 
 /* 🔘 Modern Buton Styling */
@@ -309,7 +312,7 @@ select.theme-input option {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  pointer-events: auto; /* Ensure pointer events work */
+  pointer-events: auto !important; /* Ensure pointer events work */
   user-select: none; /* Prevent text selection */
 }
 
@@ -344,7 +347,7 @@ select.theme-input option {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  pointer-events: auto; /* Ensure pointer events work */
+  pointer-events: auto !important; /* Ensure pointer events work */
   user-select: none; /* Prevent text selection */
 }
 
@@ -401,207 +404,19 @@ select.theme-input option {
   outline-offset: 2px;
 }
 
-/* Link styling */
-.theme-link {
-  color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s ease;
+/* Force enable input interaction */
+input, textarea, select, button {
+  pointer-events: auto !important;
+  z-index: 10; /* Ensure inputs are above potential background overlays */
+  position: relative;
 }
 
-.theme-link:hover {
-  color: var(--color-primary-dark);
-  text-decoration: underline;
+/* Ensure body doesn't block clicks */
+body {
+  pointer-events: auto !important;
 }
 
-/* Code block styling */
-.theme-code {
-  background-color: var(--color-background-secondary);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-  font-size: 0.8rem;
-}
-
-/* Progress bar styling */
-.theme-progress {
-  background-color: var(--color-background-secondary);
-  height: 6px;
-  border-radius: 3px;
-}
-
-.theme-progress-bar {
-  background-color: var(--color-primary);
-  transition: width 0.3s ease;
-  height: 100%;
-  border-radius: 3px;
-}
-
-/* Dark theme iyileştirmeleri */
-[data-theme="dark"] .theme-input {
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="dark"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-}
-
-[data-theme="dark"] select.theme-input option {
-  background-color: #334155;
-  color: #F1F5F9;
-}
-
-[data-theme="dark"] .theme-surface {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-[data-theme="dark"] .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* Gray theme enhancements */
-[data-theme="gray"] .theme-input {
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="gray"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.15);
-}
-
-[data-theme="gray"] .theme-surface {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="gray"] .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-/* Blue theme enhancements */
-[data-theme="blue"] .theme-input {
-  box-shadow: inset 0 1px 2px rgba(30, 58, 138, 0.08);
-}
-
-[data-theme="blue"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
-}
-
-[data-theme="blue"] .theme-surface {
-  box-shadow: 0 1px 3px rgba(30, 58, 138, 0.1);
-  border: 1px solid rgba(30, 64, 175, 0.08);
-}
-
-[data-theme="blue"] .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.15);
-}
-
-/* Green theme enhancements */
-[data-theme="green"] .theme-input {
-  box-shadow: inset 0 1px 2px rgba(21, 128, 61, 0.08);
-}
-
-[data-theme="green"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-[data-theme="green"] .theme-surface {
-  box-shadow: 0 1px 3px rgba(21, 128, 61, 0.1);
-  border: 1px solid rgba(21, 128, 61, 0.08);
-}
-
-[data-theme="green"] .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.15);
-}
-
-/* Orange theme enhancements */
-[data-theme="orange"] .theme-input {
-  box-shadow: inset 0 1px 2px rgba(194, 65, 12, 0.08);
-}
-
-[data-theme="orange"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.15);
-}
-
-[data-theme="orange"] .theme-surface {
-  box-shadow: 0 1px 3px rgba(194, 65, 12, 0.1);
-  border: 1px solid rgba(194, 65, 12, 0.08);
-}
-
-[data-theme="orange"] .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(194, 65, 12, 0.15);
-}
-
-/* Purple theme enhancements */
-[data-theme="purple"] .theme-input {
-  box-shadow: inset 0 1px 2px rgba(109, 40, 217, 0.08);
-}
-
-[data-theme="purple"] .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.15);
-}
-
-[data-theme="purple"] .theme-surface {
-  box-shadow: 0 1px 3px rgba(109, 40, 217, 0.1);
-  border: 1px solid rgba(109, 40, 217, 0.08);
-}
-
-[data-theme="purple"] .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.15);
-}
-
-/* Light theme enhancements */
-[data-theme="light"] .theme-input,
-:root .theme-input {
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="light"] .theme-input:focus,
-:root .theme-input:focus {
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
-}
-
-[data-theme="light"] .theme-surface,
-:root .theme-surface {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .theme-card:hover,
-:root .theme-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* 🌟 Smooth transitions */
-* {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-/* Fix for potential button interaction issues */
-button {
-  pointer-events: auto;
-  user-select: none;
-}
-
-/* Ensure all interactive elements work */
-button, 
-input[type="button"], 
-input[type="submit"], 
-input[type="reset"] {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  pointer-events: auto;
-}
-
-/* Fix potential overlay issues */
-* {
-  box-sizing: border-box;
-}
-
-/* Ensure no elements are blocking interactions */
-.theme-surface,
-.theme-bg,
-.theme-bg-secondary {
-  pointer-events: auto;
+/* Ensure overlay doesn't block inputs unless intended */
+.modal-overlay {
+  z-index: 50;
 }

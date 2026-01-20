@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { initializeSupabase } from './lib/supabase';
+import { ToastProvider } from './context/ToastContext';
 
 const debug = import.meta.env.DEV;
 // Filter noisy LockManager warnings from gotrue in certain browsers
@@ -43,7 +44,9 @@ initializeSupabase()
     if (debug) console.log('Supabase initialized successfully');
     root.render(
       <HashRouter>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </HashRouter>
     );
   })

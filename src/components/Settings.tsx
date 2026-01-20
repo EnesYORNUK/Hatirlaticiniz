@@ -2,10 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Settings as SettingsType } from '../types';
 import { 
   Bell, Download, Save, Upload, Moon, Sun, 
-  Monitor, Database, 
-  MessageCircle,
-  RefreshCw, Loader2
+  Monitor, Database, MessageCircle, RefreshCw, Loader2
 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 type UpdateStatus =
   | 'idle'
@@ -30,6 +29,7 @@ interface SettingsProps {
 }
 
 export default function Settings({ settings, onSave, onExportData, onImportData }: SettingsProps) {
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
   const [currentVersion, setCurrentVersion] = useState<string>('');
@@ -111,20 +111,22 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
         );
         
         if (result && result.success === false) {
-           alert('Bildirim hatası: ' + result.message);
+           showToast('Bildirim hatası: ' + result.message, 'error');
+        } else {
+           showToast('Test bildirimi gönderildi', 'success');
         }
       } catch (error) {
         console.error('Bildirim test hatası:', error);
-        alert('Bildirim gönderilirken hata oluştu: ' + error);
+        showToast('Bildirim gönderilirken hata oluştu: ' + error, 'error');
       }
     } else {
-      alert('Bu özellik sadece masaüstü uygulamasında çalışır.');
+      showToast('Bu özellik sadece masaüstü uygulamasında çalışır.', 'warning');
     }
   };
 
   const testTelegramBot = async () => {
     if (!localSettings.telegramBotToken || !localSettings.telegramChatId) {
-      alert('Önce Telegram Bot Token ve Chat ID\'yi giriniz');
+      showToast('Önce Telegram Bot Token ve Chat ID\'yi giriniz', 'warning');
       return;
     }
 
@@ -141,12 +143,12 @@ export default function Settings({ settings, onSave, onExportData, onImportData 
       });
 
       if (response.ok) {
-        alert('✅ Başarılı! Telegram mesajınızı kontrol edin.');
+        showToast('✅ Başarılı! Telegram mesajınızı kontrol edin.', 'success');
       } else {
-        alert('❌ Başarısız. Token ve Chat ID\'yi kontrol edin.');
+        showToast('❌ Başarısız. Token ve Chat ID\'yi kontrol edin.', 'error');
       }
     } catch (error) {
-      alert('❌ Bağlantı hatası: ' + error);
+      showToast('❌ Bağlantı hatası: ' + error, 'error');
     }
   };
 

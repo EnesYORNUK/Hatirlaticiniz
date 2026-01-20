@@ -12,7 +12,7 @@ export function useNotifications(checks: Check[], settings: Settings) {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, {
         body,
-        icon: '/vite.svg',
+        icon: '/logo.png',
         tag,
         requireInteraction: true,
       });

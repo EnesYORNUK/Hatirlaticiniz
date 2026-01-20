@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Check } from '../types';
 import { Save, X, CreditCard, Receipt, Calendar, Repeat } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 interface CheckFormProps {
   onSave: (check: Omit<Check, 'id' | 'createdAt'>) => void;
@@ -10,6 +11,7 @@ interface CheckFormProps {
 }
 
 export default function CheckForm({ onSave, onCancel, initialData, forceType }: CheckFormProps) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     createdDate: initialData?.createdDate || new Date().toISOString().split('T')[0],
     paymentDate: initialData?.paymentDate || '',
@@ -147,7 +149,7 @@ export default function CheckForm({ onSave, onCancel, initialData, forceType }: 
     if (!validateForm()) {
       // Kullanıcıya görsel geri bildirim ver
       const firstError = Object.values(errors)[0] || 'Lütfen zorunlu alanları doldurunuz';
-      alert(`Kaydedilemedi: ${firstError}`);
+      showToast(`Kaydedilemedi: ${firstError}`, 'error');
       return;
     }
 
