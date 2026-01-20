@@ -1,7 +1,7 @@
 {
   "name": "hatirlaticiniz",
   "private": false,
-  "version": "5.0.38",
+  "version": "5.0.39",
   "main": "dist-electron/electron.js",
   "scripts": {
     "dev": "vite",
@@ -54,6 +54,7 @@
     "globals": "^15.9.0",
     "png-to-ico": "^3.0.1",
     "postcss": "^8.4.35",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
