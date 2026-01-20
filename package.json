@@ -1,7 +1,7 @@
 {
   "name": "hatirlaticiniz",
   "private": false,
-  "version": "5.0.40",
+  "version": "5.0.41",
   "main": "dist-electron/electron.js",
   "scripts": {
     "dev": "vite",
@@ -64,7 +64,7 @@
     "wait-on": "^8.0.1"
   },
   "homepage": "./",
-  "author": "Hatirlaticinim",
+  "author": "Hatirlaticiniz",
   "description": "Çek takip ve hatirlatma uygulamasi",
   "repository": {
     "type": "git",
@@ -79,7 +79,7 @@
     },
     "appId": "com.hatirlaticiniz.app",
     "productName": "Hatirlaticiniz",
-    "copyright": "Copyright © 2025 Hatirlaticinim",
+    "copyright": "Copyright © 2025 Hatirlaticiniz",
     "directories": {
       "output": "electron-dist"
     },
