@@ -295,15 +295,23 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 transition-opacity">
                       <button
-                        onClick={() => onEdit(check)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Edit clicked for check:', check.id);
+                          onEdit(check);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white/50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => onDelete(check.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Delete clicked for check:', check.id);
+                          onDelete(check.id);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white/50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -346,7 +354,11 @@ export default function CheckList({ checks, onEdit, onDelete, onTogglePaid }: Ch
                     </div>
 
                     <button
-                      onClick={() => onTogglePaid(check.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Toggle paid clicked for check:', check.id);
+                        onTogglePaid(check.id);
+                      }}
                       className={`px-4 py-2 rounded-xl text-sm font-bold transition-all transform active:scale-95 ${
                         check.isPaid
                           ? 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'

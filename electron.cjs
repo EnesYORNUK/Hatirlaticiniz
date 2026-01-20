@@ -66,6 +66,7 @@ function createWindow(supabaseConfig) {
       nodeIntegration: false,
       contextIsolation: true,
       additionalArguments: [`--supabase-config=${JSON.stringify(supabaseConfig)}`],
+      backgroundThrottling: false, // Arka planda çalışmayı kısıtlamayı devre dışı bırak
     },
   });
 

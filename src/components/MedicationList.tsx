@@ -134,7 +134,11 @@ export default function MedicationList() {
               {/* Aksiyonlar - Hover ile görünür veya mobilde her zaman görünür */}
               <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
                 <button
-                  onClick={() => handleToggleActive(medication.id, !medication.isActive)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Toggle active clicked for medication:', medication.id);
+                    handleToggleActive(medication.id, !medication.isActive);
+                  }}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold transition-colors ${
                     medication.isActive
                       ? 'hover:bg-orange-50 text-slate-500 hover:text-orange-600'
@@ -149,7 +153,11 @@ export default function MedicationList() {
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
 
                 <button
-                  onClick={() => handleEdit(medication)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Edit clicked for medication:', medication.id);
+                    handleEdit(medication);
+                  }}
                   className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -159,7 +167,11 @@ export default function MedicationList() {
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
 
                 <button
-                  onClick={() => handleDelete(medication.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Delete clicked for medication:', medication.id);
+                    handleDelete(medication.id);
+                  }}
                   className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
